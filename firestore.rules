@@ -1,25 +1,71 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     // Users collection
     match /users/{userId} {
+      // Permettre la lecture et l'écriture si l'utilisateur est authentifié et accède à son propre document
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
     // Events collection
     match /events/{eventId} {
+      // Tout le monde peut lire les événements (pour l'affichage public)
       allow read: if true;
+      // Seuls les utilisateurs authentifiés peuvent créer des événements
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.organizerId == request.auth.uid;
+      // Seul l'organisateur peut modifier/supprimer son événement
+      allow update, delete: if request.auth != null && 
+        (resource.data.organizerUid == request.auth.uid || 
+         resource.data.organizerId == request.auth.uid);
     }
     
     // Tickets collection
     match /tickets/{ticketId} {
+      // L'utilisateur peut lire ses propres tickets
+      // L'organisateur peut lire les tickets de ses événements
       allow read: if request.auth != null && 
         (resource.data.userId == request.auth.uid || 
-         get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid);
+         resource.data.participantEmail == request.auth.token.email);
+      
+      // Tout utilisateur authentifié peut créer un ticket
       allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      
+      // L'utilisateur peut mettre à jour son propre ticket
+      // L'organisateur peut mettre à jour les tickets de ses événements (pour le check-in)
+      allow update: if request.auth != null && 
+        (resource.data.userId == request.auth.uid ||
+         request.auth.token.email == resource.data.participantEmail);
+    }
+    
+    // Favorites collection (sous-collection de users)
+    match /users/{userId}/favorites/{eventId} {
+      // L'utilisateur peut lire et écrire ses propres favoris
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Participants collection (sous-collection de events)
+    match /events/{eventId}/participants/{participantId} {
+      // L'organisateur peut lire les participants de son événement
+      // Le participant peut lire son propre document
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid ||
+         get(/databases/$(database)/documents/events/$(eventId)).data.organizerUid == request.auth.uid ||
+         get(/databases/$(database)/documents/events/$(eventId)).data.organizerId == request.auth.uid);
+      
+      // Tout utilisateur authentifié peut créer une participation
+      allow create: if request.auth != null;
+      
+      // L'utilisateur peut mettre à jour sa propre participation
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // ScanHistory collection (pour l'historique de scan des billets)
+    match /scanHistory/{scanId} {
+      // Seuls les organisateurs peuvent lire l'historique
+      allow read: if request.auth != null;
+      // Seuls les organisateurs peuvent créer des entrées d'historique
+      allow create: if request.auth != null;
     }
   }
 }

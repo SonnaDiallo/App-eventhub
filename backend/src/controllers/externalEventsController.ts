@@ -208,6 +208,116 @@ export const debugEvents = async (req: Request, res: Response) => {
 };
 
 /**
+ * Récupère les événements externes depuis Ticketmaster (sans les sauvegarder)
+ * Route publique pour récupérer les événements disponibles
+ */
+export const getExternalEvents = async (req: Request, res: Response) => {
+  try {
+    const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
+    
+    if (!ticketmasterApiKey) {
+      return res.status(400).json({
+        message: 'TICKETMASTER_API_KEY non configurée dans .env',
+        error: 'Missing API key',
+        hint: 'Configurez TICKETMASTER_API_KEY dans votre fichier .env. Obtenez une clé sur https://developer.ticketmaster.com/',
+      });
+    }
+
+    const {
+      location = 'Paris,France',
+      category,
+      page = '1',
+      limit = '20',
+      search,
+    } = req.query;
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+
+    console.log(`🔍 Recherche d'événements Ticketmaster à ${location}...`);
+
+    // Récupérer les événements depuis Ticketmaster API
+    const allEvents = await fetchTicketmasterEvents(
+      location as string,
+      category as string | undefined
+    );
+
+    // Si aucun événement trouvé, retourner un message informatif
+    if (allEvents.length === 0) {
+      return res.status(200).json({
+        events: [],
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: 0,
+          pages: 0,
+        },
+        filters: {
+          location,
+          category: category || 'all',
+          search: search || null,
+        },
+        message: `Aucun événement trouvé pour ${location}. Essayez une autre localisation ou catégorie.`,
+      });
+    }
+
+    // Filtrer par recherche si fourni
+    let filteredEvents = allEvents;
+    if (search) {
+      const searchLower = (search as string).toLowerCase();
+      filteredEvents = allEvents.filter(event =>
+        event.title.toLowerCase().includes(searchLower) ||
+        event.description?.toLowerCase().includes(searchLower) ||
+        event.location.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Pagination
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+
+    return res.status(200).json({
+      events: paginatedEvents.map(event => ({
+        id: `external_${event.id}`,
+        title: event.title,
+        description: event.description?.substring(0, 300),
+        startDate: event.startDate,
+        endDate: event.endDate,
+        location: event.location,
+        venueName: event.venueName,
+        coverImage: event.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop',
+        isFree: event.isFree,
+        price: event.price,
+        category: event.category,
+        source: 'ticketmaster',
+        organizerName: event.venueName || 'Organisateur externe',
+        externalId: event.id,
+      })),
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: filteredEvents.length,
+        pages: Math.ceil(filteredEvents.length / limitNum),
+      },
+      filters: {
+        location,
+        category: category || 'all',
+        search: search || null,
+      },
+      message: `${filteredEvents.length} événement(s) trouvé(s)`,
+    });
+  } catch (error: any) {
+    console.error('Get external events error:', error?.message || error);
+    return res.status(500).json({
+      message: 'Erreur lors de la récupération des événements',
+      error: error?.message || 'Unknown error',
+      hint: 'Vérifiez que TICKETMASTER_API_KEY est correcte et que l\'API Ticketmaster est accessible.',
+    });
+  }
+};
+
+/**
  * Récupère les événements Ticketmaster par catégorie (sans les sauvegarder)
  * Utile pour prévisualiser les événements disponibles
  */

@@ -89,12 +89,17 @@ const FavoritesScreen = () => {
     }
   };
 
+  const eventForNav = (e: EventData & { _startDate?: Date }) => {
+    const { _startDate, ...rest } = e;
+    return rest;
+  };
+
   const renderEvent = ({ item }: { item: EventData }) => {
     const priceLabel = item.isFree ? 'Gratuit' : `${item.price.toFixed(2)} €`;
     
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate('EventDetails', { event: item })}
+        onPress={() => navigation.navigate('EventDetails', { event: eventForNav(item) })}
         style={[
           styles.eventCard,
           {

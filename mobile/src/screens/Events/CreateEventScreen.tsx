@@ -242,7 +242,15 @@ const CreateEventScreen = () => {
       ]);
     } catch (error: any) {
       console.error('Create event error', error?.response?.data || error?.message);
-      const errorMessage = error?.response?.data?.message || error?.message || "Une erreur est survenue lors de la création de l'événement";
+      
+      let errorMessage = error?.response?.data?.message || error?.message || "Une erreur est survenue lors de la création de l'événement";
+      
+      // Message plus explicite pour les erreurs de permissions
+      if (error?.response?.status === 403) {
+        const hint = error?.response?.data?.hint;
+        errorMessage = hint || 'Vous n\'avez pas les permissions nécessaires pour créer un événement. Vous devez être organisateur ou administrateur.';
+      }
+      
       Alert.alert('Erreur', errorMessage);
     } finally {
       setIsSubmitting(false);

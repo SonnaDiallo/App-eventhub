@@ -75,12 +75,17 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
-      // Serveur a répondu avec une erreur
-      console.error('❌ Server Error:', {
-        status: error.response.status,
-        data: error.response.data,
-        url: error.config?.url,
-      });
+      const status = error.response.status;
+      // 404 est souvent attendu (ex: participants pour événement externe) — ne pas logger en erreur
+      if (status === 404) {
+        console.log('📭 Not found (404):', error.config?.url);
+      } else {
+        console.error('❌ Server Error:', {
+          status,
+          data: error.response.data,
+          url: error.config?.url,
+        });
+      }
     } else if (error.request) {
       // Pas de réponse du serveur
       console.error('❌ Network Error - Cannot reach server');
