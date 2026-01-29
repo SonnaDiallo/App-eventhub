@@ -4,7 +4,7 @@ import { EventCategory } from '../types/categories';
 import { getTicketmasterSegmentId } from './ticketmasterCategoryMapping';
 
 /**
- * Récupère les événements depuis Ticketmaster API - VERSION CORRIGÉE
+ * Récupère les événements depuis Ticketmaster API - VERSION AMÉLIORÉE
  */
 export async function fetchTicketmasterEvents(
   location: string,
@@ -26,15 +26,27 @@ export async function fetchTicketmasterEvents(
     
     const ticketmasterUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
     
-    // Paramètres de base
+    // Formater la date au format attendu par Ticketmaster (YYYY-MM-DDTHH:mm:ssZ)
+    const now = new Date();
+    const formatDateForTicketmaster = (date: Date): string => {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
+    };
+
+    // Paramètres de base - Augmenter la taille pour récupérer plus d'événements
     const params: any = {
       apikey: ticketmasterApiKey,
       city: city,
       countryCode: countryCode,
-      size: 50,
+      size: 200, // Augmenté de 50 à 200 pour récupérer plus d'événements
       sort: 'date,asc',
       locale: 'fr-fr',
-      startDateTime: new Date().toISOString(), // Seulement les événements futurs
+      startDateTime: formatDateForTicketmaster(now), // Seulement les événements futurs (format correct)
     };
 
     // Ajouter la catégorie si fournie
@@ -123,11 +135,21 @@ export async function fetchTicketmasterEvents(
       // Extraire la meilleure image
       let coverImage: string | undefined;
       if (event.images && event.images.length > 0) {
+        // Chercher d'abord une image 16:9 de bonne qualité
         const image16_9 = event.images.find((img: any) => 
           img.ratio === '16_9' && img.width >= 1000
         );
-        coverImage = image16_9?.url || event.images[0]?.url;
+        // Sinon, prendre la plus grande image disponible
+        const largestImage = event.images.reduce((prev: any, curr: any) => 
+          (curr.width || 0) > (prev.width || 0) ? curr : prev
+        );
+        coverImage = image16_9?.url || largestImage?.url || event.images[0]?.url;
       }
+      
+      // Détecter si l'événement est gratuit
+      const priceRanges = event.priceRanges || [];
+      const minPrice = priceRanges[0]?.min;
+      const isFree = minPrice === undefined || minPrice === 0 || minPrice === null;
       
       return {
         id: event.id,
@@ -138,8 +160,8 @@ export async function fetchTicketmasterEvents(
         location,
         venueName: venue?.name,
         coverImage,
-        isFree: event.priceRanges?.[0]?.min === 0 || false,
-        price: event.priceRanges?.[0]?.min,
+        isFree,
+        price: minPrice || 0,
         source: 'ticketmaster',
         category: category as EventCategory | undefined,
       };

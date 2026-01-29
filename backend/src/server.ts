@@ -6,6 +6,7 @@ import connectDB from './config/database';
 import eventRoutes from './routes/eventRoutes';
 import authRoutes from './routes/authRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+import ticketRoutes from './routes/ticketRoutes';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 

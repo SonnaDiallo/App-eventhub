@@ -47,6 +47,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!userId) return;
 
+    // Vérifier que l'utilisateur est bien authentifié avant d'écouter
+    const currentUser = auth.currentUser;
+    if (!currentUser || currentUser.uid !== userId) {
+      return;
+    }
+
     const userRef = doc(db, 'users', userId);
     const unsubscribe = onSnapshot(
       userRef,
@@ -61,8 +67,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
           }
         }
       },
-      (error) => {
-        console.error('Error listening to theme changes:', error);
+      (error: any) => {
+        // Ne pas afficher l'erreur si c'est juste une question de permissions
+        // L'utilisateur peut utiliser le thème local sans problème
+        if (error?.code !== 'permission-denied') {
+          console.warn('Error listening to theme changes (using local theme):', error?.message || error);
+        }
+        // En cas d'erreur, continuer avec le thème local
+        // Le thème local est déjà chargé, donc pas besoin de faire quoi que ce soit
       }
     );
 
@@ -104,8 +116,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         // Utilisateur n'existe pas encore dans Firestore, charger depuis le local
         await loadThemeFromLocal();
       }
-    } catch (error) {
-      console.error('Error loading theme from Firestore:', error);
+    } catch (error: any) {
+      // Ne pas bloquer l'application en cas d'erreur de permissions
+      // L'utilisateur peut toujours utiliser le thème local
+      if (error?.code !== 'permission-denied') {
+        console.warn('Error loading theme from Firestore (using local theme):', error?.message || error);
+      }
       // En cas d'erreur, charger depuis le local
       await loadThemeFromLocal();
     } finally {
