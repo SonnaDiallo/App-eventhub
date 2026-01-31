@@ -14,10 +14,12 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
+import { useTheme } from '../../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const { theme } = useTheme();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -78,7 +80,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#050016' }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View
@@ -92,7 +94,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text
           style={{
-            color: '#ffffff',
+            color: theme.text,
             fontSize: 28,
             fontWeight: '700',
             marginBottom: 6,
@@ -100,17 +102,17 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         >
           Inscription
         </Text>
-        <Text style={{ color: '#c0b8ff', fontSize: 14, marginBottom: 20 }}>
+        <Text style={{ color: theme.textMuted, fontSize: 14, marginBottom: 20 }}>
           Crée ton compte pour commencer.
         </Text>
 
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            backgroundColor: theme.inputBackground,
             borderRadius: 999,
             borderWidth: 1,
-            borderColor: 'rgba(123, 92, 255, 0.25)',
+            borderColor: theme.border,
             padding: 4,
             marginBottom: 14,
           }}
@@ -121,13 +123,13 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               paddingVertical: 10,
               borderRadius: 999,
               alignItems: 'center',
-              backgroundColor: role === 'user' ? '#7b5cff' : 'transparent',
+              backgroundColor: role === 'user' ? theme.primary : 'transparent',
             }}
             onPress={() => setRole('user')}
           >
             <Text
               style={{
-                color: '#ffffff',
+                color: role === 'user' ? theme.buttonPrimaryText : theme.text,
                 fontWeight: role === 'user' ? '600' : '500',
                 fontSize: 13,
               }}
@@ -141,13 +143,13 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               paddingVertical: 10,
               borderRadius: 999,
               alignItems: 'center',
-              backgroundColor: role === 'organizer' ? '#7b5cff' : 'transparent',
+              backgroundColor: role === 'organizer' ? theme.primary : 'transparent',
             }}
             onPress={() => setRole('organizer')}
           >
             <Text
               style={{
-                color: '#ffffff',
+                color: role === 'organizer' ? theme.buttonPrimaryText : theme.text,
                 fontWeight: role === 'organizer' ? '600' : '500',
                 fontSize: 13,
               }}
@@ -159,92 +161,92 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
         <View
           style={{
-            backgroundColor: '#0b0620',
+            backgroundColor: theme.surface,
             borderRadius: 18,
             padding: 16,
             borderWidth: 1,
-            borderColor: 'rgba(123, 92, 255, 0.25)',
+            borderColor: theme.border,
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Prénom</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Prénom</Text>
           <TextInput
             value={firstName}
             onChangeText={setFirstName}
             placeholder="Ton prénom"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
               marginBottom: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
 
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Nom</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Nom</Text>
           <TextInput
             value={lastName}
             onChangeText={setLastName}
             placeholder="Ton nom de famille"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
               marginBottom: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
 
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Email</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Email</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             placeholder="ex: nom@email.com"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
               marginBottom: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
 
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Mot de passe</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Mot de passe</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder="Choisis un mot de passe"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
         </View>
 
         <TouchableOpacity
           style={{
-            backgroundColor: '#7b5cff',
+            backgroundColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
@@ -253,7 +255,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           onPress={handleRegister}
           disabled={loading}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
+          <Text style={{ color: theme.buttonPrimaryText, fontWeight: '600', fontSize: 16 }}>
             {loading ? 'Création...' : 'Créer un compte'}
           </Text>
         </TouchableOpacity>
@@ -262,14 +264,14 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             marginTop: 12,
             borderWidth: 1,
-            borderColor: '#7b5cff',
+            borderColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
           }}
           onPress={() => navigation.navigate('Login')}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '500', fontSize: 16 }}>
+          <Text style={{ color: theme.text, fontWeight: '500', fontSize: 16 }}>
             J'ai déjà un compte
           </Text>
         </TouchableOpacity>

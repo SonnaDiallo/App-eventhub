@@ -23,7 +23,6 @@ service cloud.firestore {
     // Tickets collection
     match /tickets/{ticketId} {
       // L'utilisateur peut lire ses propres tickets
-      // L'organisateur peut lire les tickets de ses événements
       allow read: if request.auth != null && 
         (resource.data.userId == request.auth.uid || 
          resource.data.participantEmail == request.auth.token.email);
@@ -31,11 +30,9 @@ service cloud.firestore {
       // Tout utilisateur authentifié peut créer un ticket
       allow create: if request.auth != null;
       
-      // L'utilisateur peut mettre à jour son propre ticket
-      // L'organisateur peut mettre à jour les tickets de ses événements (pour le check-in)
-      allow update: if request.auth != null && 
-        (resource.data.userId == request.auth.uid ||
-         request.auth.token.email == resource.data.participantEmail);
+      // L'utilisateur peut modifier ou supprimer son propre ticket (annuler réservation)
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
     }
     
     // Favorites collection (sous-collection de users)

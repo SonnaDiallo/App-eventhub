@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { leaveEvent } from '../../services/eventsService';
 
 interface Ticket {
   id: string;
@@ -35,8 +36,44 @@ const MyTicketsScreen = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const user = auth.currentUser;
+
+  const handleCancelReservation = async (ticket: Ticket) => {
+    Alert.alert(
+      'Annuler la réservation',
+      `Es-tu sûr de vouloir annuler ta réservation pour "${ticket.eventTitle}" ? Ton billet sera supprimé.`,
+      [
+        { text: 'Non', style: 'cancel' },
+        {
+          text: 'Oui, annuler',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await deleteDoc(doc(db, 'tickets', ticket.id));
+              const isMongoId = /^[a-f0-9]{24}$/i.test(ticket.eventId);
+              if (isMongoId) {
+                try {
+                  await leaveEvent(ticket.eventId);
+                } catch {
+                  // Ignorer si l'événement n'est pas dans MongoDB
+                }
+              }
+              setSelectedTicket(null);
+              Alert.alert('Réservation annulée', 'Ton billet a été supprimé.');
+            } catch (error: any) {
+              console.error('Cancel ticket error:', error);
+              Alert.alert('Erreur', 'Impossible d\'annuler la réservation. Réessaie.');
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (!user) {
@@ -224,6 +261,7 @@ const MyTicketsScreen = () => {
         onRequestClose={() => setSelectedTicket(null)}
       >
         <View style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', padding: 20 }}>
+          {selectedTicket && (
           <View
             style={{
               backgroundColor: theme.card,
@@ -246,7 +284,13 @@ const MyTicketsScreen = () => {
 
             <View style={{ alignItems: 'center', marginBottom: 20 }}>
               <View style={{ backgroundColor: '#ffffff', padding: 16, borderRadius: 16 }}>
-                <QRCode value={selectedTicket?.code || ''} size={160} />
+                {selectedTicket?.code ? (
+                  <QRCode value={selectedTicket.code} size={160} />
+                ) : (
+                  <View style={{ width: 160, height: 160, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="ticket-outline" size={64} color={theme.textMuted} />
+                  </View>
+                )}
               </View>
               <Text
                 style={{
@@ -296,10 +340,32 @@ const MyTicketsScreen = () => {
               </View>
             )}
 
+            {!selectedTicket?.checkedIn && (
+              <TouchableOpacity
+                onPress={() => selectedTicket && handleCancelReservation(selectedTicket)}
+                disabled={cancelling}
+                style={{
+                  marginTop: 16,
+                  backgroundColor: `${theme.error}18`,
+                  paddingVertical: 12,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: theme.error,
+                }}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color={theme.error} />
+                ) : (
+                  <Text style={{ color: theme.error, fontWeight: '700' }}>Annuler la réservation</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               onPress={() => setSelectedTicket(null)}
               style={{
-                marginTop: 20,
+                marginTop: 12,
                 backgroundColor: theme.primary,
                 paddingVertical: 14,
                 borderRadius: 999,
@@ -309,6 +375,7 @@ const MyTicketsScreen = () => {
               <Text style={{ color: theme.buttonPrimaryText, fontWeight: '700' }}>Fermer</Text>
             </TouchableOpacity>
           </View>
+          )}
         </View>
       </Modal>
     </View>

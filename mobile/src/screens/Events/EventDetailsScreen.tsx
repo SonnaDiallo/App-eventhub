@@ -1,5 +1,5 @@
 // mobile/src/screens/Events/EventDetailsScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
 import { joinEvent } from '../../services/eventsService';
 import { useTheme } from '../../theme/ThemeContext';
+import type { ThemeColors } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -284,6 +285,8 @@ const EventDetailsScreen = () => {
     );
   };
 
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       {/* Header avec image */}
@@ -303,7 +306,7 @@ const EventDetailsScreen = () => {
             style={styles.headerButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={22} color={theme.text} />
           </TouchableOpacity>
           
           <Text style={styles.headerTitle}>Détails de l'Événement</Text>
@@ -327,14 +330,14 @@ const EventDetailsScreen = () => {
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={22}
-                color={isLiked ? '#FF4F8B' : '#FFFFFF'}
+                color={isLiked ? theme.error : theme.text}
               />
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.headerButton, { marginLeft: 8 }]}
               onPress={handleShare}
             >
-              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="share-outline" size={22} color={theme.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -352,7 +355,7 @@ const EventDetailsScreen = () => {
         {/* Date et heure */}
         <View style={styles.infoRow}>
           <View style={styles.iconContainer}>
-            <Ionicons name="calendar" size={18} color="#7B5CFF" />
+            <Ionicons name="calendar" size={18} color={theme.primary} />
           </View>
           <View style={styles.infoText}>
             <Text style={styles.infoTitle}>{event.date}</Text>
@@ -362,7 +365,7 @@ const EventDetailsScreen = () => {
 
         <View style={styles.infoRow}>
           <View style={styles.iconContainer}>
-            <Ionicons name="location" size={18} color="#7B5CFF" />
+            <Ionicons name="location" size={18} color={theme.primary} />
           </View>
           <View style={styles.infoText}>
             <Text style={styles.infoTitle}>{event.location}</Text>
@@ -373,7 +376,7 @@ const EventDetailsScreen = () => {
         {/* Organisateur */}
         <View style={styles.organizerContainer}>
           <View style={styles.organizerAvatar}>
-            <Ionicons name="person" size={20} color="#7B5CFF" />
+            <Ionicons name="person" size={20} color={theme.primary} />
           </View>
           <View style={styles.organizerInfo}>
             <Text style={styles.organizerLabel}>Organisé par</Text>
@@ -385,7 +388,7 @@ const EventDetailsScreen = () => {
           style={styles.calendarButton}
           onPress={() => navigation.navigate('Participants', { eventId: event.id })}
         >
-          <Ionicons name="people-outline" size={20} color="#7B5CFF" />
+          <Ionicons name="people-outline" size={20} color={theme.primary} />
           <Text style={styles.calendarButtonText}>Voir les participants</Text>
         </TouchableOpacity>
 
@@ -403,7 +406,7 @@ const EventDetailsScreen = () => {
           style={styles.calendarButton}
           onPress={handleAddToCalendar}
         >
-          <Ionicons name="calendar-outline" size={20} color="#7B5CFF" />
+          <Ionicons name="calendar-outline" size={20} color={theme.primary} />
           <Text style={styles.calendarButtonText}>Ajouter au calendrier</Text>
         </TouchableOpacity>
 
@@ -416,7 +419,7 @@ const EventDetailsScreen = () => {
               activeOpacity={0.9}
             >
               <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={40} color="#7B5CFF" />
+                <Ionicons name="map" size={40} color={theme.primary} />
                 <Text style={styles.mapPlaceholderText}>Carte interactive</Text>
                 <Text style={styles.mapPlaceholderAddress} numberOfLines={2}>
                   {event.location || event.address}
@@ -426,7 +429,7 @@ const EventDetailsScreen = () => {
           ) : (
             <View style={styles.mapContainer}>
               <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={40} color="#7B5CFF" />
+                <Ionicons name="map" size={40} color={theme.primary} />
                 <Text style={styles.mapPlaceholderText}>Adresse à préciser</Text>
               </View>
             </View>
@@ -451,7 +454,7 @@ const EventDetailsScreen = () => {
           disabled={isRegistering || checkingTicket}
         >
           {isRegistering || checkingTicket ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={theme.buttonPrimaryText} size="small" />
           ) : (
             <Text style={styles.buyButtonText}>
               {hasTicket ? 'Déjà inscrit ✓' : 'Obtenir un billet'}
@@ -463,265 +466,106 @@ const EventDetailsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#050016',
-  },
-  imageContainer: {
-    height: 280,
-    position: 'relative',
-  },
-  coverImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5, 0, 22, 0.3)',
-  },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
-    paddingBottom: 16,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  headerRight: {
-    flexDirection: 'row',
-  },
-  content: {
-    flex: 1,
-    marginTop: -30,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: '#050016',
-  },
-  contentContainer: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
-    lineHeight: 32,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(123, 92, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  infoText: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  infoSubtitle: {
-    fontSize: 13,
-    color: '#A0A0C0',
-  },
-  organizerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F0F23',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  organizerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(123, 92, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  organizerInfo: {
-    flex: 1,
-  },
-  organizerLabel: {
-    fontSize: 12,
-    color: '#A0A0C0',
-    marginBottom: 2,
-  },
-  organizerName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 14,
-    color: '#B0B0D0',
-    lineHeight: 22,
-  },
-  readMore: {
-    color: '#7B5CFF',
-    fontWeight: '500',
-  },
-  calendarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#7B5CFF',
-    borderRadius: 12,
-  },
-  calendarButtonText: {
-    color: '#7B5CFF',
-    fontSize: 15,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#1A1A3A',
-  },
-  locationCardIcon: {
-    marginRight: 12,
-  },
-  locationCardText: {
-    flex: 1,
-  },
-  locationName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  locationAddress: {
-    fontSize: 13,
-    color: '#A0A0C0',
-  },
-  locationHint: {
-    fontSize: 12,
-    color: '#7B5CFF',
-    marginTop: 6,
-  },
-  mapContainer: {
-    height: 160,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#0F0F23',
-  },
-  map: {
-    width: '100%',
-    height: '100%',
-  },
-  mapPlaceholder: {
-    flex: 1,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0A0A1E',
-    padding: 16,
-  },
-  mapPlaceholderText: {
-    color: '#A0A0C0',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  mapPlaceholderAddress: {
-    color: '#7B5CFF',
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    backgroundColor: '#0A0A1E',
-    borderTopWidth: 1,
-    borderTopColor: '#1A1A3A',
-  },
-  priceContainer: {
-    flex: 1,
-  },
-  priceLabel: {
-    fontSize: 12,
-    color: '#A0A0C0',
-    marginBottom: 2,
-  },
-  price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  buyButton: {
-    backgroundColor: '#7B5CFF',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginLeft: 16,
-    minWidth: 140,
-    alignItems: 'center',
-  },
-  buyButtonDisabled: {
-    backgroundColor: '#4A3A8A',
-  },
-  buyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});
+const getStyles = (t: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background },
+    imageContainer: { height: 280, position: 'relative' as const },
+    coverImage: { width: '100%', height: '100%' },
+    imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+    header: {
+      position: 'absolute' as const,
+      top: 0, left: 0, right: 0,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: Platform.OS === 'ios' ? 50 : 16,
+      paddingBottom: 16,
+    },
+    headerButton: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    headerTitle: { color: t.text, fontSize: 16, fontWeight: '600' as const },
+    headerRight: { flexDirection: 'row' as const },
+    content: {
+      flex: 1,
+      marginTop: -30,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      backgroundColor: t.background,
+    },
+    contentContainer: { padding: 20 },
+    title: { fontSize: 24, fontWeight: '700' as const, color: t.text, marginBottom: 20, lineHeight: 32 },
+    infoRow: { flexDirection: 'row' as const, alignItems: 'center', marginBottom: 16 },
+    iconContainer: {
+      width: 40, height: 40, borderRadius: 12,
+      backgroundColor: t.primary + '26',
+      alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    },
+    infoText: { flex: 1 },
+    infoTitle: { fontSize: 15, fontWeight: '600' as const, color: t.text, marginBottom: 2 },
+    infoSubtitle: { fontSize: 13, color: t.textMuted },
+    organizerContainer: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: t.surface, borderRadius: 16, padding: 14,
+      marginTop: 8, marginBottom: 24,
+    },
+    organizerAvatar: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: t.primary + '33',
+      alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    },
+    organizerInfo: { flex: 1 },
+    organizerLabel: { fontSize: 12, color: t.textMuted, marginBottom: 2 },
+    organizerName: { fontSize: 15, fontWeight: '600' as const, color: t.text },
+    section: { marginBottom: 24 },
+    sectionTitle: { fontSize: 18, fontWeight: '600' as const, color: t.text, marginBottom: 12 },
+    description: { fontSize: 14, color: t.textMuted, lineHeight: 22 },
+    readMore: { color: t.primary, fontWeight: '500' as const },
+    calendarButton: {
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 14, marginBottom: 24,
+      borderWidth: 1, borderColor: t.primary, borderRadius: 12,
+    },
+    calendarButtonText: { color: t.primary, fontSize: 15, fontWeight: '500' as const, marginLeft: 8 },
+    locationCard: {
+      flexDirection: 'row' as const, alignItems: 'center',
+      backgroundColor: t.surface, borderRadius: 12, padding: 14, marginBottom: 12,
+      borderWidth: 1, borderColor: t.border,
+    },
+    locationCardIcon: { marginRight: 12 },
+    locationCardText: { flex: 1 },
+    locationName: { fontSize: 15, fontWeight: '600' as const, color: t.text, marginBottom: 2 },
+    locationAddress: { fontSize: 13, color: t.textMuted },
+    locationHint: { fontSize: 12, color: t.primary, marginTop: 6 },
+    mapContainer: {
+      height: 160, borderRadius: 16, overflow: 'hidden' as const, backgroundColor: t.surface,
+    },
+    map: { width: '100%', height: '100%' },
+    mapPlaceholder: {
+      flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: t.header, padding: 16,
+    },
+    mapPlaceholderText: { color: t.textMuted, fontSize: 14, marginTop: 8 },
+    mapPlaceholderAddress: { color: t.primary, fontSize: 12, marginTop: 6, textAlign: 'center' as const },
+    footer: {
+      position: 'absolute' as const, bottom: 0, left: 0, right: 0,
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingTop: 16,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+      backgroundColor: t.header,
+      borderTopWidth: 1, borderTopColor: t.border,
+    },
+    priceContainer: { flex: 1 },
+    priceLabel: { fontSize: 12, color: t.textMuted, marginBottom: 2 },
+    price: { fontSize: 20, fontWeight: '700' as const, color: t.text },
+    buyButton: {
+      backgroundColor: t.primary,
+      paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12,
+      marginLeft: 16, minWidth: 140, alignItems: 'center',
+    },
+    buyButtonDisabled: { backgroundColor: t.primaryDark || t.primary },
+    buyButtonText: { color: t.buttonPrimaryText, fontSize: 15, fontWeight: '600' as const },
+  });
 
 export default EventDetailsScreen;
