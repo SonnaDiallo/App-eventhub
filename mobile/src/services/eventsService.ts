@@ -127,6 +127,14 @@ export const joinEvent = async (eventId: string): Promise<void> => {
 };
 
 /**
+ * Annuler une participation à un événement (MongoDB)
+ * À appeler si l'événement provient du backend (id MongoDB 24 caractères)
+ */
+export const leaveEvent = async (eventId: string): Promise<void> => {
+  await api.post(`/events/${eventId}/leave`);
+};
+
+/**
  * Récupère les événements de l'organisateur connecté
  */
 export const getMyEvents = async (params?: {

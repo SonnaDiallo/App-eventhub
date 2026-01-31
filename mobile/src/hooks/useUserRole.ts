@@ -36,8 +36,11 @@ export const useUserRole = (): UserRole => {
             setRole('user'); // Par défaut si le document n'existe pas
           }
         },
-        (error) => {
-          console.error('Error loading user role:', error);
+        (error: any) => {
+          // Ne pas afficher d'erreur pour permission-denied (document peut ne pas exister encore)
+          if (error?.code !== 'permission-denied') {
+            console.warn('Error loading user role:', error?.message || error);
+          }
           // En cas d'erreur, essayer de charger une seule fois
           getDoc(doc(db, 'users', user.uid))
             .then((userDoc) => {

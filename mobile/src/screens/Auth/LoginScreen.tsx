@@ -15,10 +15,12 @@ import { doc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
 import { saveToken } from '../../services/authStorage';
+import { useTheme } from '../../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,7 +75,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#050016' }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View
@@ -87,7 +89,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text
           style={{
-            color: '#ffffff',
+            color: theme.text,
             fontSize: 28,
             fontWeight: '700',
             marginBottom: 6,
@@ -95,62 +97,62 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         >
           Connexion
         </Text>
-        <Text style={{ color: '#c0b8ff', fontSize: 14, marginBottom: 20 }}>
+        <Text style={{ color: theme.textMuted, fontSize: 14, marginBottom: 20 }}>
           Connecte-toi pour retrouver tes événements.
         </Text>
 
         <View
           style={{
-            backgroundColor: '#0b0620',
+            backgroundColor: theme.surface,
             borderRadius: 18,
             padding: 16,
             borderWidth: 1,
-            borderColor: 'rgba(123, 92, 255, 0.25)',
+            borderColor: theme.border,
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Email</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Email</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             placeholder="ex: nom@email.com"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
               marginBottom: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
 
-          <Text style={{ color: '#c0b8ff', marginBottom: 8 }}>Mot de passe</Text>
+          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Mot de passe</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder="Ton mot de passe"
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
-              color: '#ffffff',
+              color: theme.text,
               borderWidth: 1,
-              borderColor: 'rgba(123, 92, 255, 0.25)',
+              borderColor: theme.border,
               paddingVertical: 12,
               paddingHorizontal: 12,
               borderRadius: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: theme.inputBackground,
             }}
           />
         </View>
 
         <TouchableOpacity
           style={{
-            backgroundColor: '#7b5cff',
+            backgroundColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
@@ -159,7 +161,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
+          <Text style={{ color: theme.buttonPrimaryText, fontWeight: '600', fontSize: 16 }}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </Text>
         </TouchableOpacity>
@@ -168,14 +170,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             marginTop: 12,
             borderWidth: 1,
-            borderColor: '#7b5cff',
+            borderColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
           }}
           onPress={() => navigation.navigate('Register')}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '500', fontSize: 16 }}>
+          <Text style={{ color: theme.text, fontWeight: '500', fontSize: 16 }}>
             Créer un compte
           </Text>
         </TouchableOpacity>

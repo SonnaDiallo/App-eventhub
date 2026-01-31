@@ -1,6 +1,7 @@
 // mobile/src/navigation/AuthNavigator.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTheme } from '../theme/ThemeContext';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import WelcomeScreen from '../screens/Auth/WelcomeScreen';
@@ -53,17 +54,19 @@ export type AuthStackParamList = {
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 const AuthNavigator: React.FC = () => {
+  const { theme } = useTheme();
   return (
     <Stack.Navigator 
       initialRouteName="Welcome"
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#0A0A1E',
+          backgroundColor: theme.header,
         },
-        headerTintColor: '#FFFFFF',
+        headerTintColor: theme.text,
         headerTitleStyle: {
           fontWeight: '600',
         },
+        contentStyle: { backgroundColor: theme.background },
       }}
     >
       <Stack.Screen

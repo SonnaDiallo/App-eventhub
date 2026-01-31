@@ -169,6 +169,45 @@ export const joinEvent = async (req: Request, res: Response) => {
   }
 };
 
+export const leaveEvent = async (req: Request, res: Response) => {
+  try {
+    const eventId = req.params.id;
+    const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+
+    if (!eventId) return res.status(400).json({ message: 'Invalid event id' });
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    if (!mongoose.Types.ObjectId.isValid(eventId) || String(eventId).length !== 24) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    const mongoUser = await getUserByFirebaseUid(userId);
+    if (!mongoUser) return res.status(404).json({ message: 'User not found in database' });
+
+    const deleted = await EventParticipation.findOneAndDelete({
+      event: event._id,
+      user: mongoUser._id,
+    });
+
+    if (!deleted) return res.status(404).json({ message: 'Participation not found' });
+
+    try {
+      const eventRef = firebaseDb.collection('events').doc(eventId);
+      await eventRef.collection('participants').doc(userId).delete();
+    } catch (firestoreError) {
+      console.warn('Failed to remove Firestore participant:', firestoreError);
+    }
+
+    return res.status(200).json({ message: 'Participation cancelled successfully' });
+  } catch (error: any) {
+    console.error('Leave event error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export const getParticipants = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;

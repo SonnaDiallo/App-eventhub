@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, Animated } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
+import { useTheme } from '../../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
@@ -70,13 +71,14 @@ const MovingBlob: React.FC = () => {
 };
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { theme } = useTheme();
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: '#050016',
+        backgroundColor: theme.background,
         paddingHorizontal: 24,
-        paddingTop: 40,        // moins de marge en haut
+        paddingTop: 40,
         paddingBottom: 40,
         justifyContent: 'space-evenly',
       }}
@@ -88,10 +90,10 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
             width: 240,
             height: 240,
             borderRadius: 40,
-            backgroundColor: '#0b0620',
+            backgroundColor: theme.surface,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: '#7b5cff',
+            shadowColor: theme.primary,
             shadowOpacity: 0.4,
             shadowOffset: { width: 0, height: 0 },
             shadowRadius: 20,
@@ -105,7 +107,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
       <View>
         <Text
           style={{
-            color: '#ffffff',
+            color: theme.text,
             fontSize: 26,
             fontWeight: '700',
             marginBottom: 8,
@@ -116,7 +118,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            color: '#c0b8ff',
+            color: theme.textMuted,
             fontSize: 14,
             textAlign: 'center',
           }}
@@ -130,7 +132,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
       <View>
         <TouchableOpacity
           style={{
-            backgroundColor: '#7b5cff',
+            backgroundColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
@@ -138,7 +140,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
           }}
           onPress={() => navigation.navigate('Register')}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
+          <Text style={{ color: theme.buttonPrimaryText, fontWeight: '600', fontSize: 16 }}>
             Créer un compte
           </Text>
         </TouchableOpacity>
@@ -146,14 +148,14 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           style={{
             borderWidth: 1,
-            borderColor: '#7b5cff',
+            borderColor: theme.primary,
             paddingVertical: 14,
             borderRadius: 999,
             alignItems: 'center',
           }}
           onPress={() => navigation.navigate('Login')}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '500', fontSize: 16 }}>
+          <Text style={{ color: theme.text, fontWeight: '500', fontSize: 16 }}>
             J&apos;ai déjà un compte
           </Text>
         </TouchableOpacity>

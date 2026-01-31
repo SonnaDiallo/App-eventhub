@@ -8,6 +8,7 @@ import {
   getMyEvents,
   getParticipants, 
   joinEvent, 
+  leaveEvent,
   verifyToken 
 } from '../controllers/eventController';
 import { syncExternalEvents, deleteParisOpenDataEvents, debugEvents, getTicketmasterEventsByCategory, getExternalEvents } from '../controllers/externalEventsController';
@@ -30,6 +31,7 @@ router.post('/', requireAuth, requireRole(['organizer', 'admin']), validateImage
 router.put('/:id', requireAuth, requireRole(['organizer', 'admin']), updateEvent); // PUT /api/events/:id
 router.delete('/:id', requireAuth, requireRole(['organizer', 'admin']), deleteEvent); // DELETE /api/events/:id
 router.post('/:id/join', requireAuth, joinEvent); // POST /api/events/:id/join
+router.post('/:id/leave', requireAuth, leaveEvent); // POST /api/events/:id/leave
 
 // Vérifier le token JWT de l'utilisateur
 router.get('/verify-token', requireAuth, verifyToken);

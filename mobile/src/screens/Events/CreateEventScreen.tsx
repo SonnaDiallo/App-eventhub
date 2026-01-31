@@ -1,5 +1,5 @@
 // mobile/src/screens/Events/CreateEventScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -25,6 +25,8 @@ import { auth, db } from '../../services/firebase';
 import { getCategories, Category, MAX_IMAGE_SIZE, formatFileSize } from '../../services/categories';
 import { api } from '../../services/api';
 import { getToken } from '../../services/authStorage';
+import { useTheme } from '../../theme/ThemeContext';
+import type { ThemeColors } from '../../theme/theme';
 
 // Helper pour obtenir l'URL de base du backend (sans /api)
 const getBackendBaseURL = () => {
@@ -33,6 +35,7 @@ const getBackendBaseURL = () => {
 };
 
 const CreateEventScreen = () => {
+  const { theme, themeMode } = useTheme();
   const [eventData, setEventData] = useState({
     title: '',
     startDate: new Date(),
@@ -263,6 +266,8 @@ const CreateEventScreen = () => {
     Alert.alert('Brouillon', 'Votre événement a été enregistré comme brouillon.');
   };
 
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -270,7 +275,7 @@ const CreateEventScreen = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Créer un événement</Text>
         <View style={{ width: 40 }} />
@@ -284,7 +289,7 @@ const CreateEventScreen = () => {
           <TextInput
             style={styles.input}
             placeholder="Ex: Soirée Networking Tech"
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.inputPlaceholder}
             value={eventData.title}
             onChangeText={(text) => setEventData({...eventData, title: text})}
           />
@@ -328,7 +333,7 @@ const CreateEventScreen = () => {
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={onStartDateChange}
               minimumDate={new Date()}
-              themeVariant="dark"
+              themeVariant={themeMode}
             />
             {Platform.OS === 'ios' && (
               <TouchableOpacity 
@@ -352,7 +357,7 @@ const CreateEventScreen = () => {
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={onEndDateChange}
               minimumDate={eventData.startDate}
-              themeVariant="dark"
+              themeVariant={themeMode}
             />
             {Platform.OS === 'ios' && (
               <TouchableOpacity 
@@ -371,11 +376,11 @@ const CreateEventScreen = () => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Lieu</Text>
           <View style={styles.locationInput}>
-            <Ionicons name="location-outline" size={20} color="#666" style={styles.inputIcon} />
+            <Ionicons name="location-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, {paddingLeft: 35}]}
               placeholder="Rechercher une adresse"
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.inputPlaceholder}
               value={eventData.location}
               onChangeText={(text) => setEventData({...eventData, location: text})}
             />
@@ -387,7 +392,7 @@ const CreateEventScreen = () => {
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Décrivez votre événement, le programme, les intervenants..."
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.inputPlaceholder}
             multiline
             numberOfLines={4}
             value={eventData.description}
@@ -514,7 +519,7 @@ const CreateEventScreen = () => {
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={theme.text} />
           ) : (
             <Text style={styles.publishButtonText}>Publier l'événement</Text>
           )}
@@ -570,7 +575,7 @@ const CreateEventScreen = () => {
                       )}
                     </View>
                     {selectedCategory?.id === item.id && (
-                      <Ionicons name="checkmark-circle" size={24} color="#7B5CFF" />
+                      <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
                     )}
                   </TouchableOpacity>
                 )}
@@ -583,343 +588,109 @@ const CreateEventScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#050016',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
-    backgroundColor: '#0A0A1E',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A3A',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1A1A3A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#E0E0FF',
-    marginTop: 24,
-    marginBottom: 16,
-    fontFamily: 'System',
-    letterSpacing: 0.2,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    color: '#C0C0E0',
-    marginBottom: 10,
-    fontWeight: '500',
-    fontFamily: 'System',
-  },
-  locationInput: {
-    position: 'relative',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 12,
-    top: 16,
-    zIndex: 1,
-  },
-  input: {
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#2A2A4A',
-    fontFamily: 'System',
-  },
-  dateInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#2A2A4A',
-  },
-  dateText: {
-    color: '#A0A0C0',
-    fontSize: 16,
-    fontFamily: 'System',
-  },
-  textArea: {
-    height: 140,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-    lineHeight: 22,
-  },
-  imageUpload: {
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#3A3A5A',
-    borderStyle: 'dashed',
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  uploadText: {
-    color: '#8B7BFF',
-    fontSize: 15,
-    fontWeight: '500',
-    marginTop: 14,
-    marginBottom: 6,
-    fontFamily: 'System',
-  },
-  uploadSubtext: {
-    color: '#5A5A7A',
-    fontSize: 12,
-    fontFamily: 'System',
-  },
-  categorySelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#2A2A4A',
-  },
-  categorySelectorContent: {
-    flex: 1,
-  },
-  categorySelectorText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '500',
-    fontFamily: 'System',
-  },
-  categorySelectorSubtext: {
-    color: '#5A5A7A',
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'System',
-  },
-  categorySelectorPlaceholder: {
-    color: '#5A5A7A',
-    fontSize: 16,
-    fontFamily: 'System',
-  },
-  defaultImageContainer: {
-    position: 'relative',
-    width: '100%',
-  },
-  defaultImageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  defaultImageText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 6,
-    fontFamily: 'System',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#0A0A1E',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A3A',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'System',
-  },
-  modalLoader: {
-    padding: 40,
-  },
-  categoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A3A',
-  },
-  categoryItemSelected: {
-    backgroundColor: '#1A1A3A',
-  },
-  categoryItemContent: {
-    flex: 1,
-  },
-  categoryItemName: {
-    color: '#C0C0E0',
-    fontSize: 16,
-    fontWeight: '500',
-    fontFamily: 'System',
-  },
-  categoryItemNameSelected: {
-    color: '#7B5CFF',
-    fontWeight: '600',
-  },
-  categoryItemDescription: {
-    color: '#5A5A7A',
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'System',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    padding: 5,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2A2A4A',
-  },
-  toggleButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  toggleButtonActive: {
-    backgroundColor: '#2A2A4A',
-  },
-  toggleText: {
-    color: '#4A4A6B',
-    fontWeight: '500',
-    fontSize: 15,
-    fontFamily: 'System',
-  },
-  toggleTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  priceInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  publishButton: {
-    backgroundColor: '#7B5CFF',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
-    shadowColor: '#7B5CFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  publishButtonDisabled: {
-    opacity: 0.7,
-  },
-  publishButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'System',
-  },
-  draftButton: {
-    padding: 12,
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  draftButtonText: {
-    color: '#7B5CFF',
-    fontSize: 15,
-    fontWeight: '500',
-    fontFamily: 'System',
-  },
-  coverImagePreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-  },
-  removeImageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginTop: -16,
-    marginBottom: 16,
-  },
-  removeImageText: {
-    color: '#FF4F8B',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  pickerContainer: {
-    backgroundColor: '#0F0F23',
-    borderRadius: 12,
-    marginBottom: 16,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A4A',
-  },
-  pickerButton: {
-    backgroundColor: '#7B5CFF',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  pickerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+const getStyles = (t: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: 16, paddingTop: Platform.OS === 'ios' ? 50 : 16,
+      backgroundColor: t.header, borderBottomWidth: 1, borderBottomColor: t.border,
+    },
+    headerTitle: { fontSize: 18, fontWeight: '600' as const, color: t.text, textAlign: 'center' as const, flex: 1 },
+    backButton: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: t.inputBackground,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    content: { flex: 1, padding: 16 },
+    sectionTitle: { fontSize: 17, fontWeight: '600' as const, color: t.textSecondary, marginTop: 24, marginBottom: 16, letterSpacing: 0.2 },
+    row: { flexDirection: 'row' as const },
+    inputGroup: { marginBottom: 20 },
+    label: { fontSize: 14, color: t.textMuted, marginBottom: 10, fontWeight: '500' as const },
+    locationInput: { position: 'relative' as const },
+    inputIcon: { position: 'absolute' as const, left: 12, top: 16, zIndex: 1 },
+    input: {
+      backgroundColor: t.inputBackground, borderRadius: 12, padding: 16, fontSize: 16,
+      color: t.text, borderWidth: 1, borderColor: t.border,
+    },
+    dateInput: {
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: t.inputBackground, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: t.border,
+    },
+    dateText: { color: t.textMuted, fontSize: 16 },
+    textArea: { height: 140, textAlignVertical: 'top' as const, paddingTop: 12, lineHeight: 22 },
+    imageUpload: {
+      backgroundColor: t.inputBackground, borderRadius: 12, borderWidth: 1.5, borderColor: t.border,
+      borderStyle: 'dashed' as const, padding: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+    },
+    uploadText: { color: t.primary, fontSize: 15, fontWeight: '500' as const, marginTop: 14, marginBottom: 6 },
+    uploadSubtext: { color: t.textMuted, fontSize: 12 },
+    categorySelector: {
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: t.inputBackground, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: t.border,
+    },
+    categorySelectorContent: { flex: 1 },
+    categorySelectorText: { color: t.text, fontSize: 16, fontWeight: '500' as const },
+    categorySelectorSubtext: { color: t.textMuted, fontSize: 12, marginTop: 4 },
+    categorySelectorPlaceholder: { color: t.textMuted, fontSize: 16 },
+    defaultImageContainer: { position: 'relative' as const, width: '100%' },
+    defaultImageOverlay: {
+      position: 'absolute' as const, bottom: 0, left: 0, right: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)', padding: 8,
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'center',
+      borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
+    },
+    defaultImageText: { color: t.text, fontSize: 12, marginLeft: 6 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' as const },
+    modalContent: {
+      backgroundColor: t.header, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%',
+      paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    },
+    modalHeader: {
+      flexDirection: 'row' as const, justifyContent: 'space-between', alignItems: 'center',
+      padding: 20, borderBottomWidth: 1, borderBottomColor: t.border,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '600' as const, color: t.text },
+    modalLoader: { padding: 40 },
+    categoryItem: {
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between',
+      padding: 16, borderBottomWidth: 1, borderBottomColor: t.border,
+    },
+    categoryItemSelected: { backgroundColor: t.inputBackground },
+    categoryItemContent: { flex: 1 },
+    categoryItemName: { color: t.textMuted, fontSize: 16, fontWeight: '500' as const },
+    categoryItemNameSelected: { color: t.primary, fontWeight: '600' as const },
+    categoryItemDescription: { color: t.textMuted, fontSize: 12, marginTop: 4 },
+    toggleContainer: {
+      flexDirection: 'row' as const, backgroundColor: t.inputBackground, borderRadius: 12,
+      padding: 5, marginBottom: 20, borderWidth: 1, borderColor: t.border,
+    },
+    toggleButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', backgroundColor: 'transparent' },
+    toggleButtonActive: { backgroundColor: t.border },
+    toggleText: { color: t.textMuted, fontWeight: '500' as const, fontSize: 15 },
+    toggleTextActive: { color: t.text, fontWeight: '600' as const },
+    priceInput: { flexDirection: 'row' as const, alignItems: 'center' },
+    publishButton: {
+      backgroundColor: t.primary, borderRadius: 12, padding: 18, alignItems: 'center',
+      marginTop: 24, marginBottom: 12,
+      shadowColor: t.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    },
+    publishButtonDisabled: { opacity: 0.7 },
+    publishButtonText: { color: t.buttonPrimaryText, fontSize: 16, fontWeight: '600' as const },
+    draftButton: { padding: 12, alignItems: 'center', marginBottom: 40 },
+    draftButtonText: { color: t.primary, fontSize: 15, fontWeight: '500' as const },
+    coverImagePreview: { width: '100%', height: 180, borderRadius: 12 },
+    removeImageButton: {
+      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 10, marginTop: -16, marginBottom: 16,
+    },
+    removeImageText: { color: t.error, fontSize: 14, fontWeight: '500' as const, marginLeft: 6 },
+    pickerContainer: {
+      backgroundColor: t.inputBackground, borderRadius: 12, marginBottom: 16, padding: 10,
+      borderWidth: 1, borderColor: t.border,
+    },
+    pickerButton: { backgroundColor: t.primary, borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 10 },
+    pickerButtonText: { color: t.buttonPrimaryText, fontSize: 16, fontWeight: '600' as const },
+  });
 
 export default CreateEventScreen;
