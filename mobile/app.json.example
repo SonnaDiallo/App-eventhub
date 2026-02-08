@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à votre galerie photos pour sélectionner des images pour vos événements.",
+        "NSPhotoLibraryAddUsageDescription": "Cette application a besoin d'accéder à votre galerie photos pour enregistrer des images."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,11 +25,23 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cette application a besoin d'accéder à vos photos pour sélectionner des images pour vos événements."
+        }
+      ]
+    ],
     "extra": {
       "firebase": {
         "apiKey": "YOUR_FIREBASE_API_KEY_HERE",

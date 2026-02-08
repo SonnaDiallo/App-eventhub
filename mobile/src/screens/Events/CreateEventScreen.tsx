@@ -49,6 +49,8 @@ const CreateEventScreen = () => {
   });
   
   const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [coverImageBase64, setCoverImageBase64] = useState<string | null>(null);
+  const [coverImageMimeType, setCoverImageMimeType] = useState<string | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -161,6 +163,7 @@ const CreateEventScreen = () => {
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -179,6 +182,18 @@ const CreateEventScreen = () => {
       // Le backend validera aussi la taille lors de l'upload
 
       setCoverImage(asset.uri);
+      setCoverImageBase64(asset.base64 || null);
+      const uri = asset.uri || '';
+      const ext = uri.split('.').pop()?.toLowerCase();
+      const mimeFromExt =
+        ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+            ? 'image/webp'
+            : ext === 'jpg' || ext === 'jpeg'
+              ? 'image/jpeg'
+              : null;
+      setCoverImageMimeType((asset as any).mimeType || mimeFromExt);
     }
   };
 
@@ -190,6 +205,14 @@ const CreateEventScreen = () => {
     }
     if (!eventData.location.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer un lieu');
+      return false;
+    }
+    const now = Date.now();
+    // Empêcher la création d'un événement déjà passé / déjà commencé.
+    // Petite tolérance pour éviter les faux négatifs liés aux secondes.
+    const graceMs = 60 * 1000;
+    if (eventData.startDate.getTime() < now - graceMs) {
+      Alert.alert('Erreur', "La date de début doit être dans le futur.");
       return false;
     }
     if (eventData.endDate <= eventData.startDate) {
@@ -222,10 +245,31 @@ const CreateEventScreen = () => {
         return;
       }
 
+      let finalCoverImage: string | null = null;
+      if (coverImageBase64) {
+        if (!coverImageMimeType) {
+          Alert.alert('Erreur', "Impossible de déterminer le format de l'image.");
+          return;
+        }
+        const uploadRes = await api.post(
+          '/uploads/event-image',
+          {
+            base64: coverImageBase64,
+            mimeType: coverImageMimeType,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        finalCoverImage = uploadRes.data?.url || null;
+      }
+
       // Préparer les données pour l'API backend
       const payload = {
         title: eventData.title,
-        coverImage: coverImage || null,
+        coverImage: finalCoverImage,
         startDate: eventData.startDate.toISOString(),
         endDate: eventData.endDate.toISOString(),
         location: eventData.location,

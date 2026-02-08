@@ -327,7 +327,14 @@ export const getEvents = async (req: Request, res: Response) => {
 
     // Filtrer les événements passés (optionnel, peut être ajouté via query param)
     if (req.query.upcoming === 'true') {
-      query.startDate = { $gte: new Date() };
+      const now = new Date();
+      // Un événement est considéré "à venir" tant qu'il n'est pas terminé.
+      // Si endDate est absent, on se rabat sur startDate.
+      query.$or = [
+        ...(query.$or || []),
+        { endDate: { $gte: now } },
+        { endDate: { $exists: false }, startDate: { $gte: now } },
+      ];
     }
 
     // Récupérer les événements depuis MongoDB

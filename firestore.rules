@@ -25,14 +25,15 @@ service cloud.firestore {
       // L'utilisateur peut lire ses propres tickets
       allow read: if request.auth != null && 
         (resource.data.userId == request.auth.uid || 
-         resource.data.participantEmail == request.auth.token.email);
+         resource.data.participantEmail == request.auth.token.email ||
+         request.auth.uid == resource.data.userId);
       
       // Tout utilisateur authentifié peut créer un ticket
       allow create: if request.auth != null;
       
       // L'utilisateur peut modifier ou supprimer son propre ticket (annuler réservation)
       allow update, delete: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
+        (resource.data.userId == request.auth.uid || request.auth.uid == resource.data.userId);
     }
     
     // Favorites collection (sous-collection de users)

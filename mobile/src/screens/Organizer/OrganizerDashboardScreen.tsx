@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { api } from '../../services/api';
+import { getToken } from '../../services/authStorage';
 
 interface Event {
   id: string;
@@ -34,82 +35,75 @@ const OrganizerDashboardScreen = () => {
 
   const user = auth.currentUser;
 
-  // Charger tous les événements (admin voit tout)
+  // Charger les événements depuis le backend (MongoDB)
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    let isMounted = true;
 
-    const eventsRef = collection(db, 'events');
-    // Charger tous les événements, pas seulement ceux de l'organisateur
-    const q = query(eventsRef, orderBy('createdAt', 'desc'));
+    const loadEvents = async () => {
+      try {
+        setLoading(true);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const eventsList = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            title: data.title || 'Sans titre',
-            capacity: data.capacity || 100,
-            price: data.price || 0,
-            isFree: data.isFree || false,
-            organizerId: data.organizerId || '',
-            isOwnEvent: data.organizerId === user.uid, // Indicateur pour les événements créés par l'admin
-          } as Event & { organizerId: string; isOwnEvent: boolean };
+        if (!user) {
+          if (isMounted) setEvents([]);
+          return;
+        }
+
+        const token = await getToken();
+        if (!token) {
+          if (isMounted) setEvents([]);
+          return;
+        }
+
+        // Lister les événements de l'organisateur/admin connecté
+        const res = await api.get('/events/organizer/my', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params: {
+            page: 1,
+            limit: 50,
+          },
         });
+
+        const eventsList: Event[] = (res.data?.events || []).map((e: any) => ({
+          id: e.id,
+          title: e.title || 'Sans titre',
+          capacity: e.capacity ?? 100,
+          price: e.price ?? 0,
+          isFree: !!e.isFree,
+          organizerId: e.organizerId || undefined,
+          isOwnEvent: true,
+        }));
+
+        if (!isMounted) return;
+
         setEvents(eventsList);
-        // Préférer sélectionner un événement créé par l'admin s'il y en a
-        const ownEvent = eventsList.find(e => e.isOwnEvent);
-        if (ownEvent && !selectedEventId) {
-          setSelectedEventId(ownEvent.id);
-        } else if (eventsList.length > 0 && !selectedEventId) {
+        if (!selectedEventId && eventsList.length > 0) {
           setSelectedEventId(eventsList[0].id);
         }
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching events:', error);
-        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching organizer events:', error?.response?.data || error?.message);
+        if (isMounted) {
+          setEvents([]);
+          Alert.alert('Erreur', "Impossible de charger vos événements.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user]);
+    loadEvents();
 
-  // Charger les billets pour l'événement sélectionné
+    return () => {
+      isMounted = false;
+    };
+  }, [user, selectedEventId]);
+
+  // Tickets: l'app utilisait Firestore, mais les tickets sont gérés côté backend/MongoDB.
+  // Il n'existe pas encore d'endpoint pour lister les tickets d'un événement côté organisateur.
+  // On désactive donc Firestore ici pour éviter l'erreur de permissions et permettre au dashboard d'afficher les événements.
   useEffect(() => {
-    if (!selectedEventId) {
-      setTickets([]);
-      return;
-    }
-
-    const ticketsRef = collection(db, 'tickets');
-    const q = query(ticketsRef, where('eventId', '==', selectedEventId));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const ticketsList = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            eventId: data.eventId,
-            checkedIn: data.checkedIn || false,
-            price: data.price || 0,
-            createdAt: data.createdAt?.toDate?.() || new Date(),
-          } as Ticket;
-        });
-        setTickets(ticketsList);
-      },
-      (error) => {
-        console.error('Error fetching tickets:', error);
-      }
-    );
-
-    return () => unsubscribe();
+    setTickets([]);
   }, [selectedEventId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
