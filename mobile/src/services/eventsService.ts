@@ -24,8 +24,11 @@ export interface ExternalEventsParams {
   search?: string;
 }
 
+/** Timeout plus long quand on inclut Ticketmaster (réponse lente) */
+const EVENTS_WITH_EXTERNAL_TIMEOUT_MS = 60000;
+
 /**
- * Récupère tous les événements depuis l'API backend
+ * Récupère tous les événements depuis l'API backend (MongoDB + optionnellement Ticketmaster)
  */
 export const getEvents = async (params?: {
   page?: number;
@@ -49,10 +52,18 @@ export const getEvents = async (params?: {
     if (params?.includeExternal) queryParams.append('includeExternal', 'true');
     if (params?.upcoming) queryParams.append('upcoming', 'true');
 
-    const response = await api.get<EventsResponse>(`/events?${queryParams.toString()}`);
+    const timeout = params?.includeExternal ? EVENTS_WITH_EXTERNAL_TIMEOUT_MS : undefined;
+    const response = await api.get<EventsResponse>(`/events?${queryParams.toString()}`, {
+      ...(timeout ? { timeout } : {}),
+    });
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching events:', error);
+    // Timeout / réseau : pas d'overlay rouge
+    if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+      console.warn('Events API timeout – using Firestore only.');
+    } else {
+      console.warn('Error fetching events:', error?.message || error);
+    }
     throw error;
   }
 };
@@ -70,6 +81,9 @@ export const getEventById = async (eventId: string): Promise<{ event: EventData 
   }
 };
 
+/** Timeout plus long pour les événements externes (Ticketmaster peut être lent) */
+const EXTERNAL_EVENTS_TIMEOUT_MS = 60000;
+
 /**
  * Récupère les événements externes depuis Ticketmaster (sans les sauvegarder)
  */
@@ -79,14 +93,21 @@ export const getExternalEvents = async (params?: ExternalEventsParams): Promise<
     
     if (params?.location) queryParams.append('location', params.location);
     if (params?.category) queryParams.append('category', params.category);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.page) queryParams.append('page', (params.page ?? 1).toString());
+    if (params?.limit) queryParams.append('limit', (params.limit ?? 50).toString());
     if (params?.search) queryParams.append('search', params.search);
 
-    const response = await api.get<EventsResponse>(`/events/external?${queryParams.toString()}`);
+    const response = await api.get<EventsResponse>(`/events/external?${queryParams.toString()}`, {
+      timeout: EXTERNAL_EVENTS_TIMEOUT_MS,
+    });
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching external events:', error);
+    // Timeout / réseau : ne pas afficher l'overlay d'erreur (console.warn au lieu de console.error)
+    if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+      console.warn('External events timeout or slow – showing local events only.');
+    } else {
+      console.warn('Error fetching external events:', error?.message || error);
+    }
     throw error;
   }
 };
