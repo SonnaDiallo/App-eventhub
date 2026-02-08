@@ -17,6 +17,9 @@ import ProfileScreen from '../screens/Profile/ProfileScreen';
 import FavoritesScreen from '../screens/Events/FavoritesScreen';
 import ManagePrivilegesScreen from '../screens/Admin/ManagePrivilegesScreen';
 import ParticipantsOverviewScreen from '../screens/Organizer/ParticipantsOverviewScreen';
+import FriendsScreen from '../screens/Friends/FriendsScreen';
+import ChatListScreen from '../screens/Chat/ChatListScreen';
+import ChatRoomScreen from '../screens/Chat/ChatRoomScreen';
 
 export type EventData = {
   id: string;
@@ -49,6 +52,9 @@ export type AuthStackParamList = {
   Favorites: undefined;
   ManagePrivileges: undefined;
   ParticipantsOverview: { eventId: string; eventTitle?: string };
+  Friends: undefined;
+  ChatList: undefined;
+  ChatRoom: { userId: string; userName: string };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -143,6 +149,21 @@ const AuthNavigator: React.FC = () => {
         name="ParticipantsOverview"
         component={ParticipantsOverviewScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Friends"
+        component={FriendsScreen}
+        options={{ title: 'Mes amis' }}
+      />
+      <Stack.Screen
+        name="ChatList"
+        component={ChatListScreen}
+        options={{ title: 'Messages' }}
+      />
+      <Stack.Screen
+        name="ChatRoom"
+        component={ChatRoomScreen}
+        options={({ route }) => ({ title: (route.params as { userName?: string })?.userName || 'Chat' })}
       />
     </Stack.Navigator>
   );

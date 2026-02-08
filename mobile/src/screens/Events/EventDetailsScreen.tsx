@@ -21,6 +21,12 @@ import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
 import { joinEvent } from '../../services/eventsService';
+import { 
+  registerForExternalEvent, 
+  cancelExternalEventRegistration, 
+  checkExternalEventRegistration,
+  type ExternalRegistration 
+} from '../../services/externalRegistrationService';
 import { useTheme } from '../../theme/ThemeContext';
 import type { ThemeColors } from '../../theme/theme';
 
@@ -61,6 +67,8 @@ const EventDetailsScreen = () => {
   const [hasTicket, setHasTicket] = useState(false);
   const [checkingTicket, setCheckingTicket] = useState(true);
   const [checkingFavorite, setCheckingFavorite] = useState(true);
+  const [isExternalRegistered, setIsExternalRegistered] = useState(false);
+  const [checkingExternalRegistration, setCheckingExternalRegistration] = useState(false);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
@@ -83,6 +91,25 @@ const EventDetailsScreen = () => {
       }
     };
     checkFavorite();
+  }, [user, event.id]);
+
+  // Vérifier l'inscription aux événements externes
+  useEffect(() => {
+    const checkExternalRegistration = async () => {
+      if (!user || !event.id.startsWith('external_')) {
+        setCheckingExternalRegistration(false);
+        return;
+      }
+      try {
+        const result = await checkExternalEventRegistration(event.id);
+        setIsExternalRegistered(result.isRegistered);
+      } catch (error) {
+        console.error('Error checking external registration:', error);
+      } finally {
+        setCheckingExternalRegistration(false);
+      }
+    };
+    checkExternalRegistration();
   }, [user, event.id]);
 
   // Vérifier si l'utilisateur a déjà un billet pour cet événement
@@ -120,6 +147,40 @@ const EventDetailsScreen = () => {
       });
     } catch (error: any) {
       Alert.alert('Erreur', 'Impossible de partager l\'événement');
+    }
+  };
+
+  // S'inscrire/annuler l'inscription à un événement externe
+  const handleExternalRegistration = async () => {
+    if (!user) {
+      Alert.alert('Connexion requise', 'Connecte-toi pour t\'inscrire à cet événement.');
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      if (isExternalRegistered) {
+        // Annuler l'inscription
+        await cancelExternalEventRegistration(event.id);
+        setIsExternalRegistered(false);
+        Alert.alert('Inscription annulée', 'Tu n\'es plus inscrit à cet événement.');
+      } else {
+        // S'inscrire
+        await registerForExternalEvent({
+          externalEventId: event.id,
+          eventTitle: event.title,
+          eventDate: event.date,
+          eventLocation: event.location,
+        });
+        setIsExternalRegistered(true);
+        Alert.alert('Inscription réussie !', 'Tu es maintenant inscrit à cet événement. Tu peux voir les autres participants.');
+      }
+    } catch (error: any) {
+      console.error('External registration error:', error);
+      const message = error?.response?.data?.message || error?.message || 'Une erreur est survenue';
+      Alert.alert('Erreur', message);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -384,13 +445,58 @@ const EventDetailsScreen = () => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.calendarButton}
-          onPress={() => navigation.navigate('Participants', { eventId: event.id })}
-        >
-          <Ionicons name="people-outline" size={20} color={theme.primary} />
-          <Text style={styles.calendarButtonText}>Voir les participants</Text>
-        </TouchableOpacity>
+        {/* Participants - seulement pour les événements créés sur la plateforme */}
+        {!event.id.startsWith('external_') ? (
+          <TouchableOpacity
+            style={styles.calendarButton}
+            onPress={() => navigation.navigate('Participants', { eventId: event.id })}
+          >
+            <Ionicons name="people-outline" size={20} color={theme.primary} />
+            <Text style={styles.calendarButtonText}>Voir les participants</Text>
+          </TouchableOpacity>
+        ) : (
+          <View>
+            <TouchableOpacity
+              style={[
+                styles.calendarButton,
+                isExternalRegistered && { backgroundColor: `${theme.error}18`, borderWidth: 1, borderColor: theme.error }
+              ]}
+              onPress={handleExternalRegistration}
+              disabled={isRegistering || checkingExternalRegistration}
+            >
+              {isRegistering || checkingExternalRegistration ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Ionicons 
+                  name={isExternalRegistered ? "person-remove-outline" : "person-add-outline"} 
+                  size={20} 
+                  color={isExternalRegistered ? theme.error : theme.primary} 
+                />
+              )}
+              <Text style={[
+                styles.calendarButtonText,
+                isExternalRegistered && { color: theme.error }
+              ]}>
+                {checkingExternalRegistration 
+                  ? 'Vérification...' 
+                  : isExternalRegistered 
+                    ? 'Annuler l\'inscription' 
+                    : "S'inscrire à l'événement"
+                }
+              </Text>
+            </TouchableOpacity>
+            
+            {isExternalRegistered && (
+              <TouchableOpacity
+                style={[styles.calendarButton, { marginTop: 8 }]}
+                onPress={() => navigation.navigate('Participants', { eventId: event.id })}
+              >
+                <Ionicons name="people-outline" size={20} color={theme.primary} />
+                <Text style={styles.calendarButtonText}>Voir les participants</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Description */}
         <View style={styles.section}>

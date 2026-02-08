@@ -15,6 +15,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
 import { saveToken } from '../../services/authStorage';
+import { api } from '../../services/api';
 import { useTheme } from '../../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -41,6 +42,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       const idToken = await credential.user.getIdToken();
       await saveToken(idToken);
+
+      // Synchroniser l'utilisateur vers MongoDB (backend) pour événements / billets
+      api.get('/auth/me').catch(() => {});
 
       const uid = credential.user.uid;
       const profileSnap = await getDoc(doc(db, 'users', uid));

@@ -10,7 +10,7 @@ import { Timestamp, collection, onSnapshot, orderBy, query as fsQuery } from 'fi
 import { db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
 import { getDefaultCategories, Category } from '../../services/categories';
-import { getEvents, getExternalEvents } from '../../services/eventsService';
+import { getEvents } from '../../services/eventsService';
 import { useUserRole, canCreateEvents } from '../../hooks/useUserRole';
 
 const { width } = Dimensions.get('window');
@@ -193,7 +193,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     return bb ? `${aa} - ${bb}` : aa;
   };
 
-  // Charger les événements depuis l'API (externe) et Firestore (locaux)
+  // Charger les événements depuis l'API (MongoDB + Ticketmaster en un seul appel) et Firestore (locaux)
   useEffect(() => {
     let unsub: (() => void) | null = null;
     let isMounted = true;
@@ -202,20 +202,20 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(true);
       const allEvents: (EventData & { _startDate?: Date })[] = [];
 
-      // 1. Charger les événements depuis l'API Ticketmaster (externe)
+      // 1. Un seul appel backend : MongoDB (créés sur la plateforme) + Ticketmaster (externe)
       try {
-        const externalResponse = await getExternalEvents({
-          location: 'Paris,France',
-          category: selectedCategory || undefined,
-          search: searchQuery || undefined,
+        const response = await getEvents({
           page: 1,
           limit: 50,
+          category: selectedCategory || undefined,
+          search: searchQuery || undefined,
+          includeExternal: true,
+          upcoming: true,
         });
 
-        const externalEventsRaw = externalResponse.events.map((event: any) => {
+        const apiEvents = (response.events || []).map((event: any) => {
           const startDate = event.startDate ? new Date(event.startDate) : undefined;
           const endDate = event.endDate ? new Date(event.endDate) : undefined;
-
           return {
             id: event.id,
             title: event.title || 'Sans titre',
@@ -226,26 +226,24 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             address: event.location || '',
             organizer: event.organizerName || 'Organisateur',
             description: event.description || '',
-            price: event.price || 0,
+            price: event.price ?? 0,
             isFree: event.isFree ?? false,
             category: event.category || null,
             _startDate: startDate,
-            source: 'external', // Marquer comme événement externe
+            source: event.source === 'ticketmaster' ? 'external' : 'local',
           } as EventData & { _startDate?: Date; source?: string };
         });
 
-        // Dédupliquer les événements externes par id (l'API peut renvoyer des doublons)
-        const externalIds = new Set<string>();
-        const externalEvents = externalEventsRaw.filter((e) => {
-          if (externalIds.has(e.id)) return false;
-          externalIds.add(e.id);
-          return true;
+        const seenIds = new Set<string>();
+        apiEvents.forEach((e: EventData & { _startDate?: Date }) => {
+          if (!seenIds.has(e.id)) {
+            seenIds.add(e.id);
+            allEvents.push(e);
+          }
         });
-
-        allEvents.push(...externalEvents);
       } catch (error: any) {
-        console.warn('Erreur lors du chargement des événements externes:', error?.message);
-        // Continuer même si l'API externe échoue
+        console.warn('Backend injoignable – affichage des événements Firestore uniquement.', error?.message);
+        // Quand le backend est éteint, on affiche seulement Firestore (voir plus bas)
       }
 
       // 2. Charger les événements depuis Firestore (créés par les admins/organisateurs)
@@ -495,6 +493,21 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               }}
             >
               <Ionicons name="heart-outline" size={22} color={theme.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ChatList' as never)}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: theme.surface,
+                borderWidth: 1,
+                borderColor: theme.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="chatbubble-outline" size={22} color={theme.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => navigation.navigate('Profile' as never)}
@@ -910,12 +923,12 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18, marginTop: 20, textAlign: 'center' }}>
               {searchQuery || selectedCategory ? 'Aucun événement trouvé' : 'Aucun événement disponible'}
             </Text>
-            <Text style={{ color: theme.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+            <Text style={{ color: theme.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
               {searchQuery || selectedCategory
                 ? selectedCategory
                   ? `Aucun événement dans la catégorie "${categories.find(c => c.id === selectedCategory)?.nameFr || selectedCategory}". Essayez une autre catégorie.`
                   : 'Essayez avec d\'autres mots-clés ou réessayez plus tard.'
-                : 'Pour synchroniser des événements depuis Ticketmaster :\n\n1. Configurez TICKETMASTER_API_KEY dans backend/.env\n2. Appelez POST /api/events/sync/external\n3. Les événements apparaîtront automatiquement ici'}
+                : 'Les événements se chargent depuis le backend.\n\n• Démarre le backend : cd backend && npm run dev\n• Même WiFi et bonne IP dans api.ts\n• Pour Ticketmaster : TICKETMASTER_API_KEY dans backend/.env'}
             </Text>
           </View>
         ) : (

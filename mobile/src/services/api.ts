@@ -67,6 +67,10 @@ api.interceptors.request.use(
   }
 );
 
+// Éviter de spammer les warnings réseau (max 1 fois toutes les 10 s)
+let lastNetworkWarn = 0;
+const NETWORK_WARN_THROTTLE_MS = 10000;
+
 // Intercepteur de réponse
 api.interceptors.response.use(
   (response) => {
@@ -74,36 +78,25 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    const isNetworkOrTimeout =
+      !error.response &&
+      (error.request || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout'));
+
     if (error.response) {
       const status = error.response.status;
-      // 404 est souvent attendu (ex: participants pour événement externe) — ne pas logger en erreur
       if (status === 404) {
         console.log('📭 Not found (404):', error.config?.url);
       } else {
-        console.error('❌ Server Error:', {
-          status,
-          data: error.response.data,
-          url: error.config?.url,
-        });
+        console.error('❌ Server Error:', { status, data: error.response.data, url: error.config?.url });
       }
-    } else if (error.request) {
-      // Pas de réponse du serveur
-      console.error('❌ Network Error - Cannot reach server');
-      console.error('   URL:', `${error.config?.baseURL}${error.config?.url}`);
-      console.error('');
-      console.error('🔍 Vérifications nécessaires:');
-      console.error('   1. Backend démarré? (cd backend && npm run dev)');
-      console.error('   2. Backend sur port 5000?');
-      console.error('   3. iPhone et PC sur le MÊME WiFi?');
-      console.error('   4. IP correcte dans api.ts?');
-      console.error('');
-      console.error('📝 Pour trouver ton IP Windows:');
-      console.error('   - Ouvre CMD (Win + R, tape "cmd")');
-      console.error('   - Tape: ipconfig');
-      console.error('   - Cherche "Adresse IPv4" (ex: 192.168.1.37)');
-      console.error('   - Change YOUR_LOCAL_IP dans api.ts');
+    } else if (error.request || isNetworkOrTimeout) {
+      const now = Date.now();
+      if (now - lastNetworkWarn >= NETWORK_WARN_THROTTLE_MS) {
+        lastNetworkWarn = now;
+        console.warn('⚠️ API injoignable – backend éteint ou réseau (cd backend && npm run dev | même WiFi | IP dans api.ts)');
+      }
     } else {
-      console.error('❌ Request Error:', error.message);
+      console.warn('❌ Request Error:', error.message);
     }
     return Promise.reject(error);
   }

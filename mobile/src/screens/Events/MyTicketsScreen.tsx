@@ -125,19 +125,66 @@ const MyTicketsScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const renderTicket = ({ item }: { item: Ticket }) => (
+  const renderTicket = ({ item }: { item: Ticket }) => {
+    // Vérifier si l'événement est passé
+    const isEventPast = () => {
+      if (!item.eventDate) return false;
+      try {
+        // Parser la date de l'événement (format DD/MM/YYYY ou YYYY-MM-DD)
+        const dateParts = item.eventDate.split('/');
+        let eventDate: Date;
+        
+        if (dateParts.length === 3) {
+          // Format DD/MM/YYYY
+          eventDate = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+        } else {
+          // Format YYYY-MM-DD
+          eventDate = new Date(item.eventDate);
+        }
+        
+        // Ajouter l'heure si disponible
+        if (item.eventTime) {
+          const [hours, minutes] = item.eventTime.split(':');
+          eventDate.setHours(parseInt(hours), parseInt(minutes));
+        }
+        
+        const now = new Date();
+        return eventDate < now;
+      } catch {
+        return false;
+      }
+    };
+    
+    const past = isEventPast();
+    
+    return (
     <TouchableOpacity
       onPress={() => setSelectedTicket(item)}
       style={{
         backgroundColor: theme.card,
         borderRadius: 22,
         borderWidth: 1,
-        borderColor: theme.border,
+        borderColor: past ? theme.error : theme.border,
         marginBottom: 14,
         overflow: 'hidden',
+        opacity: past ? 0.7 : 1,
       }}
     >
       <View style={{ padding: 16 }}>
+        {past && (
+          <View style={{
+            backgroundColor: theme.error,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            alignSelf: 'flex-start',
+            marginBottom: 8,
+          }}>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
+              ⏰ Événement terminé
+            </Text>
+          </View>
+        )}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.text, fontWeight: '800', fontSize: 16, marginBottom: 8 }}>
@@ -197,6 +244,7 @@ const MyTicketsScreen = () => {
       </View>
     </TouchableOpacity>
   );
+};
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>

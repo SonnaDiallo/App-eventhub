@@ -227,3 +227,75 @@ export const login = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+/**
+ * GET /auth/me - Retourne le profil de l'utilisateur connecté.
+ * Si l'utilisateur n'est pas dans MongoDB, le récupère depuis Firestore et le synchronise.
+ */
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const firebaseUid = (req as any).user?.userId;
+    if (!firebaseUid) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    let userData: any = null;
+    try {
+      const mongoUser = await getUserByFirebaseUid(firebaseUid);
+      if (mongoUser) {
+        userData = {
+          id: mongoUser._id.toString(),
+          firebaseUid: mongoUser.firebaseUid,
+          name: mongoUser.name,
+          firstName: mongoUser.firstName,
+          lastName: mongoUser.lastName,
+          email: mongoUser.email,
+          role: mongoUser.role,
+          canScanTickets: mongoUser.canScanTickets,
+          themeMode: mongoUser.themeMode,
+          language: mongoUser.language,
+        };
+      }
+    } catch (mongoError) {
+      console.error('⚠️ getMe: Failed to get user from MongoDB, falling back to Firestore:', mongoError);
+    }
+
+    if (!userData) {
+      const userSnap = await firebaseDb.collection('users').doc(firebaseUid).get();
+      userData = userSnap.exists ? userSnap.data() : null;
+      if (userData) {
+        if (!userData.name && (userData.firstName || userData.lastName)) {
+          userData = { ...userData, name: [userData.firstName, userData.lastName].filter(Boolean).join(' ') };
+        }
+        try {
+          await syncUserToMongoDB(firebaseUid, userData);
+          console.log(`✅ User ${firebaseUid} synced to MongoDB (via /auth/me)`);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync user to MongoDB:', syncError);
+        }
+      }
+    }
+
+    if (!userData) {
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    return res.status(200).json({
+      user: {
+        id: firebaseUid,
+        mongoId: userData.id,
+        name: userData.name,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        role: userData.role,
+        canScanTickets: userData.canScanTickets,
+        themeMode: userData.themeMode,
+        language: userData.language,
+      },
+    });
+  } catch (error: any) {
+    console.error('getMe error:', error?.message);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};

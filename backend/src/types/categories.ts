@@ -111,3 +111,10 @@ export const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
  * Formats d'image acceptés
  */
 export const ALLOWED_IMAGE_FORMATS = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+/**
+ * Vérifie si une catégorie est valide
+ */
+export const isValidCategory = (category: string): category is EventCategory => {
+  return Object.values(EventCategory).includes(category as EventCategory);
+};

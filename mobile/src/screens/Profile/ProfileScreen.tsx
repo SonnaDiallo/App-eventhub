@@ -379,11 +379,27 @@ const ProfileScreen = () => {
             <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate('Favorites' as never)} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('Favorites' as never)} activeOpacity={0.7}>
             <View style={[styles.menuItemIcon, { backgroundColor: `${theme.error}18` }]}>
               <Ionicons name="heart-outline" size={20} color={theme.error} />
             </View>
             <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('Friends' as never)} activeOpacity={0.7}>
+            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
+              <Ionicons name="people-outline" size={20} color={theme.primary} />
+            </View>
+            <Text style={[styles.menuItemText, { color: theme.text }]}>Mes amis</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate('ChatList' as never)} activeOpacity={0.7}>
+            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.info}18` }]}>
+              <Ionicons name="chatbubbles-outline" size={20} color={theme.info} />
+            </View>
+            <Text style={[styles.menuItemText, { color: theme.text }]}>Messages</Text>
             <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
           </TouchableOpacity>
         </View>

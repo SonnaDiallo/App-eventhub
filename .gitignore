@@ -6,7 +6,6 @@
 **/*.env
 .env
 mobile/app.json
-.firebaserc
 
 # Node
 node_modules/
