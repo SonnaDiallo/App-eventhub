@@ -12,10 +12,12 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
+  Image,
+  FlatList,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
@@ -35,10 +37,15 @@ const ProfileScreen = () => {
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editBio, setEditBio] = useState('');
   const [saving, setSaving] = useState(false);
+  const [createdEvents, setCreatedEvents] = useState<any[]>([]);
+  const [stats, setStats] = useState({ created: 0, joined: 0, friends: 0 });
 
   useEffect(() => {
     loadUserData();
+    loadCreatedEvents();
+    loadStats();
   }, []);
 
   const loadUserData = async () => {
@@ -53,25 +60,26 @@ const ProfileScreen = () => {
       if (userDoc.exists()) {
         const data = userDoc.data();
         setUserData(data);
-        // Utiliser firstName/lastName si disponibles, sinon splitter displayName
         const firstName = data.firstName || (user.displayName?.split(' ')[0] || '');
         const lastName = data.lastName || (user.displayName?.split(' ').slice(1).join(' ') || '');
         setEditFirstName(firstName);
         setEditLastName(lastName);
         setEditEmail(data.email || user.email || '');
+        setEditBio(data.bio || '');
       } else {
-        // Créer un document utilisateur par défaut
         const displayNameParts = (user.displayName || 'Utilisateur').split(' ');
         const defaultData = {
           firstName: displayNameParts[0] || '',
           lastName: displayNameParts.slice(1).join(' ') || '',
           email: user.email || '',
           role: 'participant',
+          bio: '',
         };
         setUserData(defaultData);
         setEditFirstName(defaultData.firstName);
         setEditLastName(defaultData.lastName);
         setEditEmail(defaultData.email || '');
+        setEditBio('');
       }
     } catch (error: any) {
       console.error('Error loading user data:', error);
@@ -81,10 +89,61 @@ const ProfileScreen = () => {
     }
   };
 
+  const loadCreatedEvents = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const eventsRef = collection(db, 'events');
+      const q = query(eventsRef, where('organizerId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      
+      const events = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      
+      setCreatedEvents(events.slice(0, 4)); // Limiter à 4 événements pour l'affichage
+    } catch (error) {
+      console.error('Error loading created events:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Compter les événements créés
+      const eventsRef = collection(db, 'events');
+      const eventsQuery = query(eventsRef, where('organizerId', '==', user.uid));
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const createdCount = eventsSnapshot.size;
+
+      // Compter les billets (événements rejoints)
+      const ticketsRef = collection(db, 'tickets');
+      const ticketsQuery = query(ticketsRef, where('userId', '==', user.uid));
+      const ticketsSnapshot = await getDocs(ticketsQuery);
+      const joinedCount = ticketsSnapshot.size;
+
+      // Compter les amis
+      const friendsRef = collection(db, 'users', user.uid, 'friends');
+      const friendsSnapshot = await getDocs(friendsRef);
+      const friendsCount = friendsSnapshot.size;
+
+      setStats({
+        created: createdCount,
+        joined: joinedCount,
+        friends: friendsCount,
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
   const handleLanguageChange = async (lang: Language) => {
     try {
       await setLanguageContext(lang);
-      // Recharger les données pour mettre à jour l'interface
       await loadUserData();
     } catch (error: any) {
       console.error('Error updating language:', error);
@@ -99,7 +158,6 @@ const ProfileScreen = () => {
 
       setSaving(true);
 
-      // Valider les données
       if (!editFirstName.trim()) {
         Alert.alert(t('error'), 'Le prénom est requis');
         setSaving(false);
@@ -120,20 +178,18 @@ const ProfileScreen = () => {
 
       const fullName = `${editFirstName.trim()} ${editLastName.trim()}`;
 
-      // Mettre à jour Firebase Auth
       await updateProfile(user, {
         displayName: fullName,
       });
 
-      // Mettre à jour Firestore
       await updateDoc(doc(db, 'users', user.uid), {
         firstName: editFirstName.trim(),
         lastName: editLastName.trim(),
         email: editEmail.trim().toLowerCase(),
+        bio: editBio.trim(),
         updatedAt: new Date(),
       });
 
-      // Recharger les données
       await loadUserData();
       setIsEditing(false);
 
@@ -222,243 +278,595 @@ const ProfileScreen = () => {
 
   const initial = (isEditing ? editFirstName : firstName).charAt(0).toUpperCase()
     + (isEditing ? editLastName : lastName).charAt(0).toUpperCase() || '?';
+  
+  const bio = userData?.bio || '';
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <SafeAreaView style={{ backgroundColor: theme.header }} />
-      <StatusBar barStyle={theme.background === '#050016' ? 'light-content' : 'dark-content'} />
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.header, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color={theme.text} />
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Header avec icône paramètres */}
+      <View style={{
+        paddingTop: Platform.OS === 'ios' ? 60 : 20,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
+        backgroundColor: '#FFFFFF',
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+      }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings' as never)}
+          style={{
+            width: 40,
+            height: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="settings-outline" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('profile')}</Text>
-        {!isEditing ? (
-          <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: `${theme.primary}18` }]}
-            onPress={() => setIsEditing(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={20} color={theme.primary} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.editButton} onPress={cancelEdit} activeOpacity={0.7}>
-            <Text style={[styles.editButtonText, { color: theme.textMuted }]}>{t('cancel')}</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Carte profil */}
-        <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.avatarWrapper, { backgroundColor: `${theme.primary}20` }]}>
-            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-              <Text style={styles.avatarText} numberOfLines={1}>{initial}</Text>
-            </View>
+        {/* Photo de profil avec bordure violette */}
+        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+          <View style={{
+            width: 120,
+            height: 120,
+            borderRadius: 60,
+            borderWidth: 4,
+            borderColor: '#7B5CFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#F5F3FF',
+            marginBottom: 12,
+          }}>
+            <Text style={{
+              fontSize: 40,
+              fontWeight: '700',
+              color: '#7B5CFF',
+            }}>
+              {initial}
+            </Text>
           </View>
 
-          {isEditing ? (
-            <>
-              <Text style={[styles.editSectionTitle, { color: theme.textMuted }]}>
-                {t('editProfile') || 'Modifier le profil'}
-              </Text>
-              <View style={styles.editInputContainer}>
-                <Text style={[styles.editLabel, { color: theme.textMuted }]}>Prénom</Text>
-                <TextInput
-                  style={[styles.editInput, { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }]}
-                  value={editFirstName}
-                  onChangeText={setEditFirstName}
-                  placeholder="Ton prénom"
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-              </View>
-              <View style={styles.editInputContainer}>
-                <Text style={[styles.editLabel, { color: theme.textMuted }]}>Nom</Text>
-                <TextInput
-                  style={[styles.editInput, { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }]}
-                  value={editLastName}
-                  onChangeText={setEditLastName}
-                  placeholder="Ton nom de famille"
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-              </View>
-              <View style={styles.editInputContainer}>
-                <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t('email')}</Text>
-                <TextInput
-                  style={[styles.editInput, { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }]}
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  placeholder={t('email')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.primary }]}
-                onPress={handleSaveProfile}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                {saving ? (
-                  <ActivityIndicator color={theme.buttonPrimaryText} size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle-outline" size={20} color={theme.buttonPrimaryText} />
-                    <Text style={[styles.saveButtonText, { color: theme.buttonPrimaryText }]}>{t('save')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.userName, { color: theme.text }]} numberOfLines={2}>{displayName}</Text>
-              <Text style={[styles.userEmail, { color: theme.textMuted }]} numberOfLines={1}>{email}</Text>
-              <View style={[styles.roleBadge, { backgroundColor: `${theme.primary}22`, borderColor: `${theme.primary}44` }]}>
-                <Ionicons name={role === 'organizer' ? 'star' : role === 'admin' ? 'shield-checkmark' : 'person'} size={14} color={theme.primary} />
-                <Text style={[styles.roleText, { color: theme.primary }]}>{roleLabel}</Text>
-              </View>
-            </>
-          )}
+          {/* Bouton MODIFIER */}
+          <TouchableOpacity
+            onPress={() => setIsEditing(true)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 6,
+              backgroundColor: '#F5F3FF',
+              borderRadius: 16,
+            }}
+          >
+            <Ionicons name="camera" size={14} color="#7B5CFF" style={{ marginRight: 6 }} />
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#7B5CFF',
+              textTransform: 'uppercase',
+            }}>
+              MODIFIER
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Section Mes événements / Billets */}
-        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="calendar-outline" size={18} color={theme.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('myEvents')}</Text>
-          </View>
+        {/* Nom et Email */}
+        <View style={{ alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 }}>
+          <Text style={{
+            fontSize: 24,
+            fontWeight: '700',
+            color: '#000000',
+            marginBottom: 4,
+          }}>
+            {displayName}
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            color: '#6C757D',
+            marginBottom: 12,
+          }}>
+            {email}
+          </Text>
 
+          {/* Badge Organisateur/Admin */}
           {isOrganizer && (
-            <>
-              <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('OrganizerDashboard' as never)} activeOpacity={0.7}>
-                <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-                  <Ionicons name="stats-chart-outline" size={20} color={theme.primary} />
-                </View>
-                <Text style={[styles.menuItemText, { color: theme.text }]}>Tableau de bord</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-              </TouchableOpacity>
-              {canCreate && (
-                <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('CreateEvent' as never)} activeOpacity={0.7}>
-                  <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-                    <Ionicons name="add-circle-outline" size={20} color={theme.primary} />
-                  </View>
-                  <Text style={[styles.menuItemText, { color: theme.text }]}>Créer un événement</Text>
-                  <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('ManagePrivileges' as never)} activeOpacity={0.7}>
-                <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
-                </View>
-                <Text style={[styles.menuItemText, { color: theme.text }]}>Gérer les privilèges</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-              </TouchableOpacity>
-            </>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#7B5CFF',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 20,
+            }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#FFFFFF',
+              }}>
+                {roleLabel} ✨
+              </Text>
+            </View>
           )}
-
-          {canScanTickets && (
-            <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('ScanTicket' as never)} activeOpacity={0.7}>
-              <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-                <Ionicons name="scan-outline" size={20} color={theme.primary} />
-              </View>
-              <Text style={[styles.menuItemText, { color: theme.text }]}>Scanner un billet</Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('MyTickets' as never)} activeOpacity={0.7}>
-            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-              <Ionicons name="ticket-outline" size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('tickets')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('Favorites' as never)} activeOpacity={0.7}>
-            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.error}18` }]}>
-              <Ionicons name="heart-outline" size={20} color={theme.error} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.borderLight }]} onPress={() => navigation.navigate('Friends' as never)} activeOpacity={0.7}>
-            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-              <Ionicons name="people-outline" size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>Mes amis</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate('ChatList' as never)} activeOpacity={0.7}>
-            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.info}18` }]}>
-              <Ionicons name="chatbubbles-outline" size={20} color={theme.info} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>Messages</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
         </View>
 
-        {/* Préférences */}
-        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="options-outline" size={18} color={theme.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('preferences')}</Text>
+        {/* Bio */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 20, alignItems: 'center' }}>
+          <Text style={{
+            fontSize: 14,
+            color: '#6C757D',
+            textAlign: 'center',
+            lineHeight: 20,
+          }}>
+            {bio || 'Aucune bio pour le moment.'}
+            {' '}
+            <Text
+              onPress={() => setIsEditing(true)}
+              style={{
+                color: '#7B5CFF',
+                fontWeight: '600',
+              }}
+            >
+              Modifier
+            </Text>
+          </Text>
+        </View>
+
+        {/* Statistiques */}
+        <View style={{
+          marginHorizontal: 20,
+          marginBottom: 24,
+          backgroundColor: '#F8F9FA',
+          borderRadius: 16,
+          padding: 20,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        }}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 4,
+            }}>
+              {stats.created}
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: '#6C757D',
+            }}>
+              Créés
+            </Text>
           </View>
 
-          <View style={[styles.menuItem, styles.menuItemColumn, { borderBottomColor: theme.borderLight }]}>
-            <View style={styles.menuItemRow}>
-              <View style={[styles.menuItemIcon, { backgroundColor: `${theme.primary}18` }]}>
-                <Ionicons name="language-outline" size={20} color={theme.primary} />
-              </View>
-              <Text style={[styles.menuItemText, { color: theme.text }]}>{t('language')}</Text>
+          <View style={{
+            width: 1,
+            backgroundColor: '#E5E7EB',
+          }} />
+
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 4,
+            }}>
+              {stats.joined}
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: '#6C757D',
+            }}>
+              Rejoints
+            </Text>
+          </View>
+
+          <View style={{
+            width: 1,
+            backgroundColor: '#E5E7EB',
+          }} />
+
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 4,
+            }}>
+              {stats.friends}
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: '#6C757D',
+            }}>
+              Amis
+            </Text>
+          </View>
+        </View>
+
+        {/* Section MES ÉVÉNEMENTS CRÉÉS */}
+        {isOrganizer && createdEvents.length > 0 && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#000000',
+              }}>
+                MES ÉVÉNEMENTS CRÉÉS
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('OrganizerDashboard' as never)}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#7B5CFF',
+                }}>
+                  Voir tout →
+                </Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.languageSelector}>
-              {languages.map((lang) => (
+
+            {/* Grille 2 colonnes */}
+            <View style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+            }}>
+              {createdEvents.map((event, index) => (
                 <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.languageButton,
-                    { backgroundColor: language === lang.code ? theme.primary : theme.inputBackground, borderColor: language === lang.code ? theme.primary : theme.border },
-                  ]}
-                  onPress={() => handleLanguageChange(lang.code)}
-                  activeOpacity={0.7}
+                  key={event.id}
+                  onPress={() => navigation.navigate('EventDetails', { event } as any)}
+                  style={{
+                    width: '48%',
+                    marginBottom: 16,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    backgroundColor: '#F8F9FA',
+                  }}
                 >
-                  <Text style={[styles.languageButtonText, { color: language === lang.code ? theme.buttonPrimaryText : theme.text }]}>
-                    {lang.nativeName}
-                  </Text>
+                  {event.coverImage ? (
+                    <Image
+                      source={{ uri: event.coverImage }}
+                      style={{ width: '100%', height: 120 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={{
+                      width: '100%',
+                      height: 120,
+                      backgroundColor: '#7B5CFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Ionicons name="calendar" size={40} color="#FFFFFF" />
+                    </View>
+                  )}
+                  
+                  {/* Badge date */}
+                  <View style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    backgroundColor: '#7B5CFF',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                  }}>
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      color: '#FFFFFF',
+                    }}>
+                      {event.date || 'À venir'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
+        )}
 
-          <View style={[styles.menuItem, { borderBottomWidth: 0 }]}>
-            <ThemeToggle />
-          </View>
-        </View>
+        {/* Privilèges Admin - Accès rapide */}
+        {isOrganizer && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 16,
+            }}>
+              ACCÈS RAPIDE
+            </Text>
+            
+            <TouchableOpacity
+              onPress={() => navigation.navigate('OrganizerDashboard' as never)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#F8F9FA',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#7B5CFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+                <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#000000' }}>
+                Tableau de bord
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
 
-        {/* Compte */}
-        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="person-outline" size={18} color={theme.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('account')}</Text>
+            {canCreate && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('CreateEvent' as never)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F8F9FA',
+                  padding: 16,
+                  borderRadius: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#10B981',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                  <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                </View>
+                <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#000000' }}>
+                  Créer un événement
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ManagePrivileges' as never)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#F8F9FA',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#EF4444',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+                <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#000000' }}>
+                Gérer les privilèges
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {canScanTickets && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ScanTicket' as never)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F8F9FA',
+                  padding: 16,
+                  borderRadius: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#F59E0B',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                  <Ionicons name="scan" size={20} color="#FFFFFF" />
+                </View>
+                <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#000000' }}>
+                  Scanner un billet
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
           </View>
-          <TouchableOpacity style={[styles.menuItem, styles.logoutItem, { borderBottomWidth: 0 }]} onPress={handleLogout} activeOpacity={0.7}>
-            <View style={[styles.menuItemIcon, { backgroundColor: `${theme.error}18` }]}>
-              <Ionicons name="log-out-outline" size={20} color={theme.error} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.error }]}>{t('logout')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+        )}
+
+        {/* Bouton Déconnexion */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 40 }}>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#FEE2E2',
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#EF4444',
+            }}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: '#EF4444',
+            }}>
+              Se déconnecter
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Modal d'édition */}
+      {isEditing && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            padding: 24,
+          }}>
+            <TouchableOpacity
+              onPress={() => setIsEditing(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                padding: 8,
+                zIndex: 10,
+              }}
+            >
+              <Ionicons name="close" size={24} color="#000000" />
+            </TouchableOpacity>
+
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 20,
+              textAlign: 'center',
+            }}>
+              Modifier le profil
+            </Text>
+
+            <TextInput
+              style={{
+                backgroundColor: '#F8F9FA',
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 16,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+              value={editFirstName}
+              onChangeText={setEditFirstName}
+              placeholder="Prénom"
+            />
+
+            <TextInput
+              style={{
+                backgroundColor: '#F8F9FA',
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 16,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+              value={editLastName}
+              onChangeText={setEditLastName}
+              placeholder="Nom"
+            />
+
+            <TextInput
+              style={{
+                backgroundColor: '#F8F9FA',
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 16,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+              value={editEmail}
+              onChangeText={setEditEmail}
+              placeholder="Email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <TextInput
+              style={{
+                backgroundColor: '#F8F9FA',
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 16,
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                height: 100,
+                textAlignVertical: 'top',
+              }}
+              value={editBio}
+              onChangeText={setEditBio}
+              placeholder="Bio"
+              multiline
+              numberOfLines={4}
+            />
+
+            <TouchableOpacity
+              onPress={handleSaveProfile}
+              disabled={saving}
+              style={{
+                backgroundColor: '#7B5CFF',
+                paddingVertical: 14,
+                borderRadius: 999,
+                alignItems: 'center',
+              }}
+            >
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                }}>
+                  Enregistrer
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -655,10 +1063,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-  },
-  menuItemValue: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   logoutItem: {
     borderBottomWidth: 0,

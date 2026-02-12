@@ -3,9 +3,11 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
+import { useNotifications } from './src/hooks/useNotifications';
 
 function AppContent() {
   const { theme, themeMode } = useTheme();
+  const { expoPushToken } = useNotifications();
   const BaseTheme = themeMode === 'dark' ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...BaseTheme,

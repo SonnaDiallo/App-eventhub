@@ -3,31 +3,11 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 import { getToken } from './authStorage';
+import { getApiBaseUrl, API_CONFIG } from '../config/constants';
 
 declare const __DEV__: boolean;
 
-// 🔥 IMPORTANT: Trouve ton IP Windows avec 'ipconfig' dans CMD
-// Cherche "Adresse IPv4" dans la section de ta connexion WiFi/Ethernet
-const YOUR_LOCAL_IP = '192.168.1.37'; // ⚠️ CHANGE CETTE IP !
-
-const getBaseURL = () => {
-  if (__DEV__) {
-    // Pour iOS (iPhone ou Simulator), utilise TOUJOURS l'IP locale
-    if (Platform.OS === 'ios') {
-      return `http://${YOUR_LOCAL_IP}:5000/api`;
-    }
-    
-    // Pour Android Emulator uniquement
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:5000/api';
-    }
-  }
-  
-  // Production
-  return `http://${YOUR_LOCAL_IP}:5000/api`;
-};
-
-const BASE_URL = getBaseURL();
+const BASE_URL = getApiBaseUrl();
 
 console.log('🌐 API Base URL:', BASE_URL);
 console.log('📱 Platform:', Platform.OS);
@@ -36,7 +16,7 @@ console.log('ℹ️ API client: unused in Firebase-only mode');
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

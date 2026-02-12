@@ -287,9 +287,90 @@ Pour toute question ou problème :
 - Créer une issue sur GitHub
 - Contacter l'équipe de développement
 
-## 🗺️ Roadmap
+## � Notifications Push
 
-- [ ] Notifications push
+### Configuration
+
+Les notifications push sont implémentées dans l'application mobile. Pour les activer :
+
+#### 1. Ajouter dans `mobile/app.json`
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#7B5CFF"
+        }
+      ]
+    ],
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#7B5CFF",
+      "androidMode": "default"
+    },
+    "android": {
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Cette application envoie des notifications pour vous rappeler vos événements."
+      }
+    }
+  }
+}
+```
+
+### Utilisation
+
+#### Planifier un rappel d'événement
+
+```typescript
+import { scheduleEventReminder } from './src/services/notificationService';
+
+// Rappel 1h avant l'événement
+await scheduleEventReminder(
+  eventId,
+  'Soirée Networking Tech',
+  new Date('2024-12-25T19:00:00'),
+  60 // minutes avant
+);
+```
+
+#### Envoyer une notification immédiate
+
+```typescript
+import { sendImmediateNotification } from './src/services/notificationService';
+
+await sendImmediateNotification(
+  'Billet confirmé ! 🎉',
+  'Votre billet a été confirmé',
+  { eventId: '123', type: 'ticket_confirmed' }
+);
+```
+
+#### Types de notifications
+
+- `event_reminder` - Rappel avant un événement
+- `new_event` - Nouvel événement
+- `friend_joined` - Un ami s'est inscrit
+- `ticket_confirmed` - Confirmation de billet
+- `event_update` - Mise à jour d'événement
+- `event_cancelled` - Événement annulé
+
+### Fichiers créés
+
+- `mobile/src/services/notificationService.ts` - Service de gestion des notifications
+- `mobile/src/hooks/useNotifications.ts` - Hook React pour les notifications
+
+## �🗺️ Roadmap
+
+- [x] Notifications push ✅
 - [ ] Paiement en ligne intégré
 - [ ] Carte interactive des événements
 - [ ] Système d'avis et notes

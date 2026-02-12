@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -24,6 +26,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -52,8 +55,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const role = profileSnap.exists() ? profileSnap.data()?.role : undefined;
       const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
       const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
-      const name = firstName && lastName 
-        ? `${firstName} ${lastName}` 
+      const name = firstName && lastName
+        ? `${firstName} ${lastName}`
         : profileSnap.exists()
           ? profileSnap.data()?.name
           : credential.user.displayName;
@@ -79,113 +82,232 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.background }}
+      style={{ flex: 1, backgroundColor: '#F8F9FA' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: 24,
-          paddingTop: 32,
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 20,
+          paddingTop: 60,
           paddingBottom: 32,
-          justifyContent: 'center',
         }}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* Bouton retour */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: '#FFFFFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 32,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+
+        {/* Header */}
         <Text
           style={{
-            color: theme.text,
-            fontSize: 28,
+            fontSize: 32,
             fontWeight: '700',
-            marginBottom: 6,
+            color: '#000',
+            textAlign: 'center',
+            marginBottom: 8,
           }}
         >
-          Connexion
+          Bon retour !
         </Text>
-        <Text style={{ color: theme.textMuted, fontSize: 14, marginBottom: 20 }}>
-          Connecte-toi pour retrouver tes événements.
+        <Text
+          style={{
+            fontSize: 16,
+            color: '#6C757D',
+            textAlign: 'center',
+            marginBottom: 40,
+          }}
+        >
+          Connectez-vous pour continuer
         </Text>
 
+        {/* Champ Email */}
         <View
           style={{
-            backgroundColor: theme.surface,
-            borderRadius: 18,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: theme.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
             marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#DEE2E6',
           }}
         >
-          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Email</Text>
+          <Ionicons name="at" size={20} color="#6C757D" style={{ marginRight: 12 }} />
           <TextInput
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            placeholder="ex: nom@email.com"
-            placeholderTextColor={theme.inputPlaceholder}
+            placeholder="votre@email.com"
+            placeholderTextColor="#ADB5BD"
             style={{
-              color: theme.text,
-              borderWidth: 1,
-              borderColor: theme.border,
-              paddingVertical: 12,
-              paddingHorizontal: 12,
-              borderRadius: 12,
-              marginBottom: 12,
-              backgroundColor: theme.inputBackground,
-            }}
-          />
-
-          <Text style={{ color: theme.textMuted, marginBottom: 8 }}>Mot de passe</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="Ton mot de passe"
-            placeholderTextColor={theme.inputPlaceholder}
-            style={{
-              color: theme.text,
-              borderWidth: 1,
-              borderColor: theme.border,
-              paddingVertical: 12,
-              paddingHorizontal: 12,
-              borderRadius: 12,
-              backgroundColor: theme.inputBackground,
+              flex: 1,
+              fontSize: 16,
+              color: '#000',
             }}
           />
         </View>
 
+        {/* Champ Mot de passe */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: '#DEE2E6',
+          }}
+        >
+          <Ionicons name="lock-closed" size={20} color="#6C757D" style={{ marginRight: 12 }} />
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            placeholder="••••••••"
+            placeholderTextColor="#ADB5BD"
+            style={{
+              flex: 1,
+              fontSize: 16,
+              color: '#000',
+            }}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color="#6C757D"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mot de passe oublié */}
+        <TouchableOpacity
+          style={{ alignSelf: 'flex-end', marginBottom: 24 }}
+          onPress={() => Alert.alert('Info', 'Fonctionnalité à venir')}
+        >
+          <Text style={{ color: '#7B5CFF', fontSize: 14, fontWeight: '500' }}>
+            Mot de passe oublié ?
+          </Text>
+        </TouchableOpacity>
+
+        {/* Bouton Se connecter */}
         <TouchableOpacity
           style={{
-            backgroundColor: theme.primary,
-            paddingVertical: 14,
-            borderRadius: 999,
+            backgroundColor: '#7B5CFF',
+            paddingVertical: 16,
+            borderRadius: 12,
             alignItems: 'center',
+            marginBottom: 24,
             opacity: loading ? 0.7 : 1,
           }}
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={{ color: theme.buttonPrimaryText, fontWeight: '600', fontSize: 16 }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16 }}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
+        {/* Séparateur */}
+        <View
           style={{
-            marginTop: 12,
-            borderWidth: 1,
-            borderColor: theme.primary,
-            paddingVertical: 14,
-            borderRadius: 999,
+            flexDirection: 'row',
             alignItems: 'center',
+            marginBottom: 24,
           }}
-          onPress={() => navigation.navigate('Register')}
         >
-          <Text style={{ color: theme.text, fontWeight: '500', fontSize: 16 }}>
-            Créer un compte
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={{ flex: 1, height: 1, backgroundColor: '#DEE2E6' }} />
+          <Text style={{ marginHorizontal: 16, color: '#6C757D', fontSize: 14 }}>ou</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: '#DEE2E6' }} />
+        </View>
+
+        {/* Boutons de connexion sociale */}
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 16,
+            marginBottom: 40,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: '#FFFFFF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: '#DEE2E6',
+            }}
+            onPress={() => Alert.alert('Info', 'Connexion Google à venir')}
+          >
+            <Ionicons name="logo-google" size={24} color="#DB4437" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: '#FFFFFF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: '#DEE2E6',
+            }}
+            onPress={() => Alert.alert('Info', 'Connexion Apple à venir')}
+          >
+            <Ionicons name="logo-apple" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#6C757D', fontSize: 14 }}>Pas encore inscrit ? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={{ color: '#7B5CFF', fontSize: 14, fontWeight: '600' }}>
+              S'inscrire
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Indicateur de page */}
+        <View
+          style={{
+            height: 4,
+            width: 134,
+            backgroundColor: '#DEE2E6',
+            borderRadius: 2,
+            alignSelf: 'center',
+            marginTop: 24,
+          }}
+        />
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };

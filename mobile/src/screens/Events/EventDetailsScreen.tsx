@@ -1,9 +1,8 @@
 // mobile/src/screens/Events/EventDetailsScreen.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   Image,
   TouchableOpacity,
@@ -28,7 +27,7 @@ import {
   type ExternalRegistration 
 } from '../../services/externalRegistrationService';
 import { useTheme } from '../../theme/ThemeContext';
-import type { ThemeColors } from '../../theme/theme';
+import { createStyles } from './EventDetailsScreen.styles';
 
 const { width } = Dimensions.get('window');
 
@@ -60,6 +59,7 @@ const generateTicketCode = () => {
 
 const EventDetailsScreen = () => {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const navigation = useNavigation<any>();
   const route = useRoute<EventDetailsRouteProp>();
   const [isLiked, setIsLiked] = useState(false);
@@ -69,10 +69,35 @@ const EventDetailsScreen = () => {
   const [checkingFavorite, setCheckingFavorite] = useState(true);
   const [isExternalRegistered, setIsExternalRegistered] = useState(false);
   const [checkingExternalRegistration, setCheckingExternalRegistration] = useState(false);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(true);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
   const user = auth.currentUser;
+
+  // Charger les participants qui ont réservé
+  useEffect(() => {
+    const loadParticipants = async () => {
+      try {
+        const ticketsRef = collection(db, 'tickets');
+        const q = query(ticketsRef, where('eventId', '==', event.id));
+        const snapshot = await getDocs(q);
+        
+        const participantsList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        
+        setParticipants(participantsList);
+      } catch (error) {
+        console.error('Error loading participants:', error);
+      } finally {
+        setLoadingParticipants(false);
+      }
+    };
+    loadParticipants();
+  }, [event.id]);
 
   // Vérifier si l'événement est dans les favoris
   useEffect(() => {
@@ -346,224 +371,426 @@ const EventDetailsScreen = () => {
     );
   };
 
-  const styles = useMemo(() => getStyles(theme), [theme]);
+
+  const getCategoryIcon = () => {
+    const category = event.category?.toLowerCase() || '';
+    if (category.includes('music') || category.includes('musique')) return 'musical-notes';
+    if (category.includes('sport')) return 'football';
+    if (category.includes('tech')) return 'laptop';
+    if (category.includes('art')) return 'color-palette';
+    if (category.includes('food') || category.includes('cuisine')) return 'restaurant';
+    return 'calendar';
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header avec image */}
-      <View style={styles.imageContainer}>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      {/* Grande image de l'événement */}
+      <View style={{ position: 'relative' }}>
         <Image
           source={{ uri: event.coverImage }}
-          style={styles.coverImage}
+          style={{ width: '100%', height: 300 }}
           resizeMode="cover"
         />
         
-        {/* Overlay gradient */}
-        <View style={styles.imageOverlay} />
-        
-        {/* Header buttons */}
-        <View style={styles.header}>
+        {/* Boutons header */}
+        <View style={{
+          position: 'absolute',
+          top: Platform.OS === 'ios' ? 50 : 20,
+          left: 0,
+          right: 0,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+        }}>
           <TouchableOpacity
-            style={styles.headerButton}
             onPress={() => navigation.goBack()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Ionicons name="arrow-back" size={22} color={theme.text} />
+            <Ionicons name="arrow-back" size={22} color="#000000" />
           </TouchableOpacity>
           
-          <Text style={styles.headerTitle}>Détails de l'Événement</Text>
-          
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={async () => {
-                if (!user) {
-                  Alert.alert('Connexion requise', 'Connectez-vous pour ajouter aux favoris');
-                  return;
-                }
-                try {
-                  const newFavoriteState = await toggleFavorite(event.id);
-                  setIsLiked(newFavoriteState);
-                } catch (error: any) {
-                  Alert.alert('Erreur', 'Impossible de modifier les favoris');
-                }
-              }}
-            >
-              <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isLiked ? theme.error : theme.text}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.headerButton, { marginLeft: 8 }]}
-              onPress={handleShare}
-            >
-              <Ionicons name="share-outline" size={22} color={theme.text} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="share-outline" size={22} color="#000000" />
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Contenu scrollable */}
       <ScrollView
-        style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Titre */}
-        <Text style={styles.title}>{event.title}</Text>
+        <View style={{ padding: 20 }}>
+          {/* Badge catégorie */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#F5F3FF',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 16,
+            alignSelf: 'flex-start',
+            marginBottom: 12,
+          }}>
+            <Ionicons name={getCategoryIcon()} size={14} color="#7B5CFF" style={{ marginRight: 6 }} />
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '600',
+              color: '#7B5CFF',
+            }}>
+              {event.category || 'Musique'}
+            </Text>
+          </View>
 
-        {/* Date et heure */}
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="calendar" size={18} color={theme.primary} />
-          </View>
-          <View style={styles.infoText}>
-            <Text style={styles.infoTitle}>{event.date}</Text>
-            <Text style={styles.infoSubtitle}>{event.time}</Text>
-          </View>
-        </View>
+          {/* Titre */}
+          <Text style={{
+            fontSize: 24,
+            fontWeight: '700',
+            color: '#000000',
+            marginBottom: 16,
+            lineHeight: 32,
+          }}>
+            {event.title}
+          </Text>
 
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="location" size={18} color={theme.primary} />
-          </View>
-          <View style={styles.infoText}>
-            <Text style={styles.infoTitle}>{event.location}</Text>
-            <Text style={styles.infoSubtitle}>{event.address}</Text>
-          </View>
-        </View>
-
-        {/* Organisateur */}
-        <View style={styles.organizerContainer}>
-          <View style={styles.organizerAvatar}>
-            <Ionicons name="person" size={20} color={theme.primary} />
-          </View>
-          <View style={styles.organizerInfo}>
-            <Text style={styles.organizerLabel}>Organisé par</Text>
-            <Text style={styles.organizerName}>{event.organizer}</Text>
-          </View>
-        </View>
-
-        {/* Participants - seulement pour les événements créés sur la plateforme */}
-        {!event.id.startsWith('external_') ? (
-          <TouchableOpacity
-            style={styles.calendarButton}
-            onPress={() => navigation.navigate('Participants', { eventId: event.id })}
-          >
-            <Ionicons name="people-outline" size={20} color={theme.primary} />
-            <Text style={styles.calendarButtonText}>Voir les participants</Text>
-          </TouchableOpacity>
-        ) : (
-          <View>
+          {/* Organisateur avec bouton Suivre */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: '#7B5CFF',
+              }}>
+                {(event.organizer || 'O').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 12,
+                color: '#6C757D',
+              }}>
+                Par
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#000000',
+              }}>
+                {event.organizer}
+              </Text>
+            </View>
             <TouchableOpacity
-              style={[
-                styles.calendarButton,
-                isExternalRegistered && { backgroundColor: `${theme.error}18`, borderWidth: 1, borderColor: theme.error }
-              ]}
-              onPress={handleExternalRegistration}
-              disabled={isRegistering || checkingExternalRegistration}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 6,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#7B5CFF',
+              }}
             >
-              {isRegistering || checkingExternalRegistration ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <Ionicons 
-                  name={isExternalRegistered ? "person-remove-outline" : "person-add-outline"} 
-                  size={20} 
-                  color={isExternalRegistered ? theme.error : theme.primary} 
-                />
-              )}
-              <Text style={[
-                styles.calendarButtonText,
-                isExternalRegistered && { color: theme.error }
-              ]}>
-                {checkingExternalRegistration 
-                  ? 'Vérification...' 
-                  : isExternalRegistered 
-                    ? 'Annuler l\'inscription' 
-                    : "S'inscrire à l'événement"
-                }
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#7B5CFF',
+              }}>
+                Suivre
               </Text>
             </TouchableOpacity>
-            
-            {isExternalRegistered && (
-              <TouchableOpacity
-                style={[styles.calendarButton, { marginTop: 8 }]}
-                onPress={() => navigation.navigate('Participants', { eventId: event.id })}
-              >
-                <Ionicons name="people-outline" size={20} color={theme.primary} />
-                <Text style={styles.calendarButtonText}>Voir les participants</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        )}
 
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>À propos de l'événement</Text>
-          <Text style={styles.description}>
-            {event.description}
-            <Text style={styles.readMore}> Lire la suite</Text>
-          </Text>
-        </View>
+          {/* Date et heure */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            marginBottom: 16,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Ionicons name="calendar" size={20} color="#7B5CFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#000000',
+                marginBottom: 4,
+              }}>
+                {event.date}
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: '#6C757D',
+              }}>
+                {event.time || '20:00 - 23:30'}
+              </Text>
+            </View>
+          </View>
 
-        {/* Ajouter au calendrier */}
-        <TouchableOpacity 
-          style={styles.calendarButton}
-          onPress={handleAddToCalendar}
-        >
-          <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-          <Text style={styles.calendarButtonText}>Ajouter au calendrier</Text>
-        </TouchableOpacity>
-
-        {/* Carte interactive (cliquable → ouvre l'app Cartes) */}
-        <View style={styles.section}>
-          {(event.location || event.address) ? (
-            <TouchableOpacity
-              style={styles.mapContainer}
-              onPress={openAddressInMaps}
-              activeOpacity={0.9}
-            >
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={40} color={theme.primary} />
-                <Text style={styles.mapPlaceholderText}>Carte interactive</Text>
-                <Text style={styles.mapPlaceholderAddress} numberOfLines={2}>
-                  {event.location || event.address}
+          {/* Lieu */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            marginBottom: 16,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Ionicons name="location" size={20} color="#7B5CFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#000000',
+                marginBottom: 4,
+              }}>
+                {event.location}
+              </Text>
+              <TouchableOpacity onPress={openAddressInMaps}>
+                <Text style={{
+                  fontSize: 14,
+                  color: '#7B5CFF',
+                  fontWeight: '600',
+                }}>
+                  Voir sur la carte
                 </Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.mapContainer}>
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={40} color={theme.primary} />
-                <Text style={styles.mapPlaceholderText}>Adresse à préciser</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Nombre de personnes inscrites */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 24,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Ionicons name="people" size={20} color="#7B5CFF" />
+            </View>
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: '#000000',
+            }}>
+              {participants.length} {participants.length > 1 ? 'personnes inscrites' : 'personne inscrite'}
+            </Text>
+          </View>
+
+          {/* Section À propos */}
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: '#000000',
+            marginBottom: 12,
+          }}>
+            À propos
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            color: '#6C757D',
+            lineHeight: 22,
+            marginBottom: 8,
+          }}>
+            {event.description}
+            {' '}
+            <Text style={{
+              color: '#7B5CFF',
+              fontWeight: '600',
+            }}>
+              Lire la suite
+            </Text>
+          </Text>
+
+          {/* Carte */}
+          <TouchableOpacity
+            onPress={openAddressInMaps}
+            style={{
+              width: '100%',
+              height: 150,
+              borderRadius: 16,
+              backgroundColor: '#F8F9FA',
+              marginBottom: 24,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="map" size={40} color="#7B5CFF" />
+            <Text style={{
+              fontSize: 14,
+              color: '#6C757D',
+              marginTop: 8,
+            }}>
+              Carte interactive
+            </Text>
+          </TouchableOpacity>
+
+          {/* Section Qui y va ? */}
+          {participants.length > 0 && (
+            <View>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#000000',
+                marginBottom: 16,
+              }}>
+                Qui y va ?
+              </Text>
+              
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+                {/* Avatars des participants (max 5 visibles) */}
+                {participants.slice(0, 5).map((participant, index) => (
+                  <View
+                    key={participant.id}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: '#7B5CFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: '#FFFFFF',
+                      marginLeft: index > 0 ? -12 : 0,
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: '#FFFFFF',
+                    }}>
+                      {(participant.participantName || 'P').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                ))}
+                
+                {/* Compteur "+X autres" */}
+                {participants.length > 5 && (
+                  <View style={{
+                    marginLeft: 12,
+                  }}>
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: '#6C757D',
+                    }}>
+                      +{participants.length - 5} autres
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
         </View>
-
-        {/* Espace pour le footer */}
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Footer fixe avec prix et bouton */}
-      <View style={styles.footer}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Billets à partir de</Text>
-          <Text style={styles.price}>
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <View>
+          <Text style={{
+            fontSize: 12,
+            color: '#6C757D',
+            marginBottom: 4,
+          }}>
+            PRIX
+          </Text>
+          <Text style={{
+            fontSize: 24,
+            fontWeight: '700',
+            color: '#000000',
+          }}>
             {event.isFree ? 'Gratuit' : `${event.price.toFixed(2)} €`}
           </Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.buyButton, (hasTicket || isRegistering) && styles.buyButtonDisabled]}
+        
+        <TouchableOpacity
           onPress={handleGetTicket}
-          disabled={isRegistering || checkingTicket}
+          disabled={isRegistering || checkingTicket || hasTicket}
+          style={{
+            backgroundColor: hasTicket ? '#9CA3AF' : '#7B5CFF',
+            paddingHorizontal: 24,
+            paddingVertical: 14,
+            borderRadius: 999,
+            minWidth: 180,
+            alignItems: 'center',
+          }}
         >
           {isRegistering || checkingTicket ? (
-            <ActivityIndicator color={theme.buttonPrimaryText} size="small" />
+            <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.buyButtonText}>
-              {hasTicket ? 'Déjà inscrit ✓' : 'Obtenir un billet'}
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: '#FFFFFF',
+            }}>
+              {hasTicket ? 'Déjà inscrit ✓' : 'Réserver ma place'}
             </Text>
           )}
         </TouchableOpacity>
@@ -572,106 +799,5 @@ const EventDetailsScreen = () => {
   );
 };
 
-const getStyles = (t: ThemeColors) =>
-  StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background },
-    imageContainer: { height: 280, position: 'relative' as const },
-    coverImage: { width: '100%', height: '100%' },
-    imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
-    header: {
-      position: 'absolute' as const,
-      top: 0, left: 0, right: 0,
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: Platform.OS === 'ios' ? 50 : 16,
-      paddingBottom: 16,
-    },
-    headerButton: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { color: t.text, fontSize: 16, fontWeight: '600' as const },
-    headerRight: { flexDirection: 'row' as const },
-    content: {
-      flex: 1,
-      marginTop: -30,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      backgroundColor: t.background,
-    },
-    contentContainer: { padding: 20 },
-    title: { fontSize: 24, fontWeight: '700' as const, color: t.text, marginBottom: 20, lineHeight: 32 },
-    infoRow: { flexDirection: 'row' as const, alignItems: 'center', marginBottom: 16 },
-    iconContainer: {
-      width: 40, height: 40, borderRadius: 12,
-      backgroundColor: t.primary + '26',
-      alignItems: 'center', justifyContent: 'center', marginRight: 12,
-    },
-    infoText: { flex: 1 },
-    infoTitle: { fontSize: 15, fontWeight: '600' as const, color: t.text, marginBottom: 2 },
-    infoSubtitle: { fontSize: 13, color: t.textMuted },
-    organizerContainer: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: t.surface, borderRadius: 16, padding: 14,
-      marginTop: 8, marginBottom: 24,
-    },
-    organizerAvatar: {
-      width: 44, height: 44, borderRadius: 22,
-      backgroundColor: t.primary + '33',
-      alignItems: 'center', justifyContent: 'center', marginRight: 12,
-    },
-    organizerInfo: { flex: 1 },
-    organizerLabel: { fontSize: 12, color: t.textMuted, marginBottom: 2 },
-    organizerName: { fontSize: 15, fontWeight: '600' as const, color: t.text },
-    section: { marginBottom: 24 },
-    sectionTitle: { fontSize: 18, fontWeight: '600' as const, color: t.text, marginBottom: 12 },
-    description: { fontSize: 14, color: t.textMuted, lineHeight: 22 },
-    readMore: { color: t.primary, fontWeight: '500' as const },
-    calendarButton: {
-      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'center',
-      paddingVertical: 14, marginBottom: 24,
-      borderWidth: 1, borderColor: t.primary, borderRadius: 12,
-    },
-    calendarButtonText: { color: t.primary, fontSize: 15, fontWeight: '500' as const, marginLeft: 8 },
-    locationCard: {
-      flexDirection: 'row' as const, alignItems: 'center',
-      backgroundColor: t.surface, borderRadius: 12, padding: 14, marginBottom: 12,
-      borderWidth: 1, borderColor: t.border,
-    },
-    locationCardIcon: { marginRight: 12 },
-    locationCardText: { flex: 1 },
-    locationName: { fontSize: 15, fontWeight: '600' as const, color: t.text, marginBottom: 2 },
-    locationAddress: { fontSize: 13, color: t.textMuted },
-    locationHint: { fontSize: 12, color: t.primary, marginTop: 6 },
-    mapContainer: {
-      height: 160, borderRadius: 16, overflow: 'hidden' as const, backgroundColor: t.surface,
-    },
-    map: { width: '100%', height: '100%' },
-    mapPlaceholder: {
-      flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: t.header, padding: 16,
-    },
-    mapPlaceholderText: { color: t.textMuted, fontSize: 14, marginTop: 8 },
-    mapPlaceholderAddress: { color: t.primary, fontSize: 12, marginTop: 6, textAlign: 'center' as const },
-    footer: {
-      position: 'absolute' as const, bottom: 0, left: 0, right: 0,
-      flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 20, paddingTop: 16,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-      backgroundColor: t.header,
-      borderTopWidth: 1, borderTopColor: t.border,
-    },
-    priceContainer: { flex: 1 },
-    priceLabel: { fontSize: 12, color: t.textMuted, marginBottom: 2 },
-    price: { fontSize: 20, fontWeight: '700' as const, color: t.text },
-    buyButton: {
-      backgroundColor: t.primary,
-      paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12,
-      marginLeft: 16, minWidth: 140, alignItems: 'center',
-    },
-    buyButtonDisabled: { backgroundColor: t.primaryDark || t.primary },
-    buyButtonText: { color: t.buttonPrimaryText, fontSize: 15, fontWeight: '600' as const },
-  });
 
 export default EventDetailsScreen;

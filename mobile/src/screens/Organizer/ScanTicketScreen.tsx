@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { collection, doc, getDoc, getDocs, query, updateDoc, where, orderBy, onSnapshot, Timestamp, addDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { createStyles } from './ScanTicketScreen.styles';
 
 type ScanResult =
   | { type: 'success'; participant: string; ticketType: string; ticketId: string; eventId: string; eventTitle: string }
@@ -31,6 +32,7 @@ interface ScanHistory {
 const ScanTicketScreen = () => {
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const [permission, requestPermission] = useCameraPermissions();
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanned, setScanned] = useState(false);

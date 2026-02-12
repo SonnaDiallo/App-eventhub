@@ -37,6 +37,7 @@ const MyTicketsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   const user = auth.currentUser;
 
@@ -126,178 +127,297 @@ const MyTicketsScreen = () => {
   }, [user]);
 
   const renderTicket = ({ item }: { item: Ticket }) => {
-    // Vérifier si l'événement est passé
-    const isEventPast = () => {
-      if (!item.eventDate) return false;
-      try {
-        // Parser la date de l'événement (format DD/MM/YYYY ou YYYY-MM-DD)
-        const dateParts = item.eventDate.split('/');
-        let eventDate: Date;
-        
-        if (dateParts.length === 3) {
-          // Format DD/MM/YYYY
-          eventDate = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
-        } else {
-          // Format YYYY-MM-DD
-          eventDate = new Date(item.eventDate);
-        }
-        
-        // Ajouter l'heure si disponible
-        if (item.eventTime) {
-          const [hours, minutes] = item.eventTime.split(':');
-          eventDate.setHours(parseInt(hours), parseInt(minutes));
-        }
-        
-        const now = new Date();
-        return eventDate < now;
-      } catch {
-        return false;
-      }
-    };
-    
-    const past = isEventPast();
-    
     return (
-    <TouchableOpacity
-      onPress={() => setSelectedTicket(item)}
-      style={{
-        backgroundColor: theme.card,
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: past ? theme.error : theme.border,
-        marginBottom: 14,
-        overflow: 'hidden',
-        opacity: past ? 0.7 : 1,
-      }}
-    >
-      <View style={{ padding: 16 }}>
-        {past && (
+      <TouchableOpacity
+        onPress={() => setSelectedTicket(item)}
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 24,
+          marginBottom: 20,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 3,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Logo EventHub */}
+        <View style={{
+          alignItems: 'center',
+          paddingTop: 24,
+          paddingBottom: 16,
+        }}>
           <View style={{
-            backgroundColor: theme.error,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 12,
-            alignSelf: 'flex-start',
-            marginBottom: 8,
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: '#7B5CFF',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
-              ⏰ Événement terminé
-            </Text>
+            <Ionicons name="calendar" size={24} color="#FFFFFF" />
           </View>
-        )}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.text, fontWeight: '800', fontSize: 16, marginBottom: 8 }}>
-              {item.eventTitle}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Ionicons name="calendar-outline" size={14} color={theme.primary} />
-              <Text style={{ color: theme.textSecondary, marginLeft: 8, fontSize: 13 }}>{item.eventDate}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Ionicons name="time-outline" size={14} color={theme.primary} />
-              <Text style={{ color: theme.textSecondary, marginLeft: 8, fontSize: 13 }}>{item.eventTime}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="location-outline" size={14} color={theme.primary} />
-              <Text style={{ color: theme.textSecondary, marginLeft: 8, fontSize: 13 }}>{item.eventLocation}</Text>
-            </View>
-          </View>
-          
-          <View style={{ alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#ffffff', padding: 6, borderRadius: 8 }}>
-              <QRCode value={item.code} size={50} />
-            </View>
-            <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 6, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
-              {item.code}
-            </Text>
+          <Text style={{
+            fontSize: 14,
+            fontWeight: '600',
+            color: '#000000',
+            marginTop: 8,
+          }}>
+            EventHub
+          </Text>
+        </View>
+
+        {/* QR Code */}
+        <View style={{
+          alignItems: 'center',
+          paddingVertical: 20,
+          backgroundColor: '#F8F9FA',
+          marginHorizontal: 20,
+          borderRadius: 16,
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            padding: 16,
+            borderRadius: 12,
+          }}>
+            <QRCode value={item.code} size={120} />
           </View>
         </View>
 
-        <View
-          style={{
-            marginTop: 14,
-            paddingTop: 14,
-            borderTopWidth: 1,
-            borderTopColor: theme.border,
+        {/* Ligne pointillée */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          marginVertical: 20,
+        }}>
+          {Array.from({ length: 30 }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: 4,
+                height: 1,
+                backgroundColor: '#D1D5DB',
+                marginRight: 4,
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Infos événement */}
+        <View style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: '#000000',
+            marginBottom: 16,
+          }}>
+            {item.eventTitle}
+          </Text>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Ionicons name="calendar-outline" size={16} color="#7B5CFF" />
+            </View>
+            <Text style={{ fontSize: 14, color: '#6C757D' }}>
+              {item.eventDate} · {item.eventTime}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+            <View style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: '#F5F3FF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Ionicons name="location-outline" size={16} color="#7B5CFF" />
+            </View>
+            <Text style={{ fontSize: 14, color: '#6C757D', flex: 1 }}>
+              {item.eventLocation}
+            </Text>
+          </View>
+
+          {/* Badge et code */}
+          <View style={{
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{
-                backgroundColor: item.checkedIn ? `${theme.accent}26` : `${theme.primary}26`,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 999,
-              }}
-            >
-              <Text style={{ color: item.checkedIn ? theme.accent : theme.primary, fontSize: 11, fontWeight: '700' }}>
-                {item.checkedIn ? 'Utilisé ✓' : item.ticketType}
+          }}>
+            <View style={{
+              backgroundColor: item.checkedIn ? '#EF4444' : '#10B981',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 8,
+            }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: '#FFFFFF',
+                letterSpacing: 0.5,
+              }}>
+                {item.checkedIn ? '✓ UTILISÉ' : '✓ BILLET VALIDE'}
               </Text>
             </View>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: '#9CA3AF',
+              fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+            }}>
+              #{item.code}
+            </Text>
           </View>
-          <Text style={{ color: theme.primary, fontWeight: '600', fontSize: 13 }}>Voir le billet →</Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
+      </TouchableOpacity>
+    );
+  };
+
+  const upcomingTickets = tickets.filter(ticket => {
+    if (!ticket.eventDate) return true;
+    try {
+      const dateParts = ticket.eventDate.split('/');
+      let eventDate: Date;
+      if (dateParts.length === 3) {
+        eventDate = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+      } else {
+        eventDate = new Date(ticket.eventDate);
+      }
+      if (ticket.eventTime) {
+        const [hours, minutes] = ticket.eventTime.split(':');
+        eventDate.setHours(parseInt(hours), parseInt(minutes));
+      }
+      return eventDate >= new Date();
+    } catch {
+      return true;
+    }
+  });
+
+  const pastTickets = tickets.filter(ticket => !upcomingTickets.includes(ticket));
+  const displayedTickets = activeTab === 'upcoming' ? upcomingTickets : pastTickets;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background }}>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      {/* Header */}
       <View
         style={{
-          backgroundColor: theme.header,
-          paddingTop: 54,
-          paddingBottom: 14,
-          paddingHorizontal: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.border,
+          backgroundColor: '#FFFFFF',
+          paddingTop: Platform.OS === 'ios' ? 60 : 20,
+          paddingBottom: 16,
+          paddingHorizontal: 20,
           flexDirection: 'row',
+          justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, marginRight: 8 }}>
-          <Ionicons name="arrow-back" size={22} color={theme.text} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{
+            width: 40,
+            height: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={{ color: theme.text, fontWeight: '800', fontSize: 18 }}>Mes billets</Text>
+        <Text style={{ color: '#000000', fontWeight: '700', fontSize: 20, textAlign: 'center', flex: 1, marginRight: 40 }}>Mes Billets</Text>
+      </View>
+
+      {/* Onglets */}
+      <View style={{
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+      }}>
+        <TouchableOpacity
+          onPress={() => setActiveTab('upcoming')}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            alignItems: 'center',
+            borderBottomWidth: 3,
+            borderBottomColor: activeTab === 'upcoming' ? '#7B5CFF' : 'transparent',
+            marginRight: 8,
+          }}
+        >
+          <Text style={{
+            fontSize: 16,
+            fontWeight: '600',
+            color: activeTab === 'upcoming' ? '#7B5CFF' : '#9CA3AF',
+          }}>
+            À venir
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab('past')}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            alignItems: 'center',
+            borderBottomWidth: 3,
+            borderBottomColor: activeTab === 'past' ? '#7B5CFF' : 'transparent',
+            marginLeft: 8,
+          }}
+        >
+          <Text style={{
+            fontSize: 16,
+            fontWeight: '600',
+            color: activeTab === 'past' ? '#7B5CFF' : '#9CA3AF',
+          }}>
+            Passés
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <ActivityIndicator size="large" color="#7B5CFF" />
         </View>
-      ) : tickets.length === 0 ? (
+      ) : displayedTickets.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Ionicons name="ticket-outline" size={64} color={theme.textMuted} />
-          <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18, marginTop: 16 }}>
-            Aucun billet
+          <Ionicons name="ticket-outline" size={64} color="#9CA3AF" />
+          <Text style={{ color: '#000000', fontWeight: '700', fontSize: 18, marginTop: 16 }}>
+            Aucun billet {activeTab === 'upcoming' ? 'à venir' : 'passé'}
           </Text>
-          <Text style={{ color: theme.textMuted, textAlign: 'center', marginTop: 8 }}>
-            Inscris-toi à un événement pour obtenir ton premier billet !
+          <Text style={{ color: '#6C757D', textAlign: 'center', marginTop: 8 }}>
+            {activeTab === 'upcoming' 
+              ? 'Inscris-toi à un événement pour obtenir ton premier billet !'
+              : 'Tes billets passés apparaîtront ici.'}
           </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('HomeParticipant')}
-            style={{
-              marginTop: 20,
-              backgroundColor: theme.primary,
-              paddingVertical: 12,
-              paddingHorizontal: 24,
-              borderRadius: 999,
-            }}
-          >
-            <Text style={{ color: theme.buttonPrimaryText, fontWeight: '700' }}>Voir les événements</Text>
-          </TouchableOpacity>
+          {activeTab === 'upcoming' && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('HomeParticipant')}
+              style={{
+                marginTop: 20,
+                backgroundColor: '#7B5CFF',
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 999,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Voir les événements</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
-          data={tickets}
+          data={displayedTickets}
           keyExtractor={(item) => item.id}
           renderItem={renderTicket}
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         />
       )}
 
@@ -308,25 +428,23 @@ const MyTicketsScreen = () => {
         animationType="slide"
         onRequestClose={() => setSelectedTicket(null)}
       >
-        <View style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', padding: 20 }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', padding: 20 }}>
           {selectedTicket && (
           <View
             style={{
-              backgroundColor: theme.card,
+              backgroundColor: '#FFFFFF',
               borderRadius: 26,
               padding: 24,
-              borderWidth: 1,
-              borderColor: theme.border,
             }}
           >
             <TouchableOpacity
               onPress={() => setSelectedTicket(null)}
               style={{ position: 'absolute', top: 16, right: 16, padding: 8, zIndex: 10 }}
             >
-              <Ionicons name="close" size={24} color={theme.text} />
+              <Ionicons name="close" size={24} color="#000000" />
             </TouchableOpacity>
 
-            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 20, textAlign: 'center', marginBottom: 20 }}>
+            <Text style={{ color: '#000000', fontWeight: '900', fontSize: 20, textAlign: 'center', marginBottom: 20 }}>
               {selectedTicket?.eventTitle}
             </Text>
 
@@ -342,7 +460,7 @@ const MyTicketsScreen = () => {
               </View>
               <Text
                 style={{
-                  color: theme.text,
+                  color: '#000000',
                   fontSize: 24,
                   fontWeight: '900',
                   marginTop: 16,
@@ -352,23 +470,23 @@ const MyTicketsScreen = () => {
               >
                 {selectedTicket?.code}
               </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+              <Text style={{ color: '#6C757D', fontSize: 12, marginTop: 4 }}>
                 Présente ce QR code à l'entrée
               </Text>
             </View>
 
-            <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 16 }}>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <Ionicons name="calendar-outline" size={16} color={theme.primary} />
-                <Text style={{ color: theme.textSecondary, marginLeft: 10 }}>{selectedTicket?.eventDate}</Text>
+                <Ionicons name="calendar-outline" size={16} color="#7B5CFF" />
+                <Text style={{ color: '#6C757D', marginLeft: 10 }}>{selectedTicket?.eventDate}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <Ionicons name="time-outline" size={16} color={theme.primary} />
-                <Text style={{ color: theme.textSecondary, marginLeft: 10 }}>{selectedTicket?.eventTime}</Text>
+                <Ionicons name="time-outline" size={16} color="#7B5CFF" />
+                <Text style={{ color: '#6C757D', marginLeft: 10 }}>{selectedTicket?.eventTime}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="location-outline" size={16} color={theme.primary} />
-                <Text style={{ color: theme.textSecondary, marginLeft: 10 }}>{selectedTicket?.eventLocation}</Text>
+                <Ionicons name="location-outline" size={16} color="#7B5CFF" />
+                <Text style={{ color: '#6C757D', marginLeft: 10 }}>{selectedTicket?.eventLocation}</Text>
               </View>
             </View>
 
@@ -376,13 +494,13 @@ const MyTicketsScreen = () => {
               <View
                 style={{
                   marginTop: 16,
-                  backgroundColor: `${theme.accent}26`,
+                  backgroundColor: '#FEE2E2',
                   padding: 12,
                   borderRadius: 12,
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ color: theme.accent, fontWeight: '700' }}>
+                <Text style={{ color: '#EF4444', fontWeight: '700' }}>
                   ✓ Billet déjà utilisé
                 </Text>
               </View>
@@ -394,18 +512,18 @@ const MyTicketsScreen = () => {
                 disabled={cancelling}
                 style={{
                   marginTop: 16,
-                  backgroundColor: `${theme.error}18`,
+                  backgroundColor: '#FEE2E2',
                   paddingVertical: 12,
                   borderRadius: 999,
                   alignItems: 'center',
                   borderWidth: 1,
-                  borderColor: theme.error,
+                  borderColor: '#EF4444',
                 }}
               >
                 {cancelling ? (
-                  <ActivityIndicator size="small" color={theme.error} />
+                  <ActivityIndicator size="small" color="#EF4444" />
                 ) : (
-                  <Text style={{ color: theme.error, fontWeight: '700' }}>Annuler la réservation</Text>
+                  <Text style={{ color: '#EF4444', fontWeight: '700' }}>Annuler la réservation</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -414,13 +532,13 @@ const MyTicketsScreen = () => {
               onPress={() => setSelectedTicket(null)}
               style={{
                 marginTop: 12,
-                backgroundColor: theme.primary,
+                backgroundColor: '#7B5CFF',
                 paddingVertical: 14,
                 borderRadius: 999,
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: theme.buttonPrimaryText, fontWeight: '700' }}>Fermer</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Fermer</Text>
             </TouchableOpacity>
           </View>
           )}
