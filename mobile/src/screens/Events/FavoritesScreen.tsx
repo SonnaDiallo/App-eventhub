@@ -288,7 +288,6 @@ const styles = StyleSheet.create({
   eventInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     marginTop: 8,
   },
   eventInfoText: {

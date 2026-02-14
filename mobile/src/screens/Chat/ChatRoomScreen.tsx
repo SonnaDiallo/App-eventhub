@@ -185,7 +185,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     padding: 12,
     borderTopWidth: 1,
-    gap: 10,
   },
   input: {
     flex: 1,

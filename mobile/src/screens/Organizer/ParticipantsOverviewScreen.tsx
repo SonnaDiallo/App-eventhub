@@ -221,12 +221,12 @@ const ParticipantsOverviewScreen = () => {
 
       {/* Stats */}
       <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ flexDirection: 'row' }}>
+          <View style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border, marginRight: 12 }}>
             <Text style={{ color: theme.textMuted, fontSize: 12 }}>Total</Text>
             <Text style={{ color: theme.text, fontWeight: '800', fontSize: 20 }}>{stats.total}</Text>
           </View>
-          <View style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border }}>
+          <View style={{ flex: 1, backgroundColor: theme.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border, marginRight: 12 }}>
             <Text style={{ color: theme.textMuted, fontSize: 12 }}>Check-in</Text>
             <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 20 }}>{stats.checkedIn}</Text>
           </View>
@@ -268,7 +268,7 @@ const ParticipantsOverviewScreen = () => {
         </View>
 
         {/* Filter buttons */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
             onPress={() => setFilterStatus('all')}
             style={{
@@ -279,6 +279,7 @@ const ParticipantsOverviewScreen = () => {
               alignItems: 'center',
               borderWidth: 1,
               borderColor: filterStatus === 'all' ? theme.primary : theme.border,
+              marginRight: 8,
             }}
           >
             <Text
@@ -301,6 +302,7 @@ const ParticipantsOverviewScreen = () => {
               alignItems: 'center',
               borderWidth: 1,
               borderColor: filterStatus === 'checked' ? theme.primary : theme.border,
+              marginRight: 8,
             }}
           >
             <Text

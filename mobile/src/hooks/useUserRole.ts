@@ -3,12 +3,12 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-export type UserRole = 'user' | 'organizer' | 'admin' | null;
+export type UserRole = 'participant' | 'organizer' | null;
 
 /**
  * Hook pour récupérer le rôle de l'utilisateur actuel depuis Firestore
  * Écoute les changements d'authentification et de rôle en temps réel
- * @returns {UserRole} Le rôle de l'utilisateur ('user', 'organizer', 'admin') ou null si non connecté/non trouvé
+ * @returns {UserRole} Le rôle de l'utilisateur ('participant', 'organizer') ou null si non connecté/non trouvé
  */
 export const useUserRole = (): UserRole => {
   const [role, setRole] = useState<UserRole>(null);
@@ -27,13 +27,14 @@ export const useUserRole = (): UserRole => {
           if (userDoc.exists()) {
             const userRole = userDoc.data()?.role;
             // Valider que le rôle est valide
-            if (userRole === 'user' || userRole === 'organizer' || userRole === 'admin') {
-              setRole(userRole);
+            if (userRole === 'participant' || userRole === 'organizer' || userRole === 'user') {
+              // Normaliser 'user' en 'participant' pour compatibilité
+              setRole(userRole === 'user' ? 'participant' : userRole);
             } else {
-              setRole('user'); // Par défaut
+              setRole('participant'); // Par défaut
             }
           } else {
-            setRole('user'); // Par défaut si le document n'existe pas
+            setRole('participant'); // Par défaut si le document n'existe pas
           }
         },
         (error: any) => {
@@ -46,13 +47,14 @@ export const useUserRole = (): UserRole => {
             .then((userDoc) => {
               if (userDoc.exists()) {
                 const userRole = userDoc.data()?.role;
-                if (userRole === 'user' || userRole === 'organizer' || userRole === 'admin') {
-                  setRole(userRole);
+                if (userRole === 'participant' || userRole === 'organizer' || userRole === 'user') {
+                  // Normaliser 'user' en 'participant' pour compatibilité
+                  setRole(userRole === 'user' ? 'participant' : userRole);
                 } else {
-                  setRole('user');
+                  setRole('participant');
                 }
               } else {
-                setRole('user');
+                setRole('participant');
               }
             })
             .catch(() => setRole(null));
@@ -73,10 +75,10 @@ export const useUserRole = (): UserRole => {
 };
 
 /**
- * Vérifie si l'utilisateur peut créer des événements (doit être organizer ou admin)
+ * Vérifie si l'utilisateur peut créer des événements (doit être organizer)
  * @param role Le rôle de l'utilisateur
  * @returns true si l'utilisateur peut créer des événements
  */
 export const canCreateEvents = (role: UserRole): boolean => {
-  return role === 'organizer' || role === 'admin';
+  return role === 'organizer';
 };

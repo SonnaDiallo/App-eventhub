@@ -362,10 +362,10 @@ const ScanTicketScreen = () => {
 
         <Text style={{ color: theme.text, fontWeight: '800', fontSize: 16 }}>{eventName}</Text>
 
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
             onPress={() => setShowHistory(!showHistory)}
-            style={{ padding: 8 }}
+            style={{ padding: 8, marginRight: 8 }}
           >
             <Ionicons name="time-outline" size={22} color={theme.text} />
           </TouchableOpacity>

@@ -54,7 +54,7 @@ const OrganizerDashboardScreen = () => {
           return;
         }
 
-        // Lister les événements de l'organisateur/admin connecté
+        // Lister les événements de l'organisateur connecté
         const res = await api.get('/events/organizer/my', {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -138,11 +138,11 @@ const OrganizerDashboardScreen = () => {
     const max = Math.max(...bars);
 
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}>
         {bars.map((v, idx) => {
           const h = Math.max(12, Math.round((v / max) * 80));
           return (
-            <View key={idx} style={{ alignItems: 'center', flex: 1 }}>
+            <View key={idx} style={{ alignItems: 'center', flex: 1, marginRight: idx < bars.length - 1 ? 8 : 0 }}>
               <View
                 style={{
                   width: '100%',
@@ -182,7 +182,7 @@ const OrganizerDashboardScreen = () => {
           borderColor: theme.border,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <View
             style={{
               width: 34,
@@ -195,7 +195,7 @@ const OrganizerDashboardScreen = () => {
               borderColor: theme.border,
             }}
           >
-            <Ionicons name={icon} size={18} color={theme.primary} />
+            <Ionicons name={icon} size={18} color={theme.primary} style={{ marginRight: 8 }} />
           </View>
           <Text style={{ color: theme.textSecondary, fontWeight: '600', fontSize: 12 }}>{label}</Text>
         </View>
@@ -405,18 +405,26 @@ const OrganizerDashboardScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-          <StatCard icon="cash-outline" label="Revenus" value={`€${stats.revenue.toLocaleString('fr-FR')}`} />
-          <StatCard
-            icon="ticket-outline"
-            label="Billets vendus"
-            value={`${stats.ticketsSold}/${stats.capacity}`}
-          />
+        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <StatCard icon="cash-outline" label="Revenus" value={`€${stats.revenue.toLocaleString('fr-FR')}`} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <StatCard
+              icon="ticket-outline"
+              label="Billets vendus"
+              value={`${stats.ticketsSold}/${stats.capacity}`}
+            />
+          </View>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-          <StatCard icon="people-outline" label="Participants" value={`${stats.participants}`} />
-          <StatCard icon="checkmark-circle-outline" label="Check-in" value={`${stats.checkInRate}%`} />
+        <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <StatCard icon="people-outline" label="Participants" value={`${stats.participants}`} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <StatCard icon="checkmark-circle-outline" label="Check-in" value={`${stats.checkInRate}%`} />
+          </View>
         </View>
 
         <View
@@ -435,7 +443,7 @@ const OrganizerDashboardScreen = () => {
           <Text style={{ color: theme.text, fontWeight: '900', fontSize: 26, marginTop: 8 }}>
             {stats.weeklyTickets} billets
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
             <Text style={{ color: theme.textMuted, fontSize: 12 }}>Cette semaine</Text>
           </View>
 
@@ -509,31 +517,58 @@ const OrganizerDashboardScreen = () => {
           Actions Rapides
         </Text>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-          <QuickAction
-            icon="scan-outline"
-            label="Scanner un billet"
-            onPress={() => navigation.navigate('ScanTicket')}
-          />
-          <QuickAction
-            icon="people-outline"
-            label="Participants"
-            onPress={() => {
-              if (selectedEventId && selectedEvent) {
-                navigation.navigate('ParticipantsOverview' as never, {
-                  eventId: selectedEventId,
-                  eventTitle: selectedEvent.title,
-                });
-              } else {
-                Alert.alert('Erreur', 'Veuillez sélectionner un événement');
-              }
-            }}
-          />
+        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <QuickAction
+              icon="scan-outline"
+              label="Scanner un billet"
+              onPress={() => navigation.navigate('ScanTicket')}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <QuickAction
+              icon="people-outline"
+              label="Participants"
+              onPress={() => {
+                if (selectedEventId && selectedEvent) {
+                  navigation.navigate('ParticipantsOverview' as never, {
+                    eventId: selectedEventId,
+                    eventTitle: selectedEvent.title,
+                  });
+                } else {
+                  Alert.alert('Erreur', 'Veuillez sélectionner un événement');
+                }
+              }}
+            />
+          </View>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <QuickAction icon="notifications-outline" label="Notifications" />
-          <QuickAction icon="globe-outline" label="Page publique" />
+        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <QuickAction
+              icon="people-circle-outline"
+              label="Co-organisateurs"
+              onPress={() => {
+                if (selectedEventId) {
+                  navigation.navigate('EventPrivileges' as never, {
+                    eventId: selectedEventId,
+                  } as never);
+                } else {
+                  Alert.alert('Erreur', 'Veuillez sélectionner un événement');
+                }
+              }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <QuickAction icon="notifications-outline" label="Notifications" />
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row' }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <QuickAction icon="globe-outline" label="Page publique" />
+          </View>
+          <View style={{ flex: 1 }} />
         </View>
       </ScrollView>
     </View>

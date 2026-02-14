@@ -264,7 +264,7 @@ const CreateEventScreen = () => {
       
       if (error?.response?.status === 403) {
         const hint = error?.response?.data?.hint;
-        errorMessage = hint || 'Vous n\'avez pas les permissions nécessaires pour créer un événement. Vous devez être organisateur ou administrateur.';
+        errorMessage = hint || 'Vous n\'avez pas les permissions nécessaires pour créer un événement. Vous devez être organisateur.';
       }
       
       Alert.alert('Erreur', errorMessage);

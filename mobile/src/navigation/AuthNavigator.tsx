@@ -15,7 +15,7 @@ import ScanTicketScreen from '../screens/Organizer/ScanTicketScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import FavoritesScreen from '../screens/Events/FavoritesScreen';
-import ManagePrivilegesScreen from '../screens/Admin/ManagePrivilegesScreen';
+import EventPrivilegesScreen from '../screens/Organizer/EventPrivilegesScreen';
 import ParticipantsOverviewScreen from '../screens/Organizer/ParticipantsOverviewScreen';
 import FriendsScreen from '../screens/Friends/FriendsScreen';
 import ChatListScreen from '../screens/Chat/ChatListScreen';
@@ -50,7 +50,7 @@ export type AuthStackParamList = {
   Settings: undefined;
   Profile: undefined;
   Favorites: undefined;
-  ManagePrivileges: undefined;
+  EventPrivileges: { eventId: string };
   ParticipantsOverview: { eventId: string; eventTitle?: string };
   Friends: undefined;
   ChatList: undefined;
@@ -141,8 +141,8 @@ const AuthNavigator: React.FC = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="ManagePrivileges"
-        component={ManagePrivilegesScreen}
+        name="EventPrivileges"
+        component={EventPrivilegesScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

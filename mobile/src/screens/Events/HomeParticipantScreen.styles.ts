@@ -27,7 +27,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
 
   headerTitle: {
@@ -39,7 +38,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
 
   headerButton: {
@@ -130,7 +128,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   },
 
   sortMenuOptions: {
-    gap: 8,
   },
 
   sortOption: {
@@ -166,7 +163,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   featuredBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 16,
   },
 
@@ -177,7 +173,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
 
   featuredBadgeText: {
@@ -240,14 +235,12 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   featuredInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
     marginBottom: 16,
   },
 
   featuredInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
 
   featuredInfoText: {
@@ -268,7 +261,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
     borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flex: 1,
     marginRight: 12,
   },
@@ -305,12 +297,10 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   },
 
   eventsGrid: {
-    gap: 16,
   },
 
   eventGridRow: {
     flexDirection: 'row',
-    gap: 16,
   },
 
   eventCardWrapper: {

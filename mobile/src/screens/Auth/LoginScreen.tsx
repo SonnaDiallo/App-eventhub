@@ -250,7 +250,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             flexDirection: 'row',
             justifyContent: 'center',
-            gap: 16,
             marginBottom: 40,
           }}
         >

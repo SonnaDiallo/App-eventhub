@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1 },
   name: { fontSize: 16, fontWeight: '700' },
   email: { fontSize: 13, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  actions: { flexDirection: 'row', marginTop: 8 },
   btn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   btnAccept: {},
   btnReject: {},

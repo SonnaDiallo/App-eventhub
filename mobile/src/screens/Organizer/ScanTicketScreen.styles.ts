@@ -34,7 +34,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
-    gap: 8,
   },
   headerButton: {
     width: 40,
@@ -160,7 +159,6 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
   },
   modalButton: {
     flex: 1,

@@ -261,8 +261,8 @@ const ProfileScreen = () => {
     : user?.displayName || 'Utilisateur';
   const email = userData?.email || user?.email || '';
   const role = userData?.role || 'participant';
-  const roleLabel = role === 'organizer' ? t('organizer') : role === 'admin' ? 'Administrateur' : t('participant');
-  const isOrganizer = role === 'organizer' || role === 'admin';
+  const roleLabel = role === 'organizer' ? 'Organisateur' : 'Participant';
+  const isOrganizer = role === 'organizer';
   const canScanTickets = userData?.canScanTickets === true || isOrganizer;
   const canCreate = canCreateEvents(role);
 
@@ -648,34 +648,6 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ManagePrivileges' as never)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#F8F9FA',
-                padding: 16,
-                borderRadius: 12,
-                marginBottom: 12,
-              }}
-            >
-              <View style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: '#EF4444',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}>
-                <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#000000' }}>
-                Gérer les privilèges
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-
             {canScanTickets && (
               <TouchableOpacity
                 onPress={() => navigation.navigate('ScanTicket' as never)}
@@ -920,7 +892,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
   },
   loadingText: {
     fontSize: 14,
@@ -972,7 +943,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 24,
-    gap: 6,
     borderWidth: 1,
   },
   roleText: {
@@ -1010,7 +980,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    gap: 8,
   },
   saveButtonText: {
     fontSize: 16,
@@ -1025,7 +994,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 14,
   },
   sectionTitle: {
@@ -1045,7 +1013,6 @@ const styles = StyleSheet.create({
   menuItemColumn: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 12,
   },
   menuItemRow: {
     flexDirection: 'row',
@@ -1070,7 +1037,6 @@ const styles = StyleSheet.create({
   languageSelector: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
   },
   languageButton: {
     paddingHorizontal: 14,
