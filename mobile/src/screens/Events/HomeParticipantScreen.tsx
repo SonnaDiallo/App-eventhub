@@ -32,7 +32,11 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [showSortMenu, setShowSortMenu] = useState(false);
 
-  const { events, loading } = useEvents(selectedCategory, searchQuery);
+  const { events, loading } = useEvents({ 
+    limit: selectedCategory ? undefined : 15, 
+    category: selectedCategory || undefined,
+    includeExternal: true
+  });
 
   const filtered = useMemo(() => {
     const filteredEvents = filterEvents(events, searchQuery, selectedCategory);
@@ -97,7 +101,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
       paddingHorizontal: 20,
       paddingTop: Platform.OS === 'ios' ? 60 : 20,
       paddingBottom: 16,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.background,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -105,7 +109,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
       <Text style={{
         fontSize: 28,
         fontWeight: '700',
-        color: '#7B5CFF',
+        color: theme.primary,
       }}>
         EventHub
       </Text>
@@ -117,7 +121,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           justifyContent: 'center',
         }}
       >
-        <Ionicons name="notifications-outline" size={24} color="#000000" />
+        <Ionicons name="notifications-outline" size={24} color={theme.text} />
       </TouchableOpacity>
     </View>
   );
@@ -126,7 +130,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     <View style={{
       paddingHorizontal: 20,
       paddingVertical: 12,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.background,
     }}>
       <TouchableOpacity
         style={{
@@ -135,21 +139,21 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onPress={() => {}}
       >
-        <Ionicons name="location-outline" size={18} color="#6C757D" />
+        <Ionicons name="location-outline" size={18} color={theme.textMuted} />
         <Text style={{
           marginLeft: 6,
           fontSize: 14,
-          color: '#6C757D',
+          color: theme.textMuted,
         }}>
           Paris, FR
         </Text>
-        <Ionicons name="chevron-down" size={16} color="#6C757D" style={{ marginLeft: 4 }} />
+        <Ionicons name="chevron-down" size={16} color={theme.textMuted} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
     </View>
   );
 
   const renderSearchSection = () => (
-    <View style={{ paddingHorizontal: 20, paddingVertical: 12, backgroundColor: '#FFFFFF' }}>
+    <View style={{ paddingHorizontal: 20, paddingVertical: 12, backgroundColor: theme.background }}>
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -164,7 +168,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     const featuredEvents = filtered.slice(0, 3);
 
     return (
-      <View style={{ backgroundColor: '#FFFFFF', paddingVertical: 20 }}>
+      <View style={{ backgroundColor: theme.background, paddingVertical: 20 }}>
         <View style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
@@ -175,7 +179,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={{
             fontSize: 20,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
           }}>
             Événements à la une
           </Text>
@@ -183,7 +187,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={{
               fontSize: 14,
               fontWeight: '500',
-              color: '#7B5CFF',
+              color: theme.primary,
             }}>
               Voir tout
             </Text>
@@ -205,10 +209,10 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 width: 280,
                 height: 240,
                 borderRadius: 20,
-                backgroundColor: '#2D2D2D',
+                backgroundColor: theme.card,
                 overflow: 'hidden',
                 position: 'relative',
-                shadowColor: '#000',
+                shadowColor: theme.text,
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.15,
                 shadowRadius: 8,
@@ -242,18 +246,18 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   position: 'absolute',
                   top: 16,
                   right: 16,
-                  backgroundColor: '#FF6B6B',
+                  backgroundColor: theme.error,
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 12,
                   zIndex: 1,
                 }}>
                   <Text style={{
-                    color: '#FFFFFF',
+                    color: theme.buttonPrimaryText,
                     fontSize: 12,
                     fontWeight: '600',
                   }}>
-                    ${event.price.toFixed(2)}
+                    ${(event.price || 0).toFixed(2)}
                   </Text>
                 </View>
               )}
@@ -264,7 +268,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 padding: 20,
               }}>
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: theme.buttonPrimaryText,
                   fontSize: 12,
                   fontWeight: '500',
                   marginBottom: 8,
@@ -273,7 +277,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   {event.date} • {event.time}
                 </Text>
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: theme.buttonPrimaryText,
                   fontSize: 18,
                   fontWeight: '700',
                 }}>
@@ -313,7 +317,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
       <View style={{
         paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.background,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <ScrollView
@@ -331,7 +335,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   paddingHorizontal: 20,
                   paddingVertical: 10,
                   borderRadius: 20,
-                  backgroundColor: isSelected ? '#7B5CFF' : '#F8F9FA',
+                  backgroundColor: isSelected ? theme.primary : theme.surface,
                   marginRight: index < mainCategories.length - 1 ? 12 : 0,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -341,13 +345,13 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   <Ionicons
                     name={getCategoryIcon(cat.id) as any}
                     size={16}
-                    color={isSelected ? '#FFFFFF' : '#000000'}
+                    color={isSelected ? theme.buttonPrimaryText : theme.text}
                   />
                 </View>
                 <Text style={{
                   fontSize: 15,
                   fontWeight: '600',
-                  color: isSelected ? '#FFFFFF' : '#000000',
+                  color: isSelected ? theme.buttonPrimaryText : theme.text,
                 }}>
                   {cat.label}
                 </Text>
@@ -355,21 +359,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             );
           })}
         </ScrollView>
-        {selectedCategory && (
-          <TouchableOpacity
-            onPress={() => setShowSortMenu(!showSortMenu)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              marginLeft: 12,
-            }}
-          >
-            <Text style={{ fontSize: 12, color: '#6C757D', marginRight: 4 }}>TRIER PAR : DATE</Text>
-            <Ionicons name="chevron-down" size={14} color="#6C757D" />
-          </TouchableOpacity>
-        )}
+        {/* Bouton de tri masqué */}
         </View>
       </View>
     );
@@ -379,11 +369,11 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     if (!selectedCategory || loading) return null;
 
     return (
-      <View style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: 20 }}>
+      <View style={{ backgroundColor: theme.background, paddingHorizontal: 20, paddingTop: 20 }}>
         <Text style={{
           fontSize: 20,
           fontWeight: '700',
-          color: '#000000',
+          color: theme.text,
           marginBottom: 16,
         }}>
           Découvrir
@@ -395,7 +385,9 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           justifyContent: 'space-between',
         }}>
           {filtered.map((event) => {
-            const categoryInfo = categories.find(c => c.id === event.category);
+            const categoryInfo = categories.find(
+              (c) => c.id.toLowerCase() === (event.category || '').toLowerCase()
+            );
             return (
               <TouchableOpacity
                 key={event.id}
@@ -406,7 +398,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               >
                 <View style={{
-                  backgroundColor: '#F8F9FA',
+                  backgroundColor: theme.surface,
                   borderRadius: 16,
                   overflow: 'hidden',
                 }}>
@@ -415,7 +407,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                     position: 'absolute',
                     top: 12,
                     left: 12,
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: theme.card,
                     paddingHorizontal: 10,
                     paddingVertical: 4,
                     borderRadius: 6,
@@ -424,7 +416,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={{
                       fontSize: 10,
                       fontWeight: '700',
-                      color: '#7B5CFF',
+                      color: theme.primary,
                       textTransform: 'uppercase',
                     }}>
                       {categoryInfo?.nameFr || 'AUTRE'}
@@ -439,8 +431,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                       resizeMode="cover"
                     />
                   ) : (
-                    <View style={{ width: '100%', height: 140, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="image-outline" size={40} color="#D1D5DB" />
+                    <View style={{ width: '100%', height: 140, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="image-outline" size={40} color={theme.border} />
                     </View>
                   )}
                 </View>
@@ -450,7 +442,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   <Text style={{
                     fontSize: 15,
                     fontWeight: '600',
-                    color: '#000000',
+                    color: theme.text,
                     marginBottom: 8,
                   }} numberOfLines={2}>
                     {event.title}
@@ -458,18 +450,18 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                     <View style={{ marginRight: 6 }}>
-                      <Ionicons name="calendar-outline" size={14} color="#7B5CFF" />
+                      <Ionicons name="calendar-outline" size={14} color={theme.primary} />
                     </View>
-                    <Text style={{ fontSize: 12, color: '#6C757D' }}>
+                    <Text style={{ fontSize: 12, color: theme.textMuted }}>
                       {event.date}
                     </Text>
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <View style={{ marginRight: 6 }}>
-                      <Ionicons name="location-outline" size={14} color="#7B5CFF" />
+                      <Ionicons name="location-outline" size={14} color={theme.primary} />
                     </View>
-                    <Text style={{ fontSize: 12, color: '#6C757D' }} numberOfLines={1}>
+                    <Text style={{ fontSize: 12, color: theme.textMuted }} numberOfLines={1}>
                       {event.location}
                     </Text>
                   </View>
@@ -477,18 +469,18 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ marginRight: 4 }}>
-                        <Ionicons name="people-outline" size={14} color="#6C757D" />
+                        <Ionicons name="people-outline" size={14} color={theme.textMuted} />
                       </View>
-                      <Text style={{ fontSize: 12, color: '#6C757D' }}>
+                      <Text style={{ fontSize: 12, color: theme.textMuted }}>
                         {event.price ? `${event.price}` : '0'}/100
                       </Text>
                     </View>
                     <Text style={{
                       fontSize: 14,
                       fontWeight: '700',
-                      color: event.isFree ? '#10B981' : '#EF4444',
+                      color: event.isFree ? theme.success : theme.error,
                     }}>
-                      {event.isFree ? 'GRATUIT' : `${event.price.toFixed(2)}€`}
+                      {event.isFree ? 'GRATUIT' : `${(event.price ?? 0).toFixed(2)}€`}
                     </Text>
                   </View>
                 </View>
@@ -519,7 +511,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     if (upcomingEvents.length === 0) return null;
 
     return (
-      <View style={{ backgroundColor: '#FFFFFF', paddingTop: 20, paddingBottom: 100 }}>
+      <View style={{ backgroundColor: theme.background, paddingTop: 20, paddingBottom: 100 }}>
         <View style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
@@ -530,7 +522,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={{
             fontSize: 20,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
           }}>
             Événements à venir
           </Text>
@@ -538,7 +530,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={{
               fontSize: 14,
               fontWeight: '500',
-              color: '#7B5CFF',
+              color: theme.primary,
             }}>
               Filtrer
             </Text>
@@ -561,7 +553,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 width: 100,
                 height: 100,
                 borderRadius: 24,
-                backgroundColor: '#F8F9FA',
+                backgroundColor: theme.surface,
                 overflow: 'hidden',
               }}>
                 {event.coverImage ? (
@@ -580,7 +572,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <Ionicons name="calendar-outline" size={32} color="#7B5CFF" />
+                    <Ionicons name="calendar-outline" size={32} color={theme.primary} />
                   </View>
                 )}
               </View>
@@ -593,7 +585,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={{
                   fontSize: 17,
                   fontWeight: '600',
-                  color: '#000000',
+                  color: theme.text,
                   marginBottom: 6,
                   lineHeight: 22,
                 }}>
@@ -601,7 +593,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
                 <Text style={{
                   fontSize: 14,
-                  color: '#6C757D',
+                  color: theme.textMuted,
                   marginBottom: 10,
                 }}>
                   {event.date} • {event.time}
@@ -610,13 +602,13 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   alignSelf: 'flex-start',
                   paddingHorizontal: 14,
                   paddingVertical: 6,
-                  backgroundColor: '#F5F3FF',
+                  backgroundColor: `${theme.primary}20`,
                   borderRadius: 8,
                 }}>
                   <Text style={{
                     fontSize: 11,
                     fontWeight: '600',
-                    color: '#7B5CFF',
+                    color: theme.primary,
                     letterSpacing: 0.5,
                   }}>
                     INTÉRESSÉ
@@ -631,56 +623,12 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderCreateEventCTA = () => {
-    if (loading || !canCreateEvents(userRole)) return null;
-
-    return (
-      <View
-        style={{
-          marginHorizontal: 16,
-          marginTop: 32,
-          marginBottom: 24,
-          borderRadius: 24,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: theme.border,
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: theme.primary,
-            padding: 24,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 22, marginBottom: 8, textAlign: 'center' }}>
-            Vous organisez un événement ?
-          </Text>
-          <Text style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 15, marginBottom: 20, textAlign: 'center', lineHeight: 22 }}>
-            Vendez vos billets sur notre plateforme et atteignez des milliers de personnes.
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('CreateEvent')}
-            style={{
-              backgroundColor: '#FFFFFF',
-              paddingVertical: 14,
-              paddingHorizontal: 28,
-              borderRadius: 999,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 16, marginRight: 8 }}>
-              Créer mon événement
-            </Text>
-            <Ionicons name="arrow-forward" size={18} color={theme.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    // Fonction désactivée - les participants ne peuvent pas créer d'événements
+    return null;
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
@@ -708,12 +656,12 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
         left: 0,
         right: 0,
         height: 80,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.background,
         borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
+        borderTopColor: theme.border,
         flexDirection: 'row',
         paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-        shadowColor: '#000',
+        shadowColor: theme.text,
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -726,10 +674,10 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="compass" size={24} color="#7B5CFF" />
+          <Ionicons name="compass" size={24} color={theme.primary} />
           <Text style={{
             fontSize: 12,
-            color: '#7B5CFF',
+            color: theme.primary,
             fontWeight: '600',
             marginTop: 4,
           }}>
@@ -740,7 +688,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             bottom: 0,
             width: 40,
             height: 3,
-            backgroundColor: '#7B5CFF',
+            backgroundColor: theme.primary,
             borderRadius: 2,
           }} />
         </TouchableOpacity>
@@ -753,35 +701,33 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           }}
           onPress={() => navigation.navigate('MyTickets')}
         >
-          <Ionicons name="ticket-outline" size={24} color="#9CA3AF" />
+          <Ionicons name="ticket-outline" size={24} color={theme.textMuted} />
           <Text style={{
             fontSize: 12,
-            color: '#9CA3AF',
+            color: theme.textMuted,
             marginTop: 4,
           }}>
             Tickets
           </Text>
         </TouchableOpacity>
 
-        {/* FAB Button */}
+        {/* Bouton Chat */}
         <TouchableOpacity
-          onPress={() => navigation.navigate('CreateEvent')}
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: '#7B5CFF',
+            flex: 1,
             alignItems: 'center',
             justifyContent: 'center',
-            marginTop: -28,
-            shadowColor: '#7B5CFF',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 8,
           }}
+          onPress={() => navigation.navigate('ChatList')}
         >
-          <Ionicons name="add" size={32} color="#FFFFFF" />
+          <Ionicons name="chatbubbles-outline" size={24} color={theme.textMuted} />
+          <Text style={{
+            fontSize: 12,
+            color: theme.textMuted,
+            marginTop: 4,
+          }}>
+            Chat
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -792,10 +738,10 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           }}
           onPress={() => navigation.navigate('Favorites')}
         >
-          <Ionicons name="heart-outline" size={24} color="#9CA3AF" />
+          <Ionicons name="heart-outline" size={24} color={theme.textMuted} />
           <Text style={{
             fontSize: 12,
-            color: '#9CA3AF',
+            color: theme.textMuted,
             marginTop: 4,
           }}>
             Favoris
@@ -810,10 +756,10 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           }}
           onPress={() => navigation.navigate('Profile')}
         >
-          <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+          <Ionicons name="person-outline" size={24} color={theme.textMuted} />
           <Text style={{
             fontSize: 12,
-            color: '#9CA3AF',
+            color: theme.textMuted,
             marginTop: 4,
           }}>
             Profil

@@ -49,18 +49,10 @@ export const register = async (req: Request, res: Response) => {
 
     await firebaseDb.collection('users').doc(firebaseUid).set(userData);
 
-    // Synchroniser avec MongoDB
+    // Profil déjà créé dans Firestore ci-dessus ; sync pour cohérence des champs
     try {
-      await syncUserToMongoDB(firebaseUid, {
-        name,
-        email: email.toLowerCase(),
-        role: safeRole,
-      });
-      console.log(`✅ User ${firebaseUid} synced to MongoDB`);
-    } catch (mongoError) {
-      console.error('⚠️ Failed to sync user to MongoDB (continuing anyway):', mongoError);
-      // On continue même si MongoDB échoue, car Firebase est la source de vérité pour l'auth
-    }
+      await syncUserToMongoDB(firebaseUid, { name, email: email.toLowerCase(), role: safeRole });
+    } catch (_) {}
 
     // Générer un token custom pour l'utilisateur (valide 7 jours)
     const customToken = await admin.auth().createCustomToken(firebaseUid);

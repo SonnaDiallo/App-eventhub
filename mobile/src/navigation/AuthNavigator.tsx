@@ -1,172 +1,377 @@
 // mobile/src/navigation/AuthNavigator.tsx
+
 import React from 'react';
+
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import { useTheme } from '../theme/ThemeContext';
+
 import LoginScreen from '../screens/Auth/LoginScreen';
+
 import RegisterScreen from '../screens/Auth/RegisterScreen';
+
 import WelcomeScreen from '../screens/Auth/WelcomeScreen';
+
+import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
+
 import CreateEventScreen from '../screens/Events/CreateEventScreen';
+
 import EventDetailsScreen from '../screens/Events/EventDetailsScreen';
+
 import ParticipantsScreen from '../screens/Events/ParticipantsScreen';
+
 import HomeParticipantScreen from '../screens/Events/HomeParticipantScreen';
+
 import MyTicketsScreen from '../screens/Events/MyTicketsScreen';
+
 import OrganizerDashboardScreen from '../screens/Organizer/OrganizerDashboardScreen';
+
 import ScanTicketScreen from '../screens/Organizer/ScanTicketScreen';
+
 import SettingsScreen from '../screens/Settings/SettingsScreen';
+
+import EditProfileScreen from '../screens/Settings/EditProfileScreen';
+
 import ProfileScreen from '../screens/Profile/ProfileScreen';
+
+import OrganizerProfileScreen from '../screens/Profile/OrganizerProfileScreen';
+
 import FavoritesScreen from '../screens/Events/FavoritesScreen';
-import EventPrivilegesScreen from '../screens/Organizer/EventPrivilegesScreen';
+
 import ParticipantsOverviewScreen from '../screens/Organizer/ParticipantsOverviewScreen';
+
 import FriendsScreen from '../screens/Friends/FriendsScreen';
+
 import ChatListScreen from '../screens/Chat/ChatListScreen';
+
 import ChatRoomScreen from '../screens/Chat/ChatRoomScreen';
 
+
+
 export type EventData = {
+
   id: string;
+
   title: string;
+
   coverImage: string;
-  date: string;
-  time: string;
+
+  date?: string;
+
+  time?: string;
+
+  startDate?: string;
+
+  endDate?: string;
+
   location: string;
-  address: string;
-  organizer: string;
+
+  address?: string;
+
+  organizer?: string;
+
+  organizerId?: string;
+
+  organizerName?: string;
+
   description: string;
-  price: number;
+
+  price?: number;
+
   isFree: boolean;
+
   category?: string | null;
+
+  capacity?: number;
+
+  participantsCount?: number;
+
+  createdAt?: any;
+
+  isExternal?: boolean;
+
+  externalLink?: string;
+
 };
 
+
+
 export type AuthStackParamList = {
+
   Welcome: undefined;
+
   Login: undefined;
+
   Register: undefined;
+
+  ForgotPassword: undefined;
+
   HomeParticipant: undefined;
+
   MyTickets: undefined;
+
   OrganizerDashboard: undefined;
+
   ScanTicket: undefined;
+
   CreateEvent: undefined;
+
   EventDetails: { event?: EventData } | undefined;
+
   Participants: { eventId: string };
+
   Settings: undefined;
+
+  EditProfile: undefined;
+
   Profile: undefined;
+
   Favorites: undefined;
-  EventPrivileges: { eventId: string };
+
   ParticipantsOverview: { eventId: string; eventTitle?: string };
+
   Friends: undefined;
+
   ChatList: undefined;
+
   ChatRoom: { userId: string; userName: string };
+
 };
+
+
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
+
+
 const AuthNavigator: React.FC = () => {
+
   const { theme } = useTheme();
+
   return (
+
     <Stack.Navigator 
+
       initialRouteName="Welcome"
+
       screenOptions={{
+
         headerStyle: {
+
           backgroundColor: theme.header,
+
         },
+
         headerTintColor: theme.text,
+
         headerTitleStyle: {
+
           fontWeight: '600',
+
         },
+
         contentStyle: { backgroundColor: theme.background },
+
       }}
+
     >
+
       <Stack.Screen
+
         name="Welcome"
+
         component={WelcomeScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="Login"
+
         component={LoginScreen}
+
         options={{ title: 'Connexion' }}
+
       />
+
       <Stack.Screen
+
         name="Register"
+
         component={RegisterScreen}
+
         options={{ title: 'Inscription' }}
+
       />
+
       <Stack.Screen
+
+        name="ForgotPassword"
+
+        component={ForgotPasswordScreen}
+
+        options={{ title: 'Mot de passe oublié' }}
+
+      />
+
+      <Stack.Screen
+
         name="HomeParticipant"
+
         component={HomeParticipantScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="MyTickets"
+
         component={MyTicketsScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="OrganizerDashboard"
+
         component={OrganizerDashboardScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="ScanTicket"
+
         component={ScanTicketScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="CreateEvent"
+
         component={CreateEventScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="EventDetails"
+
         component={EventDetailsScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="Participants"
+
         component={ParticipantsScreen}
+
         options={{ title: 'Participants' }}
+
       />
+
       <Stack.Screen
+
         name="Settings"
+
         component={SettingsScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
+        name="EditProfile"
+
+        component={EditProfileScreen}
+
+        options={{ headerShown: false }}
+
+      />
+
+      <Stack.Screen
+
         name="Profile"
+
         component={ProfileScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="Favorites"
+
         component={FavoritesScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
-        name="EventPrivileges"
-        component={EventPrivilegesScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
+
         name="ParticipantsOverview"
+
         component={ParticipantsOverviewScreen}
+
         options={{ headerShown: false }}
+
       />
+
       <Stack.Screen
+
         name="Friends"
+
         component={FriendsScreen}
+
         options={{ title: 'Mes amis' }}
+
       />
+
       <Stack.Screen
+
         name="ChatList"
+
         component={ChatListScreen}
+
         options={{ title: 'Messages' }}
+
       />
+
       <Stack.Screen
+
         name="ChatRoom"
+
         component={ChatRoomScreen}
+
         options={({ route }) => ({ title: (route.params as { userName?: string })?.userName || 'Chat' })}
+
       />
+
     </Stack.Navigator>
+
   );
+
 };
+
+
 
 export default AuthNavigator;

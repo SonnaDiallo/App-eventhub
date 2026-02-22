@@ -1,6 +1,6 @@
-// mobile/src/screens/Profile/ProfileScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Image, Switch, Alert, ActivityIndicator } from 'react-native';
+// mobile/src/screens/Profile/OrganizerProfileScreen.tsx
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Switch, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,18 +8,15 @@ import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import OrganizerProfileScreen from './OrganizerProfileScreen';
 
-const ProfileScreen = () => {
+const OrganizerProfileScreen = () => {
   const navigation = useNavigation();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const [userData, setUserData] = useState<any>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [publicProfile, setPublicProfile] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  // Recharger les données à chaque fois que l'écran est affiché
   useFocusEffect(
     React.useCallback(() => {
       loadUserData();
@@ -28,7 +25,6 @@ const ProfileScreen = () => {
 
   const loadUserData = async () => {
     try {
-      setLoading(true);
       const user = auth.currentUser;
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -37,26 +33,15 @@ const ProfileScreen = () => {
           setUserData({
             ...data,
             email: data.email || user.email,
-            name: data.name || user.displayName || 'Utilisateur',
+            name: data.name || user.displayName || 'Organisateur',
           });
           setProfileImage(data.profileImage || user.photoURL || null);
           setPushNotifications(data.pushNotifications ?? true);
           setPublicProfile(data.publicProfile ?? false);
-        } else {
-          const defaultData = {
-            name: user.displayName || 'Utilisateur',
-            email: user.email,
-            role: 'participant',
-            city: 'Paris',
-          };
-          setUserData(defaultData);
-          setProfileImage(user.photoURL || null);
         }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -85,7 +70,6 @@ const ProfileScreen = () => {
             profileImage: imageUri,
           });
           Alert.alert('Succès', 'Photo de profil mise à jour !');
-          // Recharger les données
           await loadUserData();
         }
       } catch (error) {
@@ -129,9 +113,9 @@ const ProfileScreen = () => {
         {profileImage ? (
           <Image source={{ uri: profileImage }} style={styles.profileImage} />
         ) : (
-          <View style={[styles.profileImagePlaceholder, { backgroundColor: '#FFD4B8' }]}>
+          <View style={[styles.profileImagePlaceholder, { backgroundColor: '#7B5CFF' }]}>
             <Text style={styles.profileImageText}>
-              {userData?.name?.charAt(0)?.toUpperCase() || 'U'}
+              {userData?.name?.charAt(0)?.toUpperCase() || 'O'}
             </Text>
           </View>
         )}
@@ -142,14 +126,15 @@ const ProfileScreen = () => {
       
       <View style={styles.profileInfo}>
         <Text style={[styles.profileName, { color: theme.text }]}>
-          {userData?.name || 'Utilisateur'}
+          {userData?.name || 'Organisateur'}
         </Text>
         <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>
           {userData?.email || 'email@example.com'}
         </Text>
-        <Text style={[styles.profileSubtitle, { color: theme.textSecondary }]}>
-          {userData?.city || 'Paris'}
-        </Text>
+        <View style={styles.organizerBadge}>
+          <Ionicons name="star" size={14} color="#FFD700" />
+          <Text style={styles.organizerBadgeText}>Organisateur</Text>
+        </View>
       </View>
     </View>
   );
@@ -190,30 +175,14 @@ const ProfileScreen = () => {
     </View>
   );
 
-  // Si l'utilisateur est un organisateur, afficher le profil organisateur
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#7B5CFF" />
-      </View>
-    );
-  }
-
-  if (userData?.role === 'organizer') {
-    return <OrganizerProfileScreen />;
-  }
-
-  // Sinon, afficher le profil participant
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Section */}
         {renderProfileSection()}
 
-        {/* COMPTE Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>COMPTE</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
@@ -246,20 +215,18 @@ const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* PRÉFÉRENCES Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>ORGANISATEUR</Text>
+          <View style={[styles.section, { backgroundColor: theme.surface }]}>
+            {renderSettingItem('grid', '#7B5CFF', 'Tableau de bord', '', () => navigation.navigate('OrganizerDashboard' as never))}
+            {renderSettingItem('add-circle', '#00E0FF', 'Créer un événement', '', () => navigation.navigate('CreateEvent' as never))}
+            {renderSettingItem('qr-code', '#00FF88', 'Scanner un billet', '', () => navigation.navigate('ScanTicket' as never))}
+          </View>
+        </View>
+
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>PRÉFÉRENCES</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            {renderSettingItem('heart', '#7B5CFF', 'Centres d\'intérêt', 'Concerts, Tech, Art', () => {
-              Alert.alert(
-                'Centres d\'intérêt',
-                'Personnalisez vos centres d\'intérêt pour recevoir des recommandations d\'événements adaptées.',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  { text: 'Modifier', onPress: () => navigation.navigate('EditProfile' as never) }
-                ]
-              );
-            })}
             {renderToggleItem('notifications', '#7B5CFF', 'Notifications Push', pushNotifications, async (value) => {
               setPushNotifications(value);
               try {
@@ -277,11 +244,11 @@ const ProfileScreen = () => {
             {renderSettingItem('language', '#7B5CFF', 'Langue', 'Français', () => {
               Alert.alert(
                 'Langue',
-                'Choisissez votre langue préférée',
+                'Choisissez votre langue',
                 [
-                  { text: 'Français', onPress: () => Alert.alert('Langue', 'Français sélectionné') },
-                  { text: 'English', onPress: () => Alert.alert('Language', 'English selected') },
-                  { text: 'Español', onPress: () => Alert.alert('Idioma', 'Español seleccionado') },
+                  { text: 'Français', onPress: () => {} },
+                  { text: 'English', onPress: () => {} },
+                  { text: 'Español', onPress: () => {} },
                   { text: 'Annuler', style: 'cancel' }
                 ]
               );
@@ -289,7 +256,6 @@ const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* CONFIDENTIALITÉ Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>CONFIDENTIALITÉ</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
@@ -303,57 +269,47 @@ const ProfileScreen = () => {
                   });
                   Alert.alert(
                     'Profil mis à jour',
-                    value ? 'Votre profil est maintenant public' : 'Votre profil est maintenant privé'
+                    value 
+                      ? 'Votre profil est maintenant visible par tous les utilisateurs'
+                      : 'Votre profil est maintenant privé'
                   );
                 }
               } catch (error) {
                 console.error('Error updating profile visibility:', error);
               }
             })}
-            {renderSettingItem('ban', '#7B5CFF', 'Utilisateurs bloqués', '', () => {
-              Alert.alert(
-                'Utilisateurs bloqués',
-                'Vous n\'avez bloqué aucun utilisateur pour le moment.',
-                [{ text: 'OK' }]
-              );
-            })}
           </View>
         </View>
 
-        {/* SUPPORT Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>SUPPORT</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
             {renderSettingItem('help-circle', '#7B5CFF', 'Centre d\'aide', '', () => {
               Alert.alert(
                 'Centre d\'aide',
-                'Besoin d\'aide ?\n\n• FAQ : eventhub.com/faq\n• Email : support@eventhub.com\n• Téléphone : +33 1 23 45 67 89\n\nNous sommes là pour vous aider !',
+                'Besoin d\'aide ?\n\n• FAQ : eventhub.com/faq\n• Email : support@eventhub.com\n• Téléphone : +33 1 23 45 67 89',
                 [{ text: 'OK' }]
               );
             })}
             {renderSettingItem('information-circle', '#7B5CFF', 'À propos d\'EventHub', '', () => {
               Alert.alert(
                 'À propos d\'EventHub',
-                'EventHub - Votre plateforme d\'événements\n\nVersion : 2.4.0 (Build 1524)\n\n© 2026 EventHub. Tous droits réservés.\n\nDéveloppé avec ❤️ pour connecter les gens autour d\'événements inoubliables.',
+                'EventHub - Plateforme de gestion d\'événements\n\nVersion 1.0.0\n\n© 2024 EventHub. Tous droits réservés.',
                 [{ text: 'OK' }]
               );
             })}
           </View>
         </View>
 
-        {/* Logout Button */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, { backgroundColor: theme.surface }]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
           <Text style={styles.logoutText}>Déconnexion</Text>
         </TouchableOpacity>
 
-        {/* Version */}
-        <Text style={styles.versionText}>EventHub Version 2.4.0 (Build 1524)</Text>
-
-        <View style={{ height: 100 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -365,14 +321,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 60 : 20,
   },
   profileSection: {
     alignItems: 'center',
-    padding: 24,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   profileImageContainer: {
     position: 'relative',
@@ -393,16 +347,16 @@ const styles = StyleSheet.create({
   profileImageText: {
     fontSize: 40,
     fontWeight: '700',
-    color: '#7B5CFF',
+    color: '#FFFFFF',
   },
   editBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
     backgroundColor: '#7B5CFF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
@@ -412,33 +366,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     marginBottom: 4,
-    textAlign: 'center',
   },
   profileEmail: {
     fontSize: 14,
     marginBottom: 8,
-    textAlign: 'center',
   },
-  profileSubtitle: {
-    fontSize: 13,
-    textAlign: 'center',
+  organizerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFD70020',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  organizerBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFD700',
   },
   sectionContainer: {
-    marginTop: 24,
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginLeft: 16,
-    marginBottom: 8,
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 1,
+    marginBottom: 12,
   },
   section: {
-    marginHorizontal: 16,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -446,8 +407,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   settingItemLeft: {
     flexDirection: 'row',
@@ -457,14 +419,14 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   settingItemText: {
     fontSize: 16,
     fontWeight: '500',
-    marginLeft: 12,
   },
   settingItemRight: {
     flexDirection: 'row',
@@ -479,23 +441,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 16,
-    marginTop: 32,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    padding: 16,
     borderRadius: 16,
+    gap: 8,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#EF4444',
-    marginLeft: 8,
-  },
-  versionText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginTop: 16,
+    color: '#FF3B30',
   },
 });
 
-export default ProfileScreen;
+export default OrganizerProfileScreen;

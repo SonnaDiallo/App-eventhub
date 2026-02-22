@@ -9,6 +9,7 @@ import { auth, db } from '../services/firebase';
 interface ThemeContextType {
   theme: ThemeColors;
   themeMode: ThemeMode;
+  isDarkMode: boolean;
   toggleTheme: () => void;
   setThemeMode: (mode: ThemeMode) => void;
 }
@@ -22,8 +23,8 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  // Par défaut, on garde le mode sombre (comme actuellement)
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('dark');
+  // Mode clair uniquement
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -150,11 +151,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   const toggleTheme = () => {
-    const newMode = themeMode === 'dark' ? 'light' : 'dark';
+    const newMode: ThemeMode = themeMode === 'light' ? 'dark' : 'light';
     setThemeMode(newMode);
   };
 
   const theme = themes[themeMode];
+  const isDarkMode = themeMode === 'dark';
 
   // Ne pas rendre les enfants tant que le thème n'est pas chargé
   if (isLoading) {
@@ -162,7 +164,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, themeMode, toggleTheme, setThemeMode }}>
+    <ThemeContext.Provider value={{ theme, themeMode, isDarkMode, toggleTheme, setThemeMode }}>
       {children}
     </ThemeContext.Provider>
   );

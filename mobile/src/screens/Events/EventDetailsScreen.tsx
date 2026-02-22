@@ -12,10 +12,12 @@ import {
   ActivityIndicator,
   Share,
   Linking,
+  Modal,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
@@ -71,9 +73,15 @@ const EventDetailsScreen = () => {
   const [checkingExternalRegistration, setCheckingExternalRegistration] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(true);
+  const [ticketCodeModal, setTicketCodeModal] = useState<string | null>(null);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
+  const organizerDisplayName =
+    (event.organizer && typeof event.organizer === 'object' ? event.organizer?.name : event.organizer) ||
+    event.organizerName ||
+    'Organisateur';
   const user = auth.currentUser;
 
   // Charger les participants qui ont réservé
@@ -209,26 +217,26 @@ const EventDetailsScreen = () => {
     }
   };
 
-  // Ouvrir l'adresse dans l'application Cartes (Google Maps / Apple Maps)
+  // Ouvrir l'adresse dans Google Maps (URL unique fiable sur iOS et Android)
   const openAddressInMaps = () => {
-    const address = event.location || event.address;
-    if (!address || !address.trim()) {
+    const address = (event.location || event.address || '').trim();
+    if (!address) {
       Alert.alert('Adresse', 'Aucune adresse disponible pour cet événement.');
       return;
     }
-    const encoded = encodeURIComponent(address.trim());
-    // URL universelle : ouvre Google Maps (ou l'app Maps par défaut sur iOS)
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encoded}`,
-      android: `geo:0,0?q=${encoded}`,
-      default: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
-    });
-    Linking.openURL(url).catch(() => {
-      // Fallback : ouvrir la recherche Google Maps dans le navigateur
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`).catch(() => {
-        Alert.alert('Erreur', 'Impossible d\'ouvrir la carte.');
-      });
-    });
+    const encoded = encodeURIComponent(address);
+    const url = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) {
+        Linking.openURL(url).catch(() => {
+          Alert.alert('Erreur', 'Impossible d\'ouvrir la carte.');
+        });
+      } else {
+        Linking.openURL(url).catch(() => {
+          Alert.alert('Erreur', 'Impossible d\'ouvrir la carte.');
+        });
+      }
+    }).catch(() => Linking.openURL(url));
   };
 
   // Ajouter au calendrier
@@ -298,7 +306,7 @@ const EventDetailsScreen = () => {
     });
   };
 
-  // Inscription à l'événement et génération du billet
+  // Inscription à l'événement : API backend (billet créé côté serveur) ou Firestore pour événements externes
   const handleGetTicket = async () => {
     if (!user) {
       Alert.alert('Connexion requise', 'Tu dois être connecté pour obtenir un billet.');
@@ -320,48 +328,44 @@ const EventDetailsScreen = () => {
           onPress: async () => {
             setIsRegistering(true);
             try {
-              // Si l'événement est dans la base backend (MongoDB), enregistrer la participation
-              const isMongoId = /^[a-f0-9]{24}$/i.test(event.id);
-              if (isMongoId) {
-                try {
-                  await joinEvent(event.id);
-                } catch (apiErr: any) {
-                  if (apiErr?.response?.status !== 404) {
-                    console.warn('Join event API error:', apiErr?.message);
-                  }
-                }
+              const isExternalEvent = typeof event.id === 'string' && event.id.startsWith('external_');
+
+              if (isExternalEvent) {
+                const ticketCode = generateTicketCode();
+                await addDoc(collection(db, 'tickets'), {
+                  code: ticketCode,
+                  eventId: event.id,
+                  eventTitle: event.title,
+                  eventDate: event.date,
+                  eventTime: event.time,
+                  eventLocation: event.location,
+                  userId: user.uid,
+                  participantName: user.displayName || 'Participant',
+                  participantEmail: user.email,
+                  ticketType: event.isFree ? 'Gratuit' : 'Standard',
+                  price: event.price,
+                  checkedIn: false,
+                  checkedInAt: null,
+                  purchasedAt: serverTimestamp(),
+                  createdAt: serverTimestamp(),
+                });
+                setHasTicket(true);
+                setTicketCodeModal(ticketCode);
+                return;
               }
 
-              const ticketCode = generateTicketCode();
-
-              // Créer le billet dans Firestore (pour "Mes billets")
-              await addDoc(collection(db, 'tickets'), {
-                code: ticketCode,
-                eventId: event.id,
-                eventTitle: event.title,
-                eventDate: event.date,
-                eventTime: event.time,
-                eventLocation: event.location,
-                userId: user.uid,
-                participantName: user.displayName || 'Participant',
-                participantEmail: user.email,
-                ticketType: event.isFree ? 'Gratuit' : 'Standard',
-                price: event.price,
-                checkedIn: false,
-                checkedInAt: null,
-                purchasedAt: serverTimestamp(),
-                createdAt: serverTimestamp(),
-              });
-
+              const response = await joinEvent(event.id);
               setHasTicket(true);
-              Alert.alert(
-                'Inscription réussie ! 🎉',
-                `Ton billet (${ticketCode}) a été généré. Tu recevras un email avec ton billet. Tu peux aussi le retrouver dans "Mes billets".`,
-                [{ text: 'OK' }]
-              );
+              setTicketCodeModal(response.participation.ticketCode);
             } catch (error: any) {
-              console.error('Registration error:', error);
-              Alert.alert('Erreur', 'Impossible de créer le billet. Réessaie.');
+              const status = error?.response?.status;
+              const msg = error?.response?.data?.message || error?.message;
+              if (status === 404) {
+                Alert.alert('Événement introuvable', 'Cet événement n\'est plus disponible ou l\'inscription a échoué.');
+              } else {
+                console.error('Registration error:', error);
+                Alert.alert('Erreur', msg || 'Impossible de réserver. Réessaie.');
+              }
             } finally {
               setIsRegistering(false);
             }
@@ -383,7 +387,7 @@ const EventDetailsScreen = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Grande image de l'événement */}
       <View style={{ position: 'relative' }}>
         <Image
@@ -442,7 +446,7 @@ const EventDetailsScreen = () => {
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#F5F3FF',
+            backgroundColor: theme.primaryLight + '20',
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 16,
@@ -463,7 +467,7 @@ const EventDetailsScreen = () => {
           <Text style={{
             fontSize: 24,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
             marginBottom: 16,
             lineHeight: 32,
           }}>
@@ -480,7 +484,7 @@ const EventDetailsScreen = () => {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: '#F5F3FF',
+              backgroundColor: theme.primaryLight + '20',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
@@ -490,22 +494,22 @@ const EventDetailsScreen = () => {
                 fontWeight: '700',
                 color: '#7B5CFF',
               }}>
-                {(event.organizer || 'O').charAt(0).toUpperCase()}
+                {(organizerDisplayName || 'O').charAt(0).toUpperCase()}
               </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{
                 fontSize: 12,
-                color: '#6C757D',
+                color: theme.textSecondary,
               }}>
                 Par
               </Text>
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#000000',
+                color: theme.text,
               }}>
-                {event.organizer}
+                {organizerDisplayName}
               </Text>
             </View>
             <TouchableOpacity
@@ -537,7 +541,7 @@ const EventDetailsScreen = () => {
               width: 40,
               height: 40,
               borderRadius: 12,
-              backgroundColor: '#F5F3FF',
+              backgroundColor: theme.primaryLight + '20',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
@@ -548,14 +552,14 @@ const EventDetailsScreen = () => {
               <Text style={{
                 fontSize: 16,
                 fontWeight: '600',
-                color: '#000000',
+                color: theme.text,
                 marginBottom: 4,
               }}>
                 {event.date}
               </Text>
               <Text style={{
                 fontSize: 14,
-                color: '#6C757D',
+                color: theme.textSecondary,
               }}>
                 {event.time || '20:00 - 23:30'}
               </Text>
@@ -572,7 +576,7 @@ const EventDetailsScreen = () => {
               width: 40,
               height: 40,
               borderRadius: 12,
-              backgroundColor: '#F5F3FF',
+              backgroundColor: theme.primaryLight + '20',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
@@ -583,7 +587,7 @@ const EventDetailsScreen = () => {
               <Text style={{
                 fontSize: 16,
                 fontWeight: '600',
-                color: '#000000',
+                color: theme.text,
                 marginBottom: 4,
               }}>
                 {event.location}
@@ -610,7 +614,7 @@ const EventDetailsScreen = () => {
               width: 40,
               height: 40,
               borderRadius: 12,
-              backgroundColor: '#F5F3FF',
+              backgroundColor: theme.primaryLight + '20',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
@@ -620,7 +624,7 @@ const EventDetailsScreen = () => {
             <Text style={{
               fontSize: 16,
               fontWeight: '600',
-              color: '#000000',
+              color: theme.text,
             }}>
               {participants.length} {participants.length > 1 ? 'personnes inscrites' : 'personne inscrite'}
             </Text>
@@ -630,49 +634,77 @@ const EventDetailsScreen = () => {
           <Text style={{
             fontSize: 18,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
             marginBottom: 12,
           }}>
             À propos
           </Text>
           <Text style={{
             fontSize: 14,
-            color: '#6C757D',
+            color: theme.textSecondary,
             lineHeight: 22,
             marginBottom: 8,
           }}>
-            {event.description}
-            {' '}
-            <Text style={{
-              color: '#7B5CFF',
-              fontWeight: '600',
-            }}>
-              Lire la suite
-            </Text>
+            {(() => {
+              const desc = event.description || '';
+              const maxCollapsed = 150;
+              const shouldTruncate = desc.length > maxCollapsed;
+              const text = shouldTruncate && !descriptionExpanded
+                ? desc.slice(0, maxCollapsed).trim() + '...'
+                : desc;
+              return (
+                <>
+                  {text}
+                  {shouldTruncate && (
+                    <Text
+                      style={{ color: '#7B5CFF', fontWeight: '600' }}
+                      onPress={() => setDescriptionExpanded((v) => !v)}
+                    >
+                      {' '}{descriptionExpanded ? 'Voir moins' : 'Lire la suite'}
+                    </Text>
+                  )}
+                </>
+              );
+            })()}
           </Text>
 
           {/* Carte */}
           <TouchableOpacity
             onPress={openAddressInMaps}
+            activeOpacity={0.8}
             style={{
               width: '100%',
               height: 150,
               borderRadius: 16,
-              backgroundColor: '#F8F9FA',
+              backgroundColor: theme.surface,
               marginBottom: 24,
               overflow: 'hidden',
               alignItems: 'center',
               justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: theme.border || 'rgba(0,0,0,0.08)',
             }}
           >
             <Ionicons name="map" size={40} color="#7B5CFF" />
             <Text style={{
               fontSize: 14,
-              color: '#6C757D',
+              color: theme.textSecondary,
               marginTop: 8,
             }}>
-              Carte interactive
+              Voir sur la carte
             </Text>
+            {(event.location || event.address) ? (
+              <Text style={{
+                fontSize: 12,
+                color: theme.textSecondary,
+                marginTop: 4,
+                paddingHorizontal: 16,
+                textAlign: 'center',
+                numberOfLines: 2,
+              }} numberOfLines={2}>
+                {event.location || event.address}
+              </Text>
+            ) : null}
           </TouchableOpacity>
 
           {/* Section Qui y va ? */}
@@ -681,7 +713,7 @@ const EventDetailsScreen = () => {
               <Text style={{
                 fontSize: 18,
                 fontWeight: '700',
-                color: '#000000',
+                color: theme.text,
                 marginBottom: 16,
               }}>
                 Qui y va ?
@@ -703,7 +735,7 @@ const EventDetailsScreen = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 2,
-                      borderColor: '#FFFFFF',
+                      borderColor: theme.background,
                       marginLeft: index > 0 ? -12 : 0,
                     }}
                   >
@@ -725,7 +757,7 @@ const EventDetailsScreen = () => {
                     <Text style={{
                       fontSize: 14,
                       fontWeight: '600',
-                      color: '#6C757D',
+                      color: theme.textSecondary,
                     }}>
                       +{participants.length - 5} autres
                     </Text>
@@ -743,12 +775,12 @@ const EventDetailsScreen = () => {
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.surface,
         paddingHorizontal: 20,
         paddingVertical: 16,
         paddingBottom: Platform.OS === 'ios' ? 32 : 16,
         borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
+        borderTopColor: theme.border,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -756,7 +788,7 @@ const EventDetailsScreen = () => {
         <View>
           <Text style={{
             fontSize: 12,
-            color: '#6C757D',
+            color: theme.textSecondary,
             marginBottom: 4,
           }}>
             PRIX
@@ -764,9 +796,9 @@ const EventDetailsScreen = () => {
           <Text style={{
             fontSize: 24,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
           }}>
-            {event.isFree ? 'Gratuit' : `${event.price.toFixed(2)} €`}
+            {event.isFree ? 'Gratuit' : `${(event.price || 0).toFixed(2)} €`}
           </Text>
         </View>
         
@@ -795,6 +827,61 @@ const EventDetailsScreen = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={!!ticketCodeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTicketCodeModal(null)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setTicketCodeModal(null)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={{
+            backgroundColor: theme.surface,
+            borderRadius: 20,
+            padding: 24,
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: 320,
+          }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, marginBottom: 8 }}>Ton billet 🎫</Text>
+            <Text style={{ fontSize: 14, color: theme.textSecondary, marginBottom: 16, textAlign: 'center' }}>
+              Présente ce code ou le QR à l'entrée. Retrouve-le dans "Mes billets".
+            </Text>
+            {ticketCodeModal && (
+              <View style={{ marginBottom: 20 }}>
+                <QRCode value={ticketCodeModal} size={160} />
+              </View>
+            )}
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#7B5CFF', letterSpacing: 2, marginBottom: 24 }}>
+              {ticketCodeModal}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => { setTicketCodeModal(null); navigation.navigate('MyTickets'); }}
+                style={{ backgroundColor: '#7B5CFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Mes billets</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setTicketCodeModal(null)}
+                style={{ backgroundColor: theme.border, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}
+              >
+                <Text style={{ color: theme.text, fontWeight: '600' }}>Fermer</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };

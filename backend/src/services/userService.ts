@@ -1,117 +1,101 @@
-import User from '../models/User';
 import { firebaseDb } from '../config/firebaseAdmin';
+import admin from 'firebase-admin';
+
+/** Type utilisateur retourné (compatible avec l’ancien mongoUser._id) */
+export interface FirestoreUser {
+  _id: string;
+  firebaseUid?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role: string;
+  canScanTickets?: boolean;
+  themeMode?: string;
+  language?: string;
+  createdAt?: admin.firestore.Timestamp;
+  updatedAt?: admin.firestore.Timestamp;
+}
 
 /**
- * Synchronise un utilisateur Firebase vers MongoDB
+ * Synchronise un utilisateur vers Firestore (écriture seule)
  */
 export const syncUserToMongoDB = async (firebaseUid: string, userData: any) => {
-  try {
-    const existingUser = await User.findOne({ firebaseUid });
-    
-    if (existingUser) {
-      // Mettre à jour l'utilisateur existant
-      Object.assign(existingUser, {
-        name: userData.name || existingUser.name,
-        firstName: userData.firstName || existingUser.firstName,
-        lastName: userData.lastName || existingUser.lastName,
-        email: userData.email || existingUser.email,
-        role: userData.role || existingUser.role,
-        canScanTickets: userData.canScanTickets ?? existingUser.canScanTickets,
-        themeMode: userData.themeMode || existingUser.themeMode,
-        language: userData.language || existingUser.language,
-      });
-      await existingUser.save();
-      return existingUser;
-    } else {
-      // Créer un nouvel utilisateur
-      const newUser = new User({
-        firebaseUid,
-        name: userData.name,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: userData.email?.toLowerCase(),
-        role: userData.role || 'user',
-        canScanTickets: userData.canScanTickets || false,
-        themeMode: userData.themeMode,
-        language: userData.language || 'fr',
-      });
-      await newUser.save();
-      return newUser;
-    }
-  } catch (error: any) {
-    console.error('Error syncing user to MongoDB:', error);
-    throw error;
+  const ref = firebaseDb.collection('users').doc(firebaseUid);
+  const existing = await ref.get();
+  const data: Record<string, unknown> = {
+    name: userData.name ?? existing.data()?.name,
+    firstName: userData.firstName ?? existing.data()?.firstName,
+    lastName: userData.lastName ?? existing.data()?.lastName,
+    email: (userData.email ?? existing.data()?.email)?.toLowerCase?.() ?? existing.data()?.email,
+    role: userData.role ?? existing.data()?.role ?? 'user',
+    canScanTickets: userData.canScanTickets ?? existing.data()?.canScanTickets ?? false,
+    themeMode: userData.themeMode ?? existing.data()?.themeMode,
+    language: userData.language ?? existing.data()?.language ?? 'fr',
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (!existing.exists) {
+    (data as any).createdAt = admin.firestore.FieldValue.serverTimestamp();
   }
+  await ref.set(data, { merge: true });
+  return docToUser(ref.id, (await ref.get()).data()!);
 };
 
 /**
- * Récupère un utilisateur depuis MongoDB par Firebase UID
+ * Récupère un utilisateur par Firebase UID (Firestore)
  */
-export const getUserByFirebaseUid = async (firebaseUid: string) => {
-  try {
-    return await User.findOne({ firebaseUid });
-  } catch (error: any) {
-    console.error('Error getting user from MongoDB:', error);
-    throw error;
-  }
+export const getUserByFirebaseUid = async (firebaseUid: string): Promise<FirestoreUser | null> => {
+  const snap = await firebaseDb.collection('users').doc(firebaseUid).get();
+  if (!snap.exists) return null;
+  return docToUser(snap.id, snap.data()!);
 };
 
 /**
- * Récupère un utilisateur depuis MongoDB par email
+ * Récupère un utilisateur par email (Firestore)
  */
-export const getUserByEmail = async (email: string) => {
-  try {
-    return await User.findOne({ email: email.toLowerCase() });
-  } catch (error: any) {
-    console.error('Error getting user from MongoDB:', error);
-    throw error;
-  }
+export const getUserByEmail = async (email: string): Promise<FirestoreUser | null> => {
+  const snap = await firebaseDb
+    .collection('users')
+    .where('email', '==', email.toLowerCase())
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return docToUser(doc.id, doc.data());
 };
 
 /**
- * Met à jour un utilisateur dans MongoDB
+ * Met à jour un utilisateur dans Firestore
  */
-export const updateUserInMongoDB = async (firebaseUid: string, updates: any) => {
-  try {
-    const user = await User.findOneAndUpdate(
-      { firebaseUid },
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
-    return user;
-  } catch (error: any) {
-    console.error('Error updating user in MongoDB:', error);
-    throw error;
-  }
+export const updateUserInMongoDB = async (firebaseUid: string, updates: Record<string, unknown>) => {
+  const ref = firebaseDb.collection('users').doc(firebaseUid);
+  const safe = { ...updates, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  await ref.update(safe);
+  const snap = await ref.get();
+  return snap.exists ? docToUser(snap.id, snap.data()!) : null;
 };
 
 /**
- * Synchronise tous les utilisateurs Firestore vers MongoDB (utilitaire)
+ * Synchronise tous les utilisateurs Firestore → Firestore (no-op en mode Firestore seul)
  */
 export const syncAllUsersFromFirestore = async () => {
-  try {
-    const usersSnapshot = await firebaseDb.collection('users').get();
-    let synced = 0;
-    let errors = 0;
-
-    for (const doc of usersSnapshot.docs) {
-      try {
-        const firebaseData = doc.data();
-        await syncUserToMongoDB(doc.id, {
-          ...firebaseData,
-          email: firebaseData.email?.toLowerCase(),
-        });
-        synced++;
-      } catch (error) {
-        console.error(`Error syncing user ${doc.id}:`, error);
-        errors++;
-      }
-    }
-
-    console.log(`✅ Synced ${synced} users, ${errors} errors`);
-    return { synced, errors };
-  } catch (error: any) {
-    console.error('Error syncing all users:', error);
-    throw error;
-  }
+  console.log('ℹ️ syncAllUsersFromFirestore: no-op (Firestore-only mode)');
+  return { synced: 0, errors: 0 };
 };
+
+function docToUser(id: string, data: admin.firestore.DocumentData): FirestoreUser {
+  return {
+    _id: id,
+    firebaseUid: id,
+    name: data.name,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email ?? '',
+    role: data.role ?? 'user',
+    canScanTickets: data.canScanTickets,
+    themeMode: data.themeMode,
+    language: data.language,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+}
