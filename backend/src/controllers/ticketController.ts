@@ -1,84 +1,68 @@
 import { Request, Response } from 'express';
-import Ticket from '../models/Ticket';
-import Event from '../models/Event';
+import admin from 'firebase-admin';
+import { firebaseDb } from '../config/firebaseAdmin';
 import { getUserByFirebaseUid } from '../services/userService';
-import mongoose from 'mongoose';
 
-// Récupérer les tickets de l'utilisateur connecté
+const toDate = (v: admin.firestore.Timestamp | Date | undefined): Date | undefined =>
+  !v ? undefined : v instanceof Date ? v : (v as admin.firestore.Timestamp).toDate?.() ?? undefined;
+
 export const getMyTickets = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const user = await getUserByFirebaseUid(userId);
+    if (!user) return res.status(404).json({ message: 'User not found in database' });
 
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser) {
-      return res.status(404).json({ message: 'User not found in database' });
-    }
-
-    const {
-      page = '1',
-      limit = '20',
-      eventId,
-      checkedIn,
-    } = req.query;
-
+    const { page = '1', limit = '20', eventId, checkedIn } = req.query;
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    // Construire la requête
-    const query: any = { userId: mongoUser._id };
+    let query: admin.firestore.Query = firebaseDb.collection('tickets').where('userId', '==', userId);
+    if (eventId) query = query.where('eventId', '==', eventId);
+    if (checkedIn !== undefined) query = query.where('checkedIn', '==', checkedIn === 'true');
 
-    if (eventId) {
-      query.eventId = new mongoose.Types.ObjectId(eventId as string);
-    }
+    const snap = await query.get();
+    let list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+    list.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? 0;
+      return tb - ta;
+    });
+    const total = list.length;
+    list = list.slice(skip, skip + limitNum);
 
-    if (checkedIn !== undefined) {
-      query.checkedIn = checkedIn === 'true';
-    }
+    const eventIds = [...new Set(list.map((t) => t.eventId).filter(Boolean))];
+    const eventSnaps = await Promise.all(eventIds.map((id) => firebaseDb.collection('events').doc(id).get()));
+    const eventMap: Record<string, any> = {};
+    eventIds.forEach((id, i) => {
+      if (eventSnaps[i]?.exists) eventMap[id] = eventSnaps[i].data();
+    });
 
-    // Récupérer les tickets avec les informations de l'événement
-    const tickets = await Ticket.find(query)
-      .populate('eventId', 'title coverImage startDate endDate location')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    const total = await Ticket.countDocuments(query);
-
-    const ticketsData = tickets.map((ticket: any) => ({
-      id: ticket._id.toString(),
-      code: ticket.code,
-      eventId: ticket.eventId._id.toString(),
-      event: {
-        id: ticket.eventId._id.toString(),
-        title: ticket.eventId.title,
-        coverImage: ticket.eventId.coverImage,
-        startDate: ticket.eventId.startDate,
-        endDate: ticket.eventId.endDate,
-        location: ticket.eventId.location,
-      },
-      participantName: ticket.participantName,
-      participantEmail: ticket.participantEmail,
-      ticketType: ticket.ticketType,
-      price: ticket.price,
-      checkedIn: ticket.checkedIn,
-      checkedInAt: ticket.checkedInAt,
-      createdAt: ticket.createdAt,
-      updatedAt: ticket.updatedAt,
-    }));
+    const ticketsData = list.map((t) => {
+      const ev = eventMap[t.eventId];
+      return {
+        id: t.id,
+        code: t.code,
+        eventId: t.eventId,
+        event: ev
+          ? { id: t.eventId, title: ev.title, coverImage: ev.coverImage, startDate: toDate(ev.startDate), endDate: toDate(ev.endDate), location: ev.location }
+          : undefined,
+        participantName: t.participantName,
+        participantEmail: t.participantEmail,
+        ticketType: t.ticketType,
+        price: t.price,
+        checkedIn: t.checkedIn ?? false,
+        checkedInAt: toDate(t.checkedInAt),
+        createdAt: toDate(t.createdAt),
+        updatedAt: toDate(t.updatedAt),
+      };
+    });
 
     return res.status(200).json({
       tickets: ticketsData,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+      pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
     });
   } catch (error: any) {
     console.error('Get my tickets error:', error);
@@ -86,49 +70,34 @@ export const getMyTickets = async (req: Request, res: Response) => {
   }
 };
 
-// Récupérer un ticket par son code (pour le scan)
 export const getTicketByCode = async (req: Request, res: Response) => {
   try {
-    const { code } = req.params;
+    const code = (req.params.code || '').toUpperCase();
+    if (!code) return res.status(400).json({ message: 'Ticket code is required' });
 
-    if (!code) {
-      return res.status(400).json({ message: 'Ticket code is required' });
-    }
+    const snap = await firebaseDb.collection('tickets').where('code', '==', code).limit(1).get();
+    if (snap.empty) return res.status(404).json({ message: 'Ticket not found' });
 
-    const ticket = await Ticket.findOne({ code: code.toUpperCase() })
-      .populate('eventId', 'title startDate endDate location organizerName')
-      .populate('userId', 'name email firstName lastName');
+    const doc = snap.docs[0];
+    const t = { id: doc.id, ...doc.data() } as any;
+    const eventSnap = await firebaseDb.collection('events').doc(t.eventId).get();
+    const userSnap = t.userId ? await firebaseDb.collection('users').doc(t.userId).get() : null;
+    const event = eventSnap.exists ? eventSnap.data() : null;
+    const user = userSnap?.exists ? userSnap.data() : null;
 
-    if (!ticket) {
-      return res.status(404).json({ message: 'Ticket not found' });
-    }
-
-    const ticketData: any = {
-      id: ticket._id.toString(),
-      code: ticket.code,
-      eventId: ticket.eventId._id.toString(),
-      event: {
-        id: ticket.eventId._id.toString(),
-        title: ticket.eventId.title,
-        startDate: ticket.eventId.startDate,
-        endDate: ticket.eventId.endDate,
-        location: ticket.eventId.location,
-        organizerName: ticket.eventId.organizerName,
-      },
-      user: ticket.userId
-        ? {
-            id: ticket.userId._id.toString(),
-            name: ticket.userId.name || `${ticket.userId.firstName || ''} ${ticket.userId.lastName || ''}`.trim(),
-            email: ticket.userId.email,
-          }
-        : null,
-      participantName: ticket.participantName,
-      participantEmail: ticket.participantEmail,
-      ticketType: ticket.ticketType,
-      price: ticket.price,
-      checkedIn: ticket.checkedIn,
-      checkedInAt: ticket.checkedInAt,
-      createdAt: ticket.createdAt,
+    const ticketData = {
+      id: t.id,
+      code: t.code,
+      eventId: t.eventId,
+      event: event ? { id: t.eventId, title: event.title, startDate: toDate(event.startDate), endDate: toDate(event.endDate), location: event.location, organizerName: event.organizerName } : undefined,
+      user: user ? { id: t.userId, name: user.name || [user.firstName, user.lastName].filter(Boolean).join(' '), email: user.email } : null,
+      participantName: t.participantName,
+      participantEmail: t.participantEmail,
+      ticketType: t.ticketType,
+      price: t.price,
+      checkedIn: t.checkedIn ?? false,
+      checkedInAt: toDate(t.checkedInAt),
+      createdAt: toDate(t.createdAt),
     };
 
     return res.status(200).json({ ticket: ticketData });
@@ -138,54 +107,66 @@ export const getTicketByCode = async (req: Request, res: Response) => {
   }
 };
 
-// Vérifier un ticket (check-in)
 export const verifyTicket = async (req: Request, res: Response) => {
   try {
-    const { code } = req.params;
+    const code = (req.params.code || '').toUpperCase();
+    const eventIdQuery = req.query.eventId as string | undefined;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    // Vérifier que l'utilisateur a la permission de scanner
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser || (!mongoUser.canScanTickets && mongoUser.role !== 'organizer' && mongoUser.role !== 'admin')) {
+    const user = await getUserByFirebaseUid(userId);
+    if (!user || (!user.canScanTickets && user.role !== 'organizer' && user.role !== 'admin')) {
       return res.status(403).json({ message: 'Forbidden: You do not have permission to scan tickets' });
     }
+    if (!code) return res.status(400).json({ message: 'Ticket code is required' });
 
-    if (!code) {
-      return res.status(400).json({ message: 'Ticket code is required' });
-    }
+    const snap = await firebaseDb.collection('tickets').where('code', '==', code).limit(1).get();
+    if (snap.empty) return res.status(404).json({ message: 'Ticket not found' });
 
-    const ticket = await Ticket.findOne({ code: code.toUpperCase() }).populate('eventId');
-
-    if (!ticket) {
-      return res.status(404).json({ message: 'Ticket not found' });
-    }
-
-    if (ticket.checkedIn) {
+    const doc = snap.docs[0];
+    const t = doc.data();
+    if (eventIdQuery && t.eventId !== eventIdQuery) {
+      const eventSnap = await firebaseDb.collection('events').doc(t.eventId).get();
+      const otherTitle = eventSnap.exists ? (eventSnap.data() as any).title : 'Événement';
       return res.status(400).json({
-        message: 'Ticket already checked in',
-        checkedInAt: ticket.checkedInAt,
+        message: `Ce billet appartient à l'événement "${otherTitle}". Sélectionnez le bon événement.`,
       });
     }
+    if (t.checkedIn) {
+      return res.status(400).json({ message: 'Ticket already checked in', checkedInAt: toDate(t.checkedInAt) });
+    }
 
-    // Marquer le ticket comme vérifié
-    ticket.checkedIn = true;
-    ticket.checkedInAt = new Date();
-    await ticket.save();
+    await doc.ref.update({
+      checkedIn: true,
+      checkedInAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const scannerName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || 'Utilisateur';
+    await firebaseDb.collection('scanHistory').add({
+      ticketId: doc.id,
+      ticketCode: t.code || code,
+      eventId: t.eventId,
+      participantId: t.userId || null,
+      participantName: t.participantName || null,
+      scannedBy: userId,
+      scannedByName: scannerName,
+      scannedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const eventSnap = await firebaseDb.collection('events').doc(t.eventId).get();
+    const eventTitle = eventSnap.exists ? (eventSnap.data() as any).title : '';
 
     return res.status(200).json({
       message: 'Ticket verified successfully',
       ticket: {
-        id: ticket._id.toString(),
-        code: ticket.code,
-        eventId: ticket.eventId._id.toString(),
-        eventTitle: (ticket.eventId as any).title,
-        participantName: ticket.participantName,
-        checkedIn: ticket.checkedIn,
-        checkedInAt: ticket.checkedInAt,
+        id: doc.id,
+        code: t.code,
+        eventId: t.eventId,
+        eventTitle,
+        participantName: t.participantName,
+        checkedIn: true,
+        checkedInAt: new Date(),
       },
     });
   } catch (error: any) {
@@ -194,76 +175,87 @@ export const verifyTicket = async (req: Request, res: Response) => {
   }
 };
 
-// Récupérer les statistiques des tickets pour un événement (organisateur uniquement)
 export const getEventTicketStats = async (req: Request, res: Response) => {
   try {
-    const { eventId } = req.params;
+    const eventId = req.params.eventId;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const eventSnap = await firebaseDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
+    const eventData = eventSnap.data()!;
+    if (eventData.organizerId !== userId) return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
 
-    // Vérifier que l'utilisateur est l'organisateur de l'événement
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser || event.organizerId.toString() !== mongoUser._id.toString()) {
-      return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
-    }
-
-    // Statistiques des tickets
-    const totalTickets = await Ticket.countDocuments({ eventId: event._id });
-    const checkedInTickets = await Ticket.countDocuments({
-      eventId: event._id,
-      checkedIn: true,
-    });
+    const ticketsSnap = await firebaseDb.collection('tickets').where('eventId', '==', eventId).get();
+    const tickets = ticketsSnap.docs.map((d) => d.data());
+    const totalTickets = tickets.length;
+    const checkedInTickets = tickets.filter((t) => t.checkedIn === true).length;
     const pendingTickets = totalTickets - checkedInTickets;
 
-    // Tickets par type
-    const ticketsByType = await Ticket.aggregate([
-      { $match: { eventId: event._id } },
-      {
-        $group: {
-          _id: '$ticketType',
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // Revenus totaux (si prix défini)
-    const revenueData = await Ticket.aggregate([
-      { $match: { eventId: event._id, price: { $exists: true, $ne: null } } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$price' },
-        },
-      },
-    ]);
-
-    const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+    const byType: Record<string, number> = {};
+    tickets.forEach((t) => {
+      const type = t.ticketType || 'Standard';
+      byType[type] = (byType[type] || 0) + 1;
+    });
+    const totalRevenue = tickets.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
 
     return res.status(200).json({
-      eventId: event._id.toString(),
-      eventTitle: event.title,
+      eventId,
+      eventTitle: eventData.title,
       stats: {
         totalTickets,
         checkedInTickets,
         pendingTickets,
         checkInRate: totalTickets > 0 ? ((checkedInTickets / totalTickets) * 100).toFixed(2) : '0.00',
         totalRevenue,
-        ticketsByType: ticketsByType.map((item) => ({
-          type: item._id,
-          count: item.count,
-        })),
+        ticketsByType: Object.entries(byType).map(([type, count]) => ({ type, count })),
       },
     });
   } catch (error: any) {
     console.error('Get event ticket stats error:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+export const getEventScanHistory = async (req: Request, res: Response) => {
+  try {
+    const eventId = req.params.eventId;
+    const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const eventSnap = await firebaseDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
+    const eventData = eventSnap.data()!;
+    if (eventData.organizerId !== userId) return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
+
+    const { limit = '50' } = req.query;
+    const limitNum = Math.min(parseInt(limit as string, 10) || 50, 100);
+
+    const snap = await firebaseDb
+      .collection('scanHistory')
+      .where('eventId', '==', eventId)
+      .orderBy('scannedAt', 'desc')
+      .limit(limitNum)
+      .get();
+
+    const list = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ticketId: data.ticketId,
+        ticketCode: data.ticketCode || '',
+        eventId: data.eventId,
+        participantId: data.participantId,
+        participantName: data.participantName,
+        scannedBy: data.scannedBy,
+        scannedByName: data.scannedByName || '',
+        scannedAt: toDate(data.scannedAt),
+      };
+    });
+
+    return res.status(200).json({ scans: list, total: list.length });
+  } catch (error: any) {
+    console.error('Get event scan history error:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };

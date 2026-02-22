@@ -3,8 +3,9 @@ import { Alert, Modal, Text, TextInput, TouchableOpacity, View, ActivityIndicato
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { collection, doc, getDoc, getDocs, query, updateDoc, where, orderBy, onSnapshot, Timestamp, addDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
+import { verifyTicket as apiVerifyTicket, getEventScanHistory } from '../../services/ticketService';
 import { useTheme } from '../../theme/ThemeContext';
 import { createStyles } from './ScanTicketScreen.styles';
 
@@ -132,124 +133,56 @@ const ScanTicketScreen = () => {
     return () => unsubscribe();
   }, [hasAccess]);
 
-  // Charger l'historique des scans
+  // Charger l'historique des scans depuis l'API
   useEffect(() => {
-    if (!hasAccess || !selectedEventId) return;
-
-    const historyRef = collection(db, 'scanHistory');
-    const q = query(
-      historyRef,
-      where('eventId', '==', selectedEventId),
-      orderBy('scannedAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const history = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ticketId: data.ticketId || '',
-            ticketCode: data.ticketCode || '',
-            participantName: data.participantName || 'Participant',
-            eventTitle: data.eventTitle || '',
-            scannedBy: data.scannedBy || '',
-            scannedByName: data.scannedByName || 'Utilisateur',
-            scannedAt: data.scannedAt?.toDate() || new Date(),
-            canUndo: data.canUndo !== false, // Par défaut true si non défini
-          } as ScanHistory;
-        });
+    if (!hasAccess || !selectedEventId) {
+      setScanHistory([]);
+      return;
+    }
+    let cancelled = false;
+    getEventScanHistory(selectedEventId)
+      .then((res) => {
+        if (cancelled) return;
+        const history: ScanHistory[] = res.scans.map((s) => ({
+          id: s.id,
+          ticketId: s.ticketId,
+          ticketCode: s.ticketCode,
+          participantName: s.participantName || 'Participant',
+          eventTitle: '',
+          scannedBy: s.scannedBy,
+          scannedByName: s.scannedByName || 'Utilisateur',
+          scannedAt: new Date(s.scannedAt),
+          canUndo: false,
+        }));
         setScanHistory(history);
-      },
-      (error) => {
-        console.error('Error fetching scan history:', error);
-      }
-    );
-
-    return () => unsubscribe();
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Error fetching scan history:', err);
+          setScanHistory([]);
+        }
+      });
+    return () => { cancelled = true; };
   }, [hasAccess, selectedEventId]);
 
   const validateTicket = async (ticketCode: string): Promise<ScanResult> => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      if (!auth.currentUser) {
         return { type: 'error', message: 'Utilisateur non connecté' };
       }
-
-      // Chercher le ticket par son code dans Firestore
-      const ticketsRef = collection(db, 'tickets');
-      const q = query(ticketsRef, where('code', '==', ticketCode.toUpperCase()));
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        return { type: 'error', message: 'Billet introuvable. Vérifiez le code.' };
-      }
-
-      const ticketDoc = snapshot.docs[0];
-      const ticket = ticketDoc.data();
-      const ticketEventId = ticket.eventId;
-
-      // Vérifier si un événement est sélectionné et si le billet correspond
-      if (selectedEventId && ticketEventId !== selectedEventId) {
-        const eventDoc = await getDoc(doc(db, 'events', ticketEventId));
-        const eventTitle = eventDoc.exists() ? eventDoc.data().title : 'Événement inconnu';
-        return { 
-          type: 'error', 
-          message: `Ce billet appartient à l'événement "${eventTitle}". Veuillez sélectionner le bon événement.` 
-        };
-      }
-
-      if (ticket.checkedIn) {
-        const checkedInDate = ticket.checkedInAt?.toDate?.();
-        const dateStr = checkedInDate 
-          ? checkedInDate.toLocaleDateString('fr-FR') + ' à ' + checkedInDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-          : 'une date inconnue';
-        return { type: 'error', message: `Ce billet a déjà été scanné le ${dateStr}.` };
-      }
-
-      // Récupérer les infos de l'utilisateur qui scanne
-      const scannerDoc = await getDoc(doc(db, 'users', user.uid));
-      const scannerData = scannerDoc.exists() ? scannerDoc.data() : null;
-      const scannerName = scannerData?.firstName && scannerData?.lastName
-        ? `${scannerData.firstName} ${scannerData.lastName}`
-        : scannerData?.name || user.displayName || 'Utilisateur';
-
-      // Récupérer le titre de l'événement
-      const eventDoc = await getDoc(doc(db, 'events', ticketEventId));
-      const eventTitle = eventDoc.exists() ? eventDoc.data().title : 'Événement inconnu';
-
-      // Marquer comme checké
-      await updateDoc(doc(db, 'tickets', ticketDoc.id), {
-        checkedIn: true,
-        checkedInAt: Timestamp.now(),
-      });
-
-      // Enregistrer dans l'historique
-      await addDoc(collection(db, 'scanHistory'), {
-        ticketId: ticketDoc.id,
-        ticketCode: ticketCode.toUpperCase(),
-        eventId: ticketEventId,
-        eventTitle: eventTitle,
-        participantName: ticket.participantName || 'Participant',
-        participantId: ticket.userId || '',
-        scannedBy: user.uid,
-        scannedByName: scannerName,
-        scannedAt: Timestamp.now(),
-        canUndo: true,
-      });
-
+      const res = await apiVerifyTicket(ticketCode.trim().toUpperCase(), selectedEventId || undefined);
+      const t = res.ticket;
       return {
         type: 'success',
-        participant: ticket.participantName || 'Participant',
-        ticketType: ticket.ticketType || 'Standard',
-        ticketId: ticketDoc.id,
-        eventId: ticketEventId,
-        eventTitle: eventTitle,
+        participant: t.participantName || 'Participant',
+        ticketType: 'Standard',
+        ticketId: t.id,
+        eventId: t.eventId,
+        eventTitle: t.eventTitle || 'Événement',
       };
     } catch (error: any) {
-      console.error('Ticket validation error:', error);
-      return { type: 'error', message: 'Erreur de validation. Réessayez.' };
+      const msg = error?.response?.data?.message || error?.message || 'Erreur de validation. Réessayez.';
+      return { type: 'error', message: msg };
     }
   };
 

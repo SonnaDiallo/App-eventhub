@@ -1,14 +1,56 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
 import { EventCategory, isValidCategory } from '../types/categories';
 import { getCategoryDefaultImage, detectCategoryFromTitle } from '../services/categoryService';
 import { fetchTicketmasterEvents } from '../services/externalEventsService';
-import Event from '../models/Event';
-import Ticket from '../models/Ticket';
-import EventParticipation from '../models/EventParticipation';
 import { getUserByFirebaseUid } from '../services/userService';
-import mongoose from 'mongoose';
+
+function generateTicketCode(): string {
+  return crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+async function ensureUniqueTicketCode(): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = generateTicketCode();
+    const snap = await firebaseDb.collection('tickets').where('code', '==', code).limit(1).get();
+    if (snap.empty) return code;
+  }
+  return generateTicketCode() + Date.now().toString(36).slice(-4).toUpperCase();
+}
+
+const toDate = (v: admin.firestore.Timestamp | Date | undefined): Date | undefined =>
+  !v ? undefined : v instanceof Date ? v : (v as admin.firestore.Timestamp).toDate?.() ?? undefined;
+
+/** Construire l'objet événement pour la réponse API à partir d'un doc Firestore */
+function eventDocToResponse(
+  id: string,
+  data: admin.firestore.DocumentData,
+  organizer?: { id: string; name?: string; email?: string } | null,
+  participantsCount?: number
+) {
+  return {
+    id,
+    title: data.title,
+    coverImage: data.coverImage,
+    category: data.category,
+    startDate: toDate(data.startDate as admin.firestore.Timestamp),
+    endDate: toDate(data.endDate as admin.firestore.Timestamp),
+    location: data.location,
+    description: data.description,
+    isFree: data.isFree ?? true,
+    price: data.price,
+    capacity: data.capacity,
+    organizerName: data.organizerName,
+    organizerId: data.organizerId,
+    organizer,
+    ...(participantsCount !== undefined && { participantsCount }),
+    createdAt: toDate(data.createdAt as admin.firestore.Timestamp),
+    updatedAt: toDate(data.updatedAt as admin.firestore.Timestamp),
+    source: 'local',
+  };
+}
 
 export const createEvent = async (req: Request, res: Response) => {
   try {
@@ -26,40 +68,29 @@ export const createEvent = async (req: Request, res: Response) => {
       category,
     } = req.body;
 
-    if (!title) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
+    if (!title) return res.status(400).json({ message: 'Title is required' });
 
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    // Valider la catégorie si fournie, sinon détecter depuis le titre
     let eventCategory: string;
     if (category && isValidCategory(category)) {
       eventCategory = category;
     } else if (category) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Catégorie invalide',
         error: 'Invalid category',
         validCategories: Object.values(EventCategory),
       });
     } else {
-      // Détecter automatiquement la catégorie depuis le titre
       eventCategory = detectCategoryFromTitle(title);
     }
 
-    // Utiliser l'image fournie ou l'image par défaut de la catégorie
     const finalCoverImage = getCategoryDefaultImage(eventCategory, coverImage);
+    const user = await getUserByFirebaseUid(userId);
+    if (!user) return res.status(404).json({ message: 'User not found in database' });
 
-    // Récupérer l'utilisateur depuis MongoDB pour obtenir l'ObjectId
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser) {
-      return res.status(404).json({ message: 'User not found in database' });
-    }
-
-    const payload = {
+    const payload: Record<string, unknown> = {
       title,
       coverImage: finalCoverImage,
       category: eventCategory,
@@ -71,32 +102,22 @@ export const createEvent = async (req: Request, res: Response) => {
       price: typeof price === 'number' ? price : undefined,
       capacity: typeof capacity === 'number' ? capacity : undefined,
       organizerName: typeof organizerName === 'string' ? organizerName : undefined,
-      organizerId: mongoUser._id,
+      organizerId: userId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // Sauvegarder dans MongoDB
-    const event = new Event(payload);
-    await event.save();
+    const ref = await firebaseDb.collection('events').add(payload);
+    const snap = await ref.get();
+    const data = snap.data()!;
+    const created = eventDocToResponse(ref.id, data, {
+      id: user._id,
+      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      email: user.email,
+    });
 
-    // Synchroniser avec Firestore (pour compatibilité)
-    try {
-      await firebaseDb.collection('events').doc(event._id.toString()).set({
-        ...payload,
-        organizerUid: userId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (firestoreError) {
-      console.error('⚠️ Failed to sync event to Firestore (continuing anyway):', firestoreError);
-    }
-
-    return res.status(201).json({ 
-      event: { 
-        id: event._id.toString(), 
-        ...payload,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt,
-      } 
+    return res.status(201).json({
+      event: { ...created, createdAt: toDate(data.createdAt as admin.firestore.Timestamp), updatedAt: toDate(data.updatedAt as admin.firestore.Timestamp) },
     });
   } catch (error) {
     console.error('Create event error:', error);
@@ -108,41 +129,25 @@ export const joinEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!eventId) return res.status(400).json({ message: 'Invalid event id' });
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!eventId) {
-      return res.status(400).json({ message: 'Invalid event id' });
-    }
+    const eventSnap = await firebaseDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const user = await getUserByFirebaseUid(userId);
+    if (!user) return res.status(404).json({ message: 'User not found in database' });
 
-    // Récupérer l'événement depuis MongoDB
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    // Récupérer l'utilisateur depuis MongoDB
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser) {
-      return res.status(404).json({ message: 'User not found in database' });
-    }
-
-    const isFree = typeof event.isFree === 'boolean' ? event.isFree : true;
+    const eventData = eventSnap.data()!;
+    const isFree = eventData.isFree !== false;
     const status = isFree ? 'confirmed' : 'pending_payment';
 
-    // Créer ou mettre à jour la participation dans MongoDB
-    const participation = await EventParticipation.findOneAndUpdate(
-      { event: event._id, user: mongoUser._id },
-      { status },
-      { upsert: true, new: true }
-    );
-
-    // Synchroniser avec Firestore (pour compatibilité)
-    try {
-      const eventRef = firebaseDb.collection('events').doc(eventId);
-      await eventRef.collection('participants').doc(userId).set(
+    await firebaseDb
+      .collection('events')
+      .doc(eventId)
+      .collection('participants')
+      .doc(userId)
+      .set(
         {
           status,
           userId,
@@ -151,17 +156,31 @@ export const joinEvent = async (req: Request, res: Response) => {
         },
         { merge: true }
       );
-    } catch (firestoreError) {
-      console.error('⚠️ Failed to sync participation to Firestore (continuing anyway):', firestoreError);
-    }
 
-    return res.status(200).json({ 
-      participation: { 
-        eventId, 
-        userId, 
-        status,
-        id: participation._id.toString(),
-      } 
+    const code = await ensureUniqueTicketCode();
+    const participantName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || 'Participant';
+    const startDate = toDate(eventData.startDate as admin.firestore.Timestamp);
+    const eventDate = startDate ? startDate.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const eventTime = startDate ? startDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+    await firebaseDb.collection('tickets').add({
+      code,
+      eventId,
+      userId,
+      participantName,
+      participantEmail: user.email || undefined,
+      ticketType: eventData.isFree === false ? 'Standard' : 'Gratuit',
+      price: eventData.price ?? undefined,
+      checkedIn: false,
+      eventTitle: eventData.title || '',
+      eventLocation: eventData.location || '',
+      eventDate,
+      eventTime,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(200).json({
+      participation: { eventId, userId, status, id: `${eventId}_${userId}`, ticketCode: code },
     });
   } catch (error: any) {
     console.error('Join event error:', error);
@@ -173,34 +192,19 @@ export const leaveEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
-
     if (!eventId) return res.status(400).json({ message: 'Invalid event id' });
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!mongoose.Types.ObjectId.isValid(eventId) || String(eventId).length !== 24) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
+    const eventRef = firebaseDb.collection('events').doc(eventId);
+    const partRef = eventRef.collection('participants').doc(userId);
+    const partSnap = await partRef.get();
+    if (!partSnap.exists) return res.status(404).json({ message: 'Participation not found' });
 
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser) return res.status(404).json({ message: 'User not found in database' });
-
-    const deleted = await EventParticipation.findOneAndDelete({
-      event: event._id,
-      user: mongoUser._id,
-    });
-
-    if (!deleted) return res.status(404).json({ message: 'Participation not found' });
-
-    try {
-      const eventRef = firebaseDb.collection('events').doc(eventId);
-      await eventRef.collection('participants').doc(userId).delete();
-    } catch (firestoreError) {
-      console.warn('Failed to remove Firestore participant:', firestoreError);
-    }
-
+    await partRef.delete();
+    const ticketsSnap = await firebaseDb.collection('tickets').where('eventId', '==', eventId).where('userId', '==', userId).get();
+    const batch = firebaseDb.batch();
+    ticketsSnap.docs.forEach((d) => batch.delete(d.ref));
+    if (!ticketsSnap.empty) await batch.commit();
     return res.status(200).json({ message: 'Participation cancelled successfully' });
   } catch (error: any) {
     console.error('Leave event error:', error);
@@ -212,223 +216,188 @@ export const getParticipants = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const { status } = req.query;
+    if (!eventId) return res.status(400).json({ message: 'Invalid event id' });
 
-    if (!eventId) {
-      return res.status(400).json({ message: 'Invalid event id' });
-    }
+    const eventSnap = await firebaseDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
 
-    // Vérifier que l'id est un ObjectId MongoDB valide (24 caractères hex)
-    if (!mongoose.Types.ObjectId.isValid(eventId) || String(eventId).length !== 24) {
-      return res.status(404).json({
-        message: 'Event not found',
-        error: 'Invalid event id format. Participants are only available for events created on the platform (MongoDB).',
-      });
-    }
+    let participantsSnap = await firebaseDb.collection('events').doc(eventId).collection('participants').get();
+    let participants = participantsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // Récupérer l'événement depuis MongoDB
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    // Construire la requête MongoDB
-    const query: any = { event: event._id };
     if (typeof status === 'string' && (status === 'confirmed' || status === 'pending_payment')) {
-      query.status = status;
+      participants = participants.filter((p: any) => p.status === status);
     }
 
-    // Récupérer les participations depuis MongoDB
-    const participations = await EventParticipation.find(query)
-      .populate('user', 'name email role firstName lastName')
-      .sort({ createdAt: -1 });
+    participants.sort((a: any, b: any) => {
+      const ta = a.createdAt?.toMillis?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? 0;
+      return tb - ta;
+    });
 
-    const participants = participations.map((participation: any) => {
-      const user = participation.user;
+    const userIds = [...new Set(participants.map((p: any) => p.userId).filter(Boolean))];
+    const userSnaps = await Promise.all(userIds.map((uid) => firebaseDb.collection('users').doc(uid).get()));
+    const userMap: Record<string, any> = {};
+    userSnaps.forEach((s, i) => {
+      if (s.exists && userIds[i]) userMap[userIds[i]] = s.data();
+    });
+
+    const result = participants.map((p: any) => {
+      const u = userMap[p.userId];
       return {
-        id: user?._id?.toString() || participation._id.toString(),
-        status: participation.status,
-        user: user
+        id: p.userId || p.id,
+        status: p.status,
+        user: u
           ? {
-              id: user._id.toString(),
-              name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-              firstName: user.firstName,
-              lastName: user.lastName,
-              email: user.email,
-              role: user.role,
+              id: p.userId,
+              name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ').trim(),
+              firstName: u.firstName,
+              lastName: u.lastName,
+              email: u.email,
+              role: u.role,
             }
           : null,
-        createdAt: participation.createdAt,
+        createdAt: toDate(p.createdAt),
       };
     });
 
-    const confirmed = participants.filter((p) => p.status === 'confirmed').length;
-    const pending_payment = participants.filter((p) => p.status === 'pending_payment').length;
+    const confirmed = result.filter((r) => r.status === 'confirmed').length;
+    const pending_payment = result.filter((r) => r.status === 'pending_payment').length;
 
     return res.status(200).json({
-      counts: {
-        confirmed,
-        pending_payment,
-        total: confirmed + pending_payment,
-      },
-      participants,
+      counts: { confirmed, pending_payment, total: result.length },
+      participants: result,
     });
   } catch (error: any) {
     console.error('Get participants error:', error?.message || error);
-    return res.status(500).json({
-      message: 'Internal server error',
-      error: error?.message || 'Unknown error',
-    });
+    return res.status(500).json({ message: 'Internal server error', error: error?.message });
   }
 };
 
-// Récupérer tous les événements avec pagination et filtres
 export const getEvents = async (req: Request, res: Response) => {
   try {
-    const {
-      page = '1',
-      limit = '20',
-      category,
-      isFree,
-      location,
-      search,
-      organizerId,
-    } = req.query;
-
+    const { page = '1', limit = '20', category, isFree, location, search, organizerId, upcoming } = req.query;
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    // Construire la requête MongoDB
-    const query: any = {};
+    // Toujours utiliser la catégorie en minuscules pour la requête (Firestore est sensible à la casse)
+    const categoryParam = typeof category === 'string' ? category.trim().toLowerCase() : undefined;
 
-    if (category && isValidCategory(category as string)) {
-      query.category = category;
+    let eventsSnap: admin.firestore.QuerySnapshot;
+    let query: admin.firestore.Query = firebaseDb.collection('events');
+    if (categoryParam && isValidCategory(categoryParam)) {
+      query = query.where('category', '==', categoryParam);
     }
+    if (organizerId) {
+      query = query.where('organizerId', '==', organizerId);
+    }
+    eventsSnap = await query.get();
+
+    let list = eventsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
 
     if (isFree !== undefined) {
-      query.isFree = isFree === 'true';
+      const free = isFree === 'true';
+      list = list.filter((e) => (e.isFree === true) === free);
     }
-
     if (location) {
-      query.location = { $regex: location as string, $options: 'i' };
+      const loc = (location as string).toLowerCase();
+      list = list.filter((e) => e.location?.toLowerCase?.().includes(loc));
     }
-
-    if (organizerId) {
-      query.organizerId = new mongoose.Types.ObjectId(organizerId as string);
-    }
-
     if (search) {
-      query.$or = [
-        { title: { $regex: search as string, $options: 'i' } },
-        { description: { $regex: search as string, $options: 'i' } },
-        { location: { $regex: search as string, $options: 'i' } },
-      ];
+      const s = (search as string).toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.title?.toLowerCase?.().includes(s) ||
+          e.description?.toLowerCase?.().includes(s) ||
+          e.location?.toLowerCase?.().includes(s)
+      );
     }
-
-    // Filtrer les événements passés (optionnel, peut être ajouté via query param)
-    if (req.query.upcoming === 'true') {
+    if (upcoming === 'true') {
       const now = new Date();
-      // Un événement est considéré "à venir" tant qu'il n'est pas terminé.
-      // Si endDate est absent, on se rabat sur startDate.
-      query.$or = [
-        ...(query.$or || []),
-        { endDate: { $gte: now } },
-        { endDate: { $exists: false }, startDate: { $gte: now } },
-      ];
+      list = list.filter((e) => {
+        const end = toDate(e.endDate);
+        const start = toDate(e.startDate);
+        if (end) return end >= now;
+        if (start) return start >= now;
+        return true;
+      });
     }
 
-    // Récupérer les événements depuis MongoDB
-    const events = await Event.find(query)
-      .populate('organizerId', 'name email firstName lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    list.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() ?? a.createdAt?.getTime?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? b.createdAt?.getTime?.() ?? 0;
+      return tb - ta;
+    });
 
-    const total = await Event.countDocuments(query);
+    const total = list.length;
+    list = list.slice(skip, skip + limitNum);
 
-    const eventsData = events.map((event: any) => ({
-      id: event._id.toString(),
-      title: event.title,
-      coverImage: event.coverImage,
-      category: event.category,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      location: event.location,
-      description: event.description,
-      isFree: event.isFree,
-      price: event.price,
-      capacity: event.capacity,
-      organizerName: event.organizerName,
-      organizer: event.organizerId
-        ? {
-            id: event.organizerId._id.toString(),
-            name: event.organizerId.name || `${event.organizerId.firstName || ''} ${event.organizerId.lastName || ''}`.trim(),
-            email: event.organizerId.email,
-          }
-        : null,
-      createdAt: event.createdAt,
-      updatedAt: event.updatedAt,
-      source: 'local',
-    }));
+    const organizerIds = [...new Set(list.map((e) => e.organizerId).filter(Boolean))];
+    const organizerSnaps = await Promise.all(organizerIds.map((uid) => firebaseDb.collection('users').doc(uid).get()));
+    const organizerMap: Record<string, any> = {};
+    organizerIds.forEach((uid, i) => {
+      const s = organizerSnaps[i];
+      if (s?.exists && uid) organizerMap[uid] = s.data();
+    });
 
-    // Inclure les événements externes si demandé
+    const eventsData = list.map((e) => {
+      const org = e.organizerId ? organizerMap[e.organizerId] : null;
+      return eventDocToResponse(e.id, e, org
+        ? { id: e.organizerId, name: org.name || [org.firstName, org.lastName].filter(Boolean).join(' ').trim(), email: org.email }
+        : null);
+    });
+
     let externalEvents: any[] = [];
     if (req.query.includeExternal === 'true' && process.env.TICKETMASTER_API_KEY) {
+      const externalLocation = (location as string) || 'Paris,France';
+      const externalCategory = categoryParam ?? (category as string | undefined);
+      const externalSearch = search as string | undefined;
       try {
-        const externalLocation = (location as string) || 'Paris,France';
-        const externalCategory = category as string | undefined;
-        const externalSearch = search as string | undefined;
-        
-        const ticketmasterEvents = await fetchTicketmasterEvents(externalLocation, externalCategory);
-        
-        // Filtrer par recherche si fourni
-        let filteredExternal = ticketmasterEvents;
+        let allExternal = await fetchTicketmasterEvents(externalLocation, externalCategory);
         if (externalSearch) {
-          const searchLower = externalSearch.toLowerCase();
-          filteredExternal = ticketmasterEvents.filter(event =>
-            event.title.toLowerCase().includes(searchLower) ||
-            event.description?.toLowerCase().includes(searchLower) ||
-            event.location.toLowerCase().includes(searchLower)
+          const sl = externalSearch.toLowerCase();
+          allExternal = allExternal.filter(
+            (ev) =>
+              ev.title?.toLowerCase?.().includes(sl) ||
+              ev.description?.toLowerCase?.().includes(sl) ||
+              ev.location?.toLowerCase?.().includes(sl)
           );
         }
-
-        externalEvents = filteredExternal.slice(0, limitNum).map(event => ({
-          id: `external_${event.id}`,
-          title: event.title,
-          coverImage: event.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop',
-          category: event.category,
-          startDate: event.startDate,
-          endDate: event.endDate,
-          location: event.location,
-          description: event.description?.substring(0, 300),
-          isFree: event.isFree,
-          price: event.price,
-          organizerName: event.venueName || 'Organisateur externe',
-          organizer: null,
-          source: 'ticketmaster',
-          externalId: event.id,
-        }));
-      } catch (error: any) {
-        console.error('Error fetching external events:', error.message);
-        // Continuer même si les événements externes échouent
+        const byId = new Map<string, any>();
+        allExternal.forEach((ev) => {
+          const k = `${ev.source}_${ev.id}`;
+          if (!byId.has(k)) byId.set(k, ev);
+        });
+        externalEvents = Array.from(byId.values()).slice(0, limitNum).map((event) => {
+          const name = event.promoterName || event.venueName || 'Organisateur externe';
+          return {
+        id: `external_${event.source}_${event.id}`,
+        title: event.title,
+        coverImage: event.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop',
+        category: event.category,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        location: event.location,
+        description: event.description?.substring?.(0, 300),
+        isFree: event.isFree,
+        price: event.price,
+        organizerName: name,
+        organizer: name,
+        source: event.source,
+        externalId: event.id,
+        externalUrl: event.externalUrl,
+      };
+        });
+      } catch (err: any) {
+        console.error('Ticketmaster error:', err?.message);
       }
     }
 
-    // Combiner les événements (locaux en premier)
     const allEvents = [...eventsData, ...externalEvents];
-
     return res.status(200).json({
       events: allEvents,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: total + externalEvents.length,
-        pages: Math.ceil((total + externalEvents.length) / limitNum),
-      },
-      sources: {
-        local: eventsData.length,
-        external: externalEvents.length,
-      },
+      pagination: { page: pageNum, limit: limitNum, total: total + externalEvents.length, pages: Math.ceil((total + externalEvents.length) / limitNum) },
+      sources: { local: eventsData.length, external: externalEvents.length },
     });
   } catch (error: any) {
     console.error('Get events error:', error);
@@ -436,53 +405,32 @@ export const getEvents = async (req: Request, res: Response) => {
   }
 };
 
-// Récupérer un événement spécifique
 export const getEventById = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
+    if (!eventId) return res.status(400).json({ message: 'Invalid event id' });
 
-    if (!eventId) {
-      return res.status(400).json({ message: 'Invalid event id' });
+    const eventSnap = await firebaseDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
+
+    const data = eventSnap.data()!;
+    const confirmedSnap = await firebaseDb.collection('events').doc(eventId).collection('participants').where('status', '==', 'confirmed').get();
+    const participantsCount = confirmedSnap.size;
+
+    let organizer = null;
+    if (data.organizerId) {
+      const userSnap = await firebaseDb.collection('users').doc(data.organizerId).get();
+      if (userSnap.exists) {
+        const u = userSnap.data()!;
+        organizer = {
+          id: data.organizerId,
+          name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ').trim(),
+          email: u.email,
+        };
+      }
     }
 
-    // Récupérer l'événement depuis MongoDB
-    const event = await Event.findById(eventId).populate('organizerId', 'name email firstName lastName');
-
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    // Récupérer le nombre de participants
-    const participantsCount = await EventParticipation.countDocuments({
-      event: event._id,
-      status: 'confirmed',
-    });
-
-    const eventData: any = {
-      id: event._id.toString(),
-      title: event.title,
-      coverImage: event.coverImage,
-      category: event.category,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      location: event.location,
-      description: event.description,
-      isFree: event.isFree,
-      price: event.price,
-      capacity: event.capacity,
-      organizerName: event.organizerName,
-      organizer: event.organizerId
-        ? {
-            id: event.organizerId._id.toString(),
-            name: event.organizerId.name || `${event.organizerId.firstName || ''} ${event.organizerId.lastName || ''}`.trim(),
-            email: event.organizerId.email,
-          }
-        : null,
-      participantsCount,
-      createdAt: event.createdAt,
-      updatedAt: event.updatedAt,
-    };
-
+    const eventData = eventDocToResponse(eventId, data, organizer, participantsCount);
     return res.status(200).json({ event: eventData });
   } catch (error: any) {
     console.error('Get event by id error:', error);
@@ -490,58 +438,29 @@ export const getEventById = async (req: Request, res: Response) => {
   }
 };
 
-// Mettre à jour un événement
 export const updateEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const eventRef = firebaseDb.collection('events').doc(eventId);
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
 
-    // Récupérer l'événement depuis MongoDB
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
+    const data = eventSnap.data()!;
+    if (data.organizerId !== userId) return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
 
-    // Vérifier que l'utilisateur est l'organisateur
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser || event.organizerId.toString() !== mongoUser._id.toString()) {
-      return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
-    }
-
-    const {
-      title,
-      coverImage,
-      startDate,
-      endDate,
-      location,
-      description,
-      isFree,
-      price,
-      capacity,
-      organizerName,
-      category,
-    } = req.body;
-
-    // Valider la catégorie si fournie
+    const { title, coverImage, startDate, endDate, location, description, isFree, price, capacity, organizerName, category } = req.body;
     let eventCategory: string | undefined;
     if (category) {
-      if (isValidCategory(category)) {
-        eventCategory = category;
-      } else {
-        return res.status(400).json({
-          message: 'Catégorie invalide',
-          error: 'Invalid category',
-          validCategories: Object.values(EventCategory),
-        });
+      if (!isValidCategory(category)) {
+        return res.status(400).json({ message: 'Catégorie invalide', validCategories: Object.values(EventCategory) });
       }
+      eventCategory = category;
     }
 
-    // Construire l'objet de mise à jour
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
     if (title !== undefined) updateData.title = title;
     if (coverImage !== undefined) updateData.coverImage = coverImage;
     if (startDate !== undefined) updateData.startDate = new Date(startDate);
@@ -554,26 +473,14 @@ export const updateEvent = async (req: Request, res: Response) => {
     if (organizerName !== undefined) updateData.organizerName = organizerName;
     if (eventCategory !== undefined) updateData.category = eventCategory;
 
-    updateData.updatedAt = new Date();
-
-    // Mettre à jour dans MongoDB
-    const updatedEvent = await Event.findByIdAndUpdate(eventId, updateData, { new: true });
-
-    // Synchroniser avec Firestore
-    try {
-      await firebaseDb.collection('events').doc(eventId).update({
-        ...updateData,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (firestoreError) {
-      console.error('⚠️ Failed to sync event update to Firestore (continuing anyway):', firestoreError);
-    }
-
+    await eventRef.update(updateData);
+    const updated = await eventRef.get();
+    const updatedData = updated.data()!;
     return res.status(200).json({
       event: {
-        id: updatedEvent!._id.toString(),
+        id: eventId,
         ...updateData,
-        createdAt: updatedEvent!.createdAt,
+        createdAt: toDate(updatedData.createdAt as admin.firestore.Timestamp),
       },
     });
   } catch (error: any) {
@@ -582,43 +489,29 @@ export const updateEvent = async (req: Request, res: Response) => {
   }
 };
 
-// Supprimer un événement
 export const deleteEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const eventRef = firebaseDb.collection('events').doc(eventId);
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) return res.status(404).json({ message: 'Event not found' });
 
-    // Récupérer l'événement depuis MongoDB
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
+    const data = eventSnap.data()!;
+    if (data.organizerId !== userId) return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
 
-    // Vérifier que l'utilisateur est l'organisateur
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser || event.organizerId.toString() !== mongoUser._id.toString()) {
-      return res.status(403).json({ message: 'Forbidden: You are not the organizer of this event' });
-    }
+    const participants = await eventRef.collection('participants').get();
+    const batch = firebaseDb.batch();
+    participants.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    await eventRef.delete();
 
-    // Supprimer les participations associées
-    await EventParticipation.deleteMany({ event: event._id });
-
-    // Supprimer les tickets associés
-    await Ticket.deleteMany({ eventId: eventId });
-
-    // Supprimer l'événement de MongoDB
-    await Event.findByIdAndDelete(eventId);
-
-    // Supprimer de Firestore
-    try {
-      await firebaseDb.collection('events').doc(eventId).delete();
-    } catch (firestoreError) {
-      console.error('⚠️ Failed to delete event from Firestore (continuing anyway):', firestoreError);
-    }
+    const ticketsSnap = await firebaseDb.collection('tickets').where('eventId', '==', eventId).get();
+    const ticketBatch = firebaseDb.batch();
+    ticketsSnap.docs.forEach((d) => ticketBatch.delete(d.ref));
+    if (!ticketsSnap.empty) await ticketBatch.commit();
 
     return res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error: any) {
@@ -627,73 +520,56 @@ export const deleteEvent = async (req: Request, res: Response) => {
   }
 };
 
-// Récupérer les événements de l'organisateur connecté
 export const getMyEvents = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+    const user = await getUserByFirebaseUid(userId);
+    if (!user) return res.status(404).json({ message: 'User not found in database' });
 
-    const mongoUser = await getUserByFirebaseUid(userId);
-    if (!mongoUser) {
-      return res.status(404).json({ message: 'User not found in database' });
-    }
-
-    const {
-      page = '1',
-      limit = '20',
-    } = req.query;
-
+    const { page = '1', limit = '20' } = req.query;
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    // Récupérer les événements de l'organisateur
-    const events = await Event.find({ organizerId: mongoUser._id })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    const eventsSnap = await firebaseDb.collection('events').where('organizerId', '==', userId).get();
+    let list = eventsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => {
+        const ta = a.createdAt?.toMillis?.() ?? 0;
+        const tb = b.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+    const total = list.length;
+    list = list.slice(skip, skip + limitNum);
 
-    const total = await Event.countDocuments({ organizerId: mongoUser._id });
-
-    // Pour chaque événement, récupérer le nombre de participants
     const eventsWithStats = await Promise.all(
-      events.map(async (event: any) => {
-        const participantsCount = await EventParticipation.countDocuments({
-          event: event._id,
-          status: 'confirmed',
-        });
-
+      list.map(async (e: any) => {
+        const partSnap = await firebaseDb.collection('events').doc(e.id).collection('participants').where('status', '==', 'confirmed').get();
         return {
-          id: event._id.toString(),
-          title: event.title,
-          coverImage: event.coverImage,
-          category: event.category,
-          startDate: event.startDate,
-          endDate: event.endDate,
-          location: event.location,
-          description: event.description,
-          isFree: event.isFree,
-          price: event.price,
-          capacity: event.capacity,
-          organizerName: event.organizerName,
-          participantsCount,
-          createdAt: event.createdAt,
-          updatedAt: event.updatedAt,
+          id: e.id,
+          title: e.title,
+          coverImage: e.coverImage,
+          category: e.category,
+          startDate: toDate(e.startDate),
+          endDate: toDate(e.endDate),
+          location: e.location,
+          description: e.description,
+          isFree: e.isFree,
+          price: e.price,
+          capacity: e.capacity,
+          organizerName: e.organizerName,
+          participantsCount: partSnap.size,
+          createdAt: toDate(e.createdAt),
+          updatedAt: toDate(e.updatedAt),
         };
       })
     );
 
     return res.status(200).json({
       events: eventsWithStats,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+      pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
     });
   } catch (error: any) {
     console.error('Get my events error:', error);
@@ -701,43 +577,24 @@ export const getMyEvents = async (req: Request, res: Response) => {
   }
 };
 
-// Vérifier le token JWT de l'utilisateur
 export const verifyToken = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
     const role = (req as Request & { user?: { role?: string } }).user?.role;
-    
-    if (!userId) {
-      return res.status(401).json({ 
-        message: 'Token invalide ou expiré',
-        valid: false,
-      });
-    }
+    if (!userId) return res.status(401).json({ message: 'Token invalide ou expiré', valid: false });
 
-    // Récupérer les infos utilisateur depuis MongoDB (priorité) ou Firestore (fallback)
-    let userData: any = null;
-    try {
-      const mongoUser = await getUserByFirebaseUid(userId);
-      if (mongoUser) {
-        userData = {
-          id: mongoUser._id.toString(),
-          email: mongoUser.email,
-          name: mongoUser.name || `${mongoUser.firstName || ''} ${mongoUser.lastName || ''}`.trim(),
-          firstName: mongoUser.firstName,
-          lastName: mongoUser.lastName,
-          role: mongoUser.role,
-          canScanTickets: mongoUser.canScanTickets,
-        };
-      }
-    } catch (mongoError) {
-      console.error('⚠️ Failed to get user from MongoDB, falling back to Firestore:', mongoError);
-    }
-
-    // Fallback vers Firestore
-    if (!userData) {
-      const userSnap = await firebaseDb.collection('users').doc(userId).get();
-      userData = userSnap.exists ? userSnap.data() : null;
-    }
+    const user = await getUserByFirebaseUid(userId);
+    const userData = user
+      ? {
+          id: user._id,
+          email: user.email,
+          name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          canScanTickets: user.canScanTickets,
+        }
+      : (await firebaseDb.collection('users').doc(userId).get()).data() ?? null;
 
     return res.status(200).json({
       message: 'Token valide',
@@ -749,20 +606,11 @@ export const verifyToken = async (req: Request, res: Response) => {
         firstName: userData?.firstName,
         lastName: userData?.lastName,
         role: role || userData?.role || 'participant',
-        canScanTickets: userData?.canScanTickets || false,
+        canScanTickets: userData?.canScanTickets ?? false,
       },
-      permissions: {
-        canSyncEvents: role === 'organizer',
-        canCreateEvents: role === 'organizer',
-        canViewEvents: true,
-      },
+      permissions: { canSyncEvents: role === 'organizer', canCreateEvents: role === 'organizer', canViewEvents: true },
     });
   } catch (error: any) {
-    return res.status(401).json({ 
-      message: 'Token invalide',
-      valid: false,
-      error: error?.message || 'Unknown error',
-    });
+    return res.status(401).json({ message: 'Token invalide', valid: false, error: error?.message });
   }
 };
-

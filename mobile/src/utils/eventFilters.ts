@@ -2,28 +2,34 @@ import type { EventData } from '../navigation/AuthNavigator';
 
 export type SortOption = 'date' | 'price-asc' | 'price-desc' | 'title';
 
+/** Compare catégories de façon insensible à la casse (API peut renvoyer "Music" ou "music") */
+function categoryMatches(eventCategory: string | undefined, selectedCategory: string): boolean {
+  const a = (eventCategory || '').trim().toLowerCase();
+  const b = selectedCategory.trim().toLowerCase();
+  return a === b;
+}
+
 export const filterEvents = (
   events: EventData[],
   searchQuery: string,
   selectedCategory: string | null
 ): EventData[] => {
   let result = events;
-  
+
   if (selectedCategory) {
-    result = result.filter((e) => e.category === selectedCategory);
+    result = result.filter((e) => categoryMatches(e.category, selectedCategory));
   }
-  
+
   const q = searchQuery.trim().toLowerCase();
   if (q) {
     result = result.filter((e) => {
-      return (
-        e.title.toLowerCase().includes(q) ||
-        e.location.toLowerCase().includes(q) ||
-        e.organizer.toLowerCase().includes(q)
-      );
+      const title = (e.title || '').toLowerCase();
+      const location = (e.location || '').toLowerCase();
+      const organizer = (e.organizer ?? (e as any).organizerName ?? '').toString().toLowerCase();
+      return title.includes(q) || location.includes(q) || organizer.includes(q);
     });
   }
-  
+
   return result;
 };
 

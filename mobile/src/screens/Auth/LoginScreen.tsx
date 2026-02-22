@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { auth, db } from '../../services/firebase';
 import { saveToken } from '../../services/authStorage';
 import { api } from '../../services/api';
 import { useTheme } from '../../theme/ThemeContext';
+import { useGoogleAuth, signInWithGoogleToken, signInWithApple } from '../../services/socialAuth';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -28,6 +29,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignInWithToken(id_token);
+    }
+  }, [response]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -80,9 +91,92 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setSocialLoading(true);
+      await promptAsync();
+    } catch (error: any) {
+      console.error('Google Sign-In error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+      setSocialLoading(false);
+    }
+  };
+
+  const handleGoogleSignInWithToken = async (idToken: string) => {
+    try {
+      const result = await signInWithGoogleToken(idToken);
+
+      if (!result.success) {
+        Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Google');
+        setSocialLoading(false);
+        return;
+      }
+
+      if (result.user) {
+        const token = await result.user.user.getIdToken();
+        await saveToken(token);
+        api.get('/auth/me').catch(() => {});
+
+        const uid = result.user.user.uid;
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+        const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
+        const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
+        const name = firstName && lastName ? `${firstName} ${lastName}` : result.user.user.displayName;
+
+        Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeParticipant' }],
+        });
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In token error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      setSocialLoading(true);
+      const result = await signInWithApple();
+
+      if (!result.success) {
+        Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Apple');
+        return;
+      }
+
+      if (result.user) {
+        const idToken = await result.user.user.getIdToken();
+        await saveToken(idToken);
+        api.get('/auth/me').catch(() => {});
+
+        const uid = result.user.user.uid;
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+        const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
+        const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
+        const name = firstName && lastName ? `${firstName} ${lastName}` : result.user.user.displayName;
+
+        Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeParticipant' }],
+        });
+      }
+    } catch (error: any) {
+      console.error('Apple Sign-In error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Apple');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#F8F9FA' }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -94,33 +188,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Bouton retour */}
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: '#FFFFFF',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 32,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-
         {/* Header */}
         <Text
           style={{
             fontSize: 32,
             fontWeight: '700',
-            color: '#000',
+            color: theme.text,
             textAlign: 'center',
             marginBottom: 8,
           }}
@@ -130,7 +203,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <Text
           style={{
             fontSize: 16,
-            color: '#6C757D',
+            color: theme.textMuted,
             textAlign: 'center',
             marginBottom: 40,
           }}
@@ -143,27 +216,27 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.inputBackground,
             borderRadius: 12,
             paddingHorizontal: 16,
             paddingVertical: 14,
             marginBottom: 16,
             borderWidth: 1,
-            borderColor: '#DEE2E6',
+            borderColor: theme.border,
           }}
         >
-          <Ionicons name="at" size={20} color="#6C757D" style={{ marginRight: 12 }} />
+          <Ionicons name="at" size={20} color={theme.textMuted} style={{ marginRight: 12 }} />
           <TextInput
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             placeholder="votre@email.com"
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
               flex: 1,
               fontSize: 16,
-              color: '#000',
+              color: theme.text,
             }}
           />
         </View>
@@ -173,33 +246,33 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.inputBackground,
             borderRadius: 12,
             paddingHorizontal: 16,
             paddingVertical: 14,
             marginBottom: 8,
             borderWidth: 1,
-            borderColor: '#DEE2E6',
+            borderColor: theme.border,
           }}
         >
-          <Ionicons name="lock-closed" size={20} color="#6C757D" style={{ marginRight: 12 }} />
+          <Ionicons name="lock-closed" size={20} color={theme.textMuted} style={{ marginRight: 12 }} />
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             placeholder="••••••••"
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor={theme.inputPlaceholder}
             style={{
               flex: 1,
               fontSize: 16,
-              color: '#000',
+              color: theme.text,
             }}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <Ionicons
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
-              color="#6C757D"
+              color={theme.textMuted}
             />
           </TouchableOpacity>
         </View>
@@ -207,9 +280,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         {/* Mot de passe oublié */}
         <TouchableOpacity
           style={{ alignSelf: 'flex-end', marginBottom: 24 }}
-          onPress={() => Alert.alert('Info', 'Fonctionnalité à venir')}
+          onPress={() => navigation.navigate('ForgotPassword')}
         >
-          <Text style={{ color: '#7B5CFF', fontSize: 14, fontWeight: '500' }}>
+          <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '500' }}>
             Mot de passe oublié ?
           </Text>
         </TouchableOpacity>
@@ -217,7 +290,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         {/* Bouton Se connecter */}
         <TouchableOpacity
           style={{
-            backgroundColor: '#7B5CFF',
+            backgroundColor: theme.primary,
             paddingVertical: 16,
             borderRadius: 12,
             alignItems: 'center',
@@ -227,7 +300,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16 }}>
+          <Text style={{ color: theme.buttonPrimaryText, fontWeight: '600', fontSize: 16 }}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </Text>
         </TouchableOpacity>
@@ -240,9 +313,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             marginBottom: 24,
           }}
         >
-          <View style={{ flex: 1, height: 1, backgroundColor: '#DEE2E6' }} />
-          <Text style={{ marginHorizontal: 16, color: '#6C757D', fontSize: 14 }}>ou</Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: '#DEE2E6' }} />
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+          <Text style={{ marginHorizontal: 16, color: theme.textMuted, fontSize: 14 }}>ou</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
         </View>
 
         {/* Boutons de connexion sociale */}
@@ -258,13 +331,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: theme.surface,
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 1,
-              borderColor: '#DEE2E6',
+              borderColor: theme.border,
+              marginRight: 16,
+              opacity: socialLoading ? 0.5 : 1,
             }}
-            onPress={() => Alert.alert('Info', 'Connexion Google à venir')}
+            onPress={handleGoogleSignIn}
+            disabled={socialLoading}
           >
             <Ionicons name="logo-google" size={24} color="#DB4437" />
           </TouchableOpacity>
@@ -273,23 +349,25 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: theme.surface,
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 1,
-              borderColor: '#DEE2E6',
+              borderColor: theme.border,
+              opacity: socialLoading ? 0.5 : 1,
             }}
-            onPress={() => Alert.alert('Info', 'Connexion Apple à venir')}
+            onPress={handleAppleSignIn}
+            disabled={socialLoading}
           >
-            <Ionicons name="logo-apple" size={24} color="#000" />
+            <Ionicons name="logo-apple" size={24} color={theme.text} />
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#6C757D', fontSize: 14 }}>Pas encore inscrit ? </Text>
+          <Text style={{ color: theme.textMuted, fontSize: 14 }}>Pas encore inscrit ? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={{ color: '#7B5CFF', fontSize: 14, fontWeight: '600' }}>
+            <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '600' }}>
               S'inscrire
             </Text>
           </TouchableOpacity>
@@ -300,7 +378,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={{
             height: 4,
             width: 134,
-            backgroundColor: '#DEE2E6',
+            backgroundColor: theme.border,
             borderRadius: 2,
             alignSelf: 'center',
             marginTop: 24,

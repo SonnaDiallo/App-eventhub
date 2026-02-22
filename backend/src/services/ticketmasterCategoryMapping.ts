@@ -16,6 +16,8 @@ export const TICKETMASTER_CATEGORY_MAPPING: Record<EventCategory, {
   segmentId: string;
   segmentName: string;
   classificationNames?: string[];
+  /** Mot-clé pour filtrer dans le segment Miscellaneous (évite mélange gastronomie/tech/santé) */
+  keyword?: string;
 }> = {
   [EventCategory.MUSIC]: {
     segmentId: 'KZFzniwnSyZfZ7v7nJ',
@@ -33,34 +35,40 @@ export const TICKETMASTER_CATEGORY_MAPPING: Record<EventCategory, {
     classificationNames: ['Arts', 'Theatre', 'Comedy', 'Dance'],
   },
   [EventCategory.FOOD]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Food & Drink', 'Culinary'],
+    keyword: 'food drink culinary gastronomy wine tasting chef',
   },
   [EventCategory.TECHNOLOGY]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Technology', 'Tech'],
+    keyword: 'tech technology conference startup digital',
   },
   [EventCategory.BUSINESS]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Business', 'Conference'],
+    keyword: 'business conference networking professional',
   },
   [EventCategory.EDUCATION]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Education', 'Workshop', 'Seminar'],
+    keyword: 'education workshop seminar training',
   },
   [EventCategory.HEALTH]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Health', 'Wellness', 'Fitness'],
+    keyword: 'health wellness fitness yoga meditation',
   },
   [EventCategory.FAMILY]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1', // Miscellaneous
+    segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Family', 'Kids', 'Children'],
+    keyword: 'family kids children',
   },
   [EventCategory.OTHER]: {
     segmentId: 'KZFzniwnSyZfZ7v7n1',
@@ -110,15 +118,17 @@ export function getTicketmasterClassification(category: EventCategory): string |
 
 /**
  * Récupère toutes les classifications possibles pour une catégorie
- * @param category Notre catégorie d'événement
- * @returns Liste des classifications Ticketmaster possibles
  */
 export function getAllTicketmasterClassifications(category: EventCategory): string[] {
   const mapping = TICKETMASTER_CATEGORY_MAPPING[category];
   if (!mapping) return [];
-  
-  return [
-    mapping.segmentName,
-    ...(mapping.classificationNames || []),
-  ];
+  return [mapping.segmentName, ...(mapping.classificationNames || [])];
+}
+
+/**
+ * Mot-clé de recherche Ticketmaster pour les catégories "Miscellaneous"
+ * (gastronomie, tech, santé, etc.) afin d'avoir des résultats par thème.
+ */
+export function getTicketmasterKeyword(category: EventCategory): string | undefined {
+  return TICKETMASTER_CATEGORY_MAPPING[category]?.keyword;
 }

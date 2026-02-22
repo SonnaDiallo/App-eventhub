@@ -7,6 +7,7 @@ import {
   getAuth,
   getReactNativePersistence,
 } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 type FirebaseConfig = {
   apiKey: string;
@@ -36,3 +37,4 @@ export const auth = getApps().length === 1
   : getAuth(firebaseApp);
 
 export const db = getFirestore(firebaseApp);
+export const storage = getStorage(firebaseApp);

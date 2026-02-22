@@ -5,30 +5,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 
 export const ThemeToggle: React.FC = () => {
-  const { theme, themeMode, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
   return (
-    <TouchableOpacity
+    <View
       style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      onPress={toggleTheme}
-      activeOpacity={0.7}
     >
       <View style={styles.content}>
         <Ionicons
-          name={themeMode === 'dark' ? 'moon' : 'sunny'}
+          name="sunny"
           size={20}
           color={theme.primary}
         />
         <Text style={[styles.text, { color: theme.text }]}>
-          {themeMode === 'dark' ? 'Mode sombre' : 'Mode clair'}
+          Mode clair
         </Text>
       </View>
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={theme.textMuted}
-      />
-    </TouchableOpacity>
+    </View>
   );
 };
 

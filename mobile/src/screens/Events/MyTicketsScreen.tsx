@@ -54,12 +54,12 @@ const MyTicketsScreen = () => {
             setCancelling(true);
             try {
               await deleteDoc(doc(db, 'tickets', ticket.id));
-              const isMongoId = /^[a-f0-9]{24}$/i.test(ticket.eventId);
-              if (isMongoId) {
+              const isBackendEvent = !ticket.eventId.startsWith('external_');
+              if (isBackendEvent) {
                 try {
                   await leaveEvent(ticket.eventId);
                 } catch {
-                  // Ignorer si l'événement n'est pas dans MongoDB
+                  // Ignorer si l'API refuse (ex. déjà annulé)
                 }
               }
               setSelectedTicket(null);
@@ -131,14 +131,11 @@ const MyTicketsScreen = () => {
       <TouchableOpacity
         onPress={() => setSelectedTicket(item)}
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.card,
           borderRadius: 24,
           marginBottom: 20,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3,
+          borderWidth: 1,
+          borderColor: theme.borderLight,
           overflow: 'hidden',
         }}
       >
@@ -161,7 +158,7 @@ const MyTicketsScreen = () => {
           <Text style={{
             fontSize: 14,
             fontWeight: '600',
-            color: '#000000',
+            color: theme.text,
             marginTop: 8,
           }}>
             EventHub
@@ -210,7 +207,7 @@ const MyTicketsScreen = () => {
           <Text style={{
             fontSize: 18,
             fontWeight: '700',
-            color: '#000000',
+            color: theme.text,
             marginBottom: 16,
           }}>
             {item.eventTitle}
@@ -309,11 +306,11 @@ const MyTicketsScreen = () => {
   const displayedTickets = activeTab === 'upcoming' ? upcomingTickets : pastTickets;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
       <View
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.header,
           paddingTop: Platform.OS === 'ios' ? 60 : 20,
           paddingBottom: 16,
           paddingHorizontal: 20,
@@ -331,9 +328,9 @@ const MyTicketsScreen = () => {
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={{ color: '#000000', fontWeight: '700', fontSize: 20, textAlign: 'center', flex: 1, marginRight: 40 }}>Mes Billets</Text>
+        <Text style={{ color: theme.text, fontWeight: '700', fontSize: 20, textAlign: 'center', flex: 1, marginRight: 40 }}>Mes Billets</Text>
       </View>
 
       {/* Onglets */}
@@ -349,14 +346,14 @@ const MyTicketsScreen = () => {
             paddingVertical: 12,
             alignItems: 'center',
             borderBottomWidth: 3,
-            borderBottomColor: activeTab === 'upcoming' ? '#7B5CFF' : 'transparent',
+            borderBottomColor: activeTab === 'upcoming' ? theme.primary : 'transparent',
             marginRight: 8,
           }}
         >
           <Text style={{
             fontSize: 16,
             fontWeight: '600',
-            color: activeTab === 'upcoming' ? '#7B5CFF' : '#9CA3AF',
+            color: activeTab === 'upcoming' ? theme.primary : theme.textMuted,
           }}>
             À venir
           </Text>
@@ -368,14 +365,14 @@ const MyTicketsScreen = () => {
             paddingVertical: 12,
             alignItems: 'center',
             borderBottomWidth: 3,
-            borderBottomColor: activeTab === 'past' ? '#7B5CFF' : 'transparent',
+            borderBottomColor: activeTab === 'past' ? theme.primary : 'transparent',
             marginLeft: 8,
           }}
         >
           <Text style={{
             fontSize: 16,
             fontWeight: '600',
-            color: activeTab === 'past' ? '#7B5CFF' : '#9CA3AF',
+            color: activeTab === 'past' ? theme.primary : theme.textMuted,
           }}>
             Passés
           </Text>

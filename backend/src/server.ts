@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import './config/firebaseAdmin';
-import validateEnv from './config/validateEnv';
+import { validateEnv } from './config/validateEnv';
 import { apiLimiter } from './middleware/rateLimit';
 import { errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/healthRoutes';

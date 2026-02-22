@@ -1,197 +1,188 @@
-import { useState, useEffect } from 'react';
-import { Timestamp, collection, onSnapshot, orderBy, query as fsQuery, QueryDocumentSnapshot, QuerySnapshot } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { useState, useEffect, useRef } from 'react';
 import { getEvents } from '../services/eventsService';
-import type { EventData } from '../navigation/AuthNavigator';
-import { formatDate, formatTime, getPlaceholderImageForEvent, ensureUniqueImages } from '../utils/eventHelpers';
+import { EventsCache } from '../services/eventsCache';
 
-export const useEvents = (selectedCategory: string | null, searchQuery: string) => {
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date?: string;
+  time?: string;
+  startDate?: string;
+  endDate?: string;
+  location: string;
+  address?: string;
+  coverImage: string;
+  price?: number;
+  isFree: boolean;
+  category?: string;
+  organizer?: string;
+  organizerId?: string;
+  organizerName?: string;
+  capacity?: number;
+  isExternal?: boolean;
+  externalLink?: string;
+  createdAt?: any;
+  participantsCount?: number;
+}
+
+interface UseEventsOptions {
+  limit?: number;
+  category?: string;
+  includeExternal?: boolean;
+  upcoming?: boolean;
+}
+
+export const useEvents = (options?: UseEventsOptions) => {
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<EventData[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  useEffect(() => {
-    let unsub: (() => void) | null = null;
-    let isMounted = true;
-
-    const loadAllEvents = async () => {
+  const loadEvents = async (forceRefresh: boolean = false) => {
+    const currentId = ++requestIdRef.current;
+    try {
       setLoading(true);
-      const allEvents: (EventData & { _startDate?: Date })[] = [];
+      setError(null);
 
-      // 1. Charger depuis l'API (MongoDB + Ticketmaster)
-      try {
-        const response = await getEvents({
-          page: 1,
-          limit: 50,
-          category: selectedCategory || undefined,
-          search: searchQuery || undefined,
-          includeExternal: true,
-          upcoming: true,
-        });
-
-        const apiEvents = (response.events || []).map((event: any) => {
-          const startDate = event.startDate ? new Date(event.startDate) : undefined;
-          const endDate = event.endDate ? new Date(event.endDate) : undefined;
-          return {
-            id: event.id,
-            title: event.title || 'Sans titre',
-            coverImage: event.coverImage || getPlaceholderImageForEvent(event.id, event.category ?? null),
-            date: formatDate(startDate),
-            time: formatTime(startDate, endDate),
-            location: event.location || '',
-            address: event.location || '',
-            organizer: event.organizerName || 'Organisateur',
-            description: event.description || '',
-            price: event.price ?? 0,
-            isFree: event.isFree ?? false,
-            category: event.category || null,
-            _startDate: startDate,
-            source: event.source === 'ticketmaster' ? 'external' : 'local',
-          } as EventData & { _startDate?: Date; source?: string };
-        });
-
-        const seenIds = new Set<string>();
-        apiEvents.forEach((e: EventData & { _startDate?: Date }) => {
-          if (!seenIds.has(e.id)) {
-            seenIds.add(e.id);
-            allEvents.push(e);
+      // Désactiver le cache si on filtre par catégorie (pour éviter les conflits)
+      const USE_CACHE = !options?.category;
+      
+      if (!forceRefresh && USE_CACHE) {
+        const cachedEvents = await EventsCache.getEvents();
+        if (cachedEvents && cachedEvents.length > 0) {
+          // Dédupliquer par id avant toute utilisation
+          const byId = new Map<string, Event>();
+          cachedEvents.forEach((e) => {
+            if (e.id && !byId.has(e.id)) byId.set(e.id, e);
+          });
+          let filteredEvents = Array.from(byId.values());
+          if (options?.limit) {
+            filteredEvents = filteredEvents.slice(0, options.limit);
           }
-        });
-      } catch (error: any) {
-        console.warn('Backend injoignable – affichage des événements Firestore uniquement.', error?.message);
+          console.log('📦 Chargement depuis le cache:', filteredEvents.length, 'événements');
+          if (currentId === requestIdRef.current) {
+            setEvents(filteredEvents);
+          }
+          setLoading(false);
+          return;
+        }
       }
 
-      // 2. Charger depuis Firestore (événements locaux)
-      const q = fsQuery(collection(db, 'events'), orderBy('createdAt', 'desc'));
+      console.log('🌐 Chargement depuis l\'API backend...');
       
-      unsub = onSnapshot(
-        q,
-        (snap: QuerySnapshot) => {
-          if (!isMounted) return;
+      const response = await getEvents({
+        limit: options?.limit || 100,
+        category: options?.category,
+        includeExternal: options?.includeExternal,
+        upcoming: options?.upcoming,
+      });
 
-          const now = new Date();
-          const localEvents = snap.docs
-            .filter((d: QueryDocumentSnapshot) => {
-              const data: any = d.data();
-              if (data.source === 'paris_opendata' || 
-                  data.organizerName?.includes('Ville de Paris - Que faire à Paris')) {
-                return false;
-              }
-              if (data.startDate) {
-                const startDate = data.startDate instanceof Timestamp 
-                  ? data.startDate.toDate() 
-                  : new Date(data.startDate);
-                if (startDate < now) {
-                  return false;
-                }
-              }
-              return true;
-            })
-            .map((d: QueryDocumentSnapshot) => {
-              const data: any = d.data();
-              const start: Date | undefined = data.startDate instanceof Timestamp ? data.startDate.toDate() : undefined;
-              const end: Date | undefined = data.endDate instanceof Timestamp ? data.endDate.toDate() : undefined;
+      // Dédupliquer les événements par ID uniquement (évite doublons API / multi-sources)
+      const byId = new Map<string, any>();
+      response.events.forEach((event) => {
+        const id = event?.id;
+        if (id && !byId.has(id)) byId.set(id, event);
+      });
 
-              const isFree = !!data.isFree;
-              const price = typeof data.price === 'number' ? data.price : 0;
-
-              return {
-                id: d.id,
-                title: data.title || 'Sans titre',
-                coverImage: data.coverImage || getPlaceholderImageForEvent(d.id, data.category ?? null),
-                date: formatDate(start),
-                time: formatTime(start, end),
-                location: data.location || '',
-                address: data.location || '',
-                organizer: data.organizerName || 'Organisateur',
-                description: data.description || '',
-                price,
-                isFree,
-                category: data.category || null,
-                _startDate: start,
-                source: 'local',
-              } as EventData & { _startDate?: Date; source?: string };
+      let eventsList: Event[] = Array.from(byId.values()).map(event => {
+        // Convertir startDate en date et time pour l'affichage
+        let date = '';
+        let time = '';
+        
+        if (event.startDate) {
+          const startDate = new Date(event.startDate);
+          if (!isNaN(startDate.getTime())) {
+            date = startDate.toLocaleDateString('fr-FR', { 
+              weekday: 'short', 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric' 
             });
-
-          // Combiner et dédupliquer
-          const normalizeLocation = (loc: string) =>
-            (loc || '').trim().toLowerCase().replace(/\s*,\s*/, ', ').slice(0, 80);
-          const normalizeOrganizer = (o: string) =>
-            (o || '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 60);
-          const normalizeImageUrl = (url: string) => {
-            const u = (url || '').trim();
-            if (!u) return '';
-            try {
-              const withoutQuery = u.split('?')[0];
-              return withoutQuery.toLowerCase().slice(0, 200);
-            } catch {
-              return u.toLowerCase().slice(0, 200);
-            }
-          };
-          const dateKey = (e: EventData & { _startDate?: Date }) =>
-            e._startDate
-              ? e._startDate.toISOString().slice(0, 16)
-              : (e.date || '').trim().toLowerCase().slice(0, 30);
-          const signature = (e: EventData & { _startDate?: Date }) => {
-            const title = (e.title || '').trim().toLowerCase().slice(0, 120);
-            const location = normalizeLocation(e.location || '');
-            const image = normalizeImageUrl(e.coverImage || '');
-            return `${title}|${dateKey(e)}|${location}|${image}`;
-          };
-          const venueSignature = (e: EventData & { _startDate?: Date }) => {
-            const loc = normalizeLocation(e.location || '');
-            const org = normalizeOrganizer(e.organizer || '');
-            return `${loc}|${dateKey(e)}|${org}`;
-          };
-          const seenSignatures = new Set<string>();
-          const seenVenueSignatures = new Set<string>();
-          const seenIds = new Set<string>();
-          const combinedEvents: (EventData & { _startDate?: Date; source?: string })[] = [];
-          const isDuplicate = (e: EventData & { _startDate?: Date; source?: string }) => {
-            const id = (e.id || '').toString();
-            if (id && seenIds.has(id)) return true;
-            if (seenSignatures.has(signature(e))) return true;
-            if (seenVenueSignatures.has(venueSignature(e))) return true;
-            return false;
-          };
-          const addEvent = (e: EventData & { _startDate?: Date; source?: string }) => {
-            const id = (e.id || '').toString();
-            if (id) seenIds.add(id);
-            seenSignatures.add(signature(e));
-            seenVenueSignatures.add(venueSignature(e));
-            combinedEvents.push(e);
-          };
-          
-          for (const e of localEvents) {
-            if (isDuplicate(e)) continue;
-            addEvent(e);
-          }
-          for (const e of allEvents) {
-            if (isDuplicate(e)) continue;
-            addEvent(e);
-          }
-          
-          setEvents(ensureUniqueImages(combinedEvents));
-          setLoading(false);
-        },
-        (err: any) => {
-          if (isMounted) {
-            console.error('Firestore events error', err?.message);
-            setEvents(ensureUniqueImages(allEvents));
-            setLoading(false);
+            time = startDate.toLocaleTimeString('fr-FR', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
           }
         }
-      );
-    };
 
-    loadAllEvents();
+        return {
+          id: event.id,
+          title: event.title,
+          description: event.description || '',
+          date: date,
+          time: time,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          location: event.location || '',
+          coverImage: event.coverImage || '',
+          price: event.price,
+          isFree: event.isFree ?? true,
+          category: event.category || undefined,
+          organizerName: event.organizerName,
+          organizerId: event.organizerId,
+          capacity: event.capacity,
+          participantsCount: event.participantsCount,
+          createdAt: event.createdAt,
+        };
+      });
 
-    return () => {
-      isMounted = false;
-      if (unsub) {
-        unsub();
+      // Sauvegarder dans le cache (déjà dédupliquée par id) uniquement si on ne filtre pas par catégorie
+      if (!options?.category) {
+        const toCache = eventsList.slice(0, 200); // limiter la taille du cache
+        await EventsCache.saveEvents(toCache);
       }
-    };
-  }, [selectedCategory, searchQuery]);
+      
+      if (options?.limit) {
+        eventsList = eventsList.slice(0, options.limit);
+      }
 
-  return { events, loading };
+      if (currentId === requestIdRef.current) {
+        setEvents(eventsList);
+      }
+      console.log('✅ Événements chargés depuis l\'API:', eventsList.length);
+    } catch (err: any) {
+      console.error('Error loading events:', err);
+      setError(err.message || 'Erreur lors du chargement des événements');
+      
+      const cachedEvents = await EventsCache.getEvents();
+      if (cachedEvents && cachedEvents.length > 0) {
+        console.log('⚠️ Erreur réseau, utilisation du cache');
+        const byId = new Map<string, Event>();
+        cachedEvents.forEach((e) => {
+          if (e.id && !byId.has(e.id)) byId.set(e.id, e);
+        });
+        let filteredEvents = Array.from(byId.values());
+        if (options?.category) {
+          const catLower = options.category.toLowerCase();
+          filteredEvents = filteredEvents.filter(
+            (e) => (e.category || '').toLowerCase() === catLower
+          );
+        }
+        if (options?.limit) {
+          filteredEvents = filteredEvents.slice(0, options.limit);
+        }
+        if (currentId === requestIdRef.current) {
+          setEvents(filteredEvents);
+          setError(null);
+        }
+      }
+    } finally {
+      if (currentId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadEvents();
+  }, [JSON.stringify(options)]);
+
+  return {
+    events,
+    loading,
+    error,
+    refetch: () => loadEvents(true),
+    loadFromCache: () => loadEvents(false),
+  };
 };

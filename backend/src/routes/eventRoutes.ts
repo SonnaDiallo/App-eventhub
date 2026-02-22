@@ -1,20 +1,21 @@
 import { Router } from 'express';
-import { 
-  createEvent, 
-  getEvents, 
-  getEventById, 
-  updateEvent, 
+import {
+  createEvent,
+  getEvents,
+  getEventById,
+  updateEvent,
   deleteEvent,
   getMyEvents,
-  getParticipants, 
-  joinEvent, 
+  getParticipants,
+  joinEvent,
   leaveEvent,
-  verifyToken 
+  verifyToken,
 } from '../controllers/eventController';
 import { syncExternalEvents, deleteParisOpenDataEvents, debugEvents, getTicketmasterEventsByCategory, getExternalEvents } from '../controllers/externalEventsController';
 import { requireAuth } from '../middleware/requireAuth';
 import { requireRole } from '../middleware/requireRole';
 import { validateImage } from '../middleware/imageValidation';
+import { createEventValidators, eventIdParam, handleValidationErrors } from '../middleware/validators';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.get('/:id/participants', getParticipants); // GET /api/events/:id/partici
 
 // Routes protégées
 // Permettre aux organisateurs ET aux admins de créer/modifier/supprimer des événements
-router.post('/', requireAuth, requireRole(['organizer', 'admin']), validateImage, createEvent); // POST /api/events
+router.post('/', requireAuth, requireRole(['organizer', 'admin']), createEventValidators, handleValidationErrors, validateImage, createEvent); // POST /api/events
 router.put('/:id', requireAuth, requireRole(['organizer', 'admin']), updateEvent); // PUT /api/events/:id
 router.delete('/:id', requireAuth, requireRole(['organizer', 'admin']), deleteEvent); // DELETE /api/events/:id
 router.post('/:id/join', requireAuth, joinEvent); // POST /api/events/:id/join

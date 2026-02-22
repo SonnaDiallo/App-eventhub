@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { UnifiedEvent } from '../types/externalEvents';
 import { EventCategory } from '../types/categories';
-import { getTicketmasterSegmentId } from './ticketmasterCategoryMapping';
+import { getTicketmasterSegmentId, getTicketmasterKeyword } from './ticketmasterCategoryMapping';
 
 /**
  * Récupère les événements depuis Ticketmaster API - VERSION AMÉLIORÉE
@@ -49,15 +49,14 @@ export async function fetchTicketmasterEvents(
       startDateTime: formatDateForTicketmaster(now), // Seulement les événements futurs (format correct)
     };
 
-    // Ajouter la catégorie si fournie
+    // Ajouter la catégorie si fournie (segment + mot-clé pour Miscellaneous)
     if (category) {
       const ourCategory = Object.values(EventCategory).find(c => c === category);
       if (ourCategory) {
         const segmentId = getTicketmasterSegmentId(ourCategory);
-        if (segmentId) {
-          params.segmentId = segmentId;
-          console.log('Recherche avec segmentId:', segmentId);
-        }
+        if (segmentId) params.segmentId = segmentId;
+        const keyword = getTicketmasterKeyword(ourCategory);
+        if (keyword) params.keyword = keyword;
       }
     }
     
@@ -132,6 +131,10 @@ export async function fetchTicketmasterEvents(
         location = venue.name;
       }
       
+      // Promoteur / organisateur (Ticketmaster)
+      const promoter = event.promoter || event._embedded?.promoters?.[0];
+      const promoterName = promoter?.name;
+      
       // Extraire la meilleure image
       let coverImage: string | undefined;
       if (event.images && event.images.length > 0) {
@@ -159,6 +162,7 @@ export async function fetchTicketmasterEvents(
         endDate,
         location,
         venueName: venue?.name,
+        promoterName,
         coverImage,
         isFree,
         price: minPrice || 0,

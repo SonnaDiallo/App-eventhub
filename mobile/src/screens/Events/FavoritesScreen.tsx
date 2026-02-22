@@ -95,7 +95,7 @@ const FavoritesScreen = () => {
   };
 
   const renderEvent = ({ item }: { item: EventData }) => {
-    const priceLabel = item.isFree ? 'Gratuit' : `${item.price.toFixed(2)} €`;
+    const priceLabel = item.isFree ? 'Gratuit' : `${(item.price || 0).toFixed(2)} €`;
     
     return (
       <TouchableOpacity

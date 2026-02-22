@@ -140,11 +140,17 @@ export const getEventParticipants = async (eventId: string): Promise<EventPartic
   return response.data;
 };
 
+export interface JoinEventResponse {
+  participation: { eventId: string; userId: string; status: string; id: string; ticketCode: string };
+}
+
 /**
- * Rejoindre un événement (créer la participation dans MongoDB)
+ * Rejoindre un événement (participation + billet créé côté backend).
+ * Retourne le ticketCode pour afficher le billet (QR, etc.).
  */
-export const joinEvent = async (eventId: string): Promise<void> => {
-  await api.post(`/events/${eventId}/join`);
+export const joinEvent = async (eventId: string): Promise<JoinEventResponse> => {
+  const { data } = await api.post<JoinEventResponse>(`/events/${eventId}/join`);
+  return data;
 };
 
 /**

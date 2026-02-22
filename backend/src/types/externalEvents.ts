@@ -9,9 +9,12 @@ export type UnifiedEvent = {
   endDate?: string;
   location?: string;
   venueName?: string;
+  /** Nom du promoteur Ticketmaster (organisateur de l'événement) */
+  promoterName?: string;
   coverImage?: string;
   isFree?: boolean;
   price?: number;
-  source: 'ticketmaster';
-  category?: EventCategory; // Catégorie détectée depuis notre système
+  source: 'ticketmaster' | 'eventbrite';
+  category?: EventCategory;
+  externalUrl?: string; // URL vers la page de l'événement externe
 };
