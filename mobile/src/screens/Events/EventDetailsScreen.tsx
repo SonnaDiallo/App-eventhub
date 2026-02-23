@@ -13,15 +13,16 @@ import {
   Share,
   Linking,
   Modal,
+  Animated,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
-import { joinEvent } from '../../services/eventsService';
 import { 
   registerForExternalEvent, 
   cancelExternalEventRegistration, 
@@ -57,6 +58,41 @@ const generateTicketCode = () => {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
+};
+
+// Parse la date de l'événement et retourne au format DD/MM/YYYY
+const parseEventDate = (dateStr: string): string => {
+  try {
+    // Si la date est déjà au format DD/MM/YYYY, la retourner telle quelle
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      return dateStr;
+    }
+    
+    // Essayer de parser la date
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Si le parsing échoue, retourner une date future (7 jours)
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    const day = String(futureDate.getDate()).padStart(2, '0');
+    const month = String(futureDate.getMonth() + 1).padStart(2, '0');
+    const year = futureDate.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    // En cas d'erreur, retourner une date future
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    const day = String(futureDate.getDate()).padStart(2, '0');
+    const month = String(futureDate.getMonth() + 1).padStart(2, '0');
+    const year = futureDate.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
 };
 
 const EventDetailsScreen = () => {
@@ -328,44 +364,34 @@ const EventDetailsScreen = () => {
           onPress: async () => {
             setIsRegistering(true);
             try {
-              const isExternalEvent = typeof event.id === 'string' && event.id.startsWith('external_');
-
-              if (isExternalEvent) {
-                const ticketCode = generateTicketCode();
-                await addDoc(collection(db, 'tickets'), {
-                  code: ticketCode,
-                  eventId: event.id,
-                  eventTitle: event.title,
-                  eventDate: event.date,
-                  eventTime: event.time,
-                  eventLocation: event.location,
-                  userId: user.uid,
-                  participantName: user.displayName || 'Participant',
-                  participantEmail: user.email,
-                  ticketType: event.isFree ? 'Gratuit' : 'Standard',
-                  price: event.price,
-                  checkedIn: false,
-                  checkedInAt: null,
-                  purchasedAt: serverTimestamp(),
-                  createdAt: serverTimestamp(),
-                });
-                setHasTicket(true);
-                setTicketCodeModal(ticketCode);
-                return;
-              }
-
-              const response = await joinEvent(event.id);
+              // Créer directement le ticket dans Firestore pour tous les événements
+              const ticketCode = generateTicketCode();
+              const formattedDate = parseEventDate(event.date || '');
+              
+              await addDoc(collection(db, 'tickets'), {
+                code: ticketCode,
+                eventId: event.id || '',
+                eventTitle: event.title || '',
+                eventDate: formattedDate,
+                eventTime: event.time || '',
+                eventLocation: event.location || '',
+                userId: user.uid,
+                participantName: user.displayName || 'Participant',
+                participantEmail: user.email || '',
+                ticketType: event.isFree ? 'Gratuit' : 'Standard',
+                price: event.price ?? 0,
+                checkedIn: false,
+                checkedInAt: null,
+                purchasedAt: serverTimestamp(),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+              
               setHasTicket(true);
-              setTicketCodeModal(response.participation.ticketCode);
+              setTicketCodeModal(ticketCode);
             } catch (error: any) {
-              const status = error?.response?.status;
-              const msg = error?.response?.data?.message || error?.message;
-              if (status === 404) {
-                Alert.alert('Événement introuvable', 'Cet événement n\'est plus disponible ou l\'inscription a échoué.');
-              } else {
-                console.error('Registration error:', error);
-                Alert.alert('Erreur', msg || 'Impossible de réserver. Réessaie.');
-              }
+              console.error('Registration error:', error);
+              Alert.alert('Erreur', 'Impossible de réserver. Réessaie.');
             } finally {
               setIsRegistering(false);
             }
@@ -388,15 +414,32 @@ const EventDetailsScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
-      {/* Grande image de l'événement */}
+      {/* Grande image de l'événement avec gradient overlay */}
       <View style={{ position: 'relative' }}>
         <Image
           source={{ uri: event.coverImage }}
-          style={{ width: '100%', height: 300 }}
+          style={{ width: '100%', height: 320 }}
           resizeMode="cover"
         />
         
-        {/* Boutons header */}
+        {/* Gradient overlay pour meilleure lisibilité */}
+        <LinearGradient
+          colors={[
+            'rgba(0, 0, 0, 0.3)',
+            'transparent',
+            'rgba(0, 0, 0, 0.7)',
+          ]}
+          locations={[0, 0.5, 1]}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        />
+        
+        {/* Boutons header avec glassmorphism */}
         <View style={{
           position: 'absolute',
           top: Platform.OS === 'ios' ? 50 : 20,
@@ -409,30 +452,72 @@ const EventDetailsScreen = () => {
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
               alignItems: 'center',
               justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 4,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#000000" />
+            <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
           
-          <TouchableOpacity
-            onPress={handleShare}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="share-outline" size={22} color="#000000" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  const favorite = await toggleFavorite(event.id, event);
+                  setIsLiked(favorite);
+                } catch (error) {
+                  console.error('Error toggling favorite:', error);
+                }
+              }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Ionicons 
+                name={isLiked ? "heart" : "heart-outline"} 
+                size={24} 
+                color={isLiked ? "#FF6B6B" : "#000000"} 
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={handleShare}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <Ionicons name="share-outline" size={24} color="#000000" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -442,25 +527,42 @@ const EventDetailsScreen = () => {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View style={{ padding: 20 }}>
-          {/* Badge catégorie */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: theme.primaryLight + '20',
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 16,
-            alignSelf: 'flex-start',
-            marginBottom: 12,
-          }}>
-            <Ionicons name={getCategoryIcon()} size={14} color="#7B5CFF" style={{ marginRight: 6 }} />
-            <Text style={{
-              fontSize: 12,
-              fontWeight: '600',
-              color: '#7B5CFF',
-            }}>
-              {event.category || 'Musique'}
-            </Text>
+          {/* Badge catégorie avec gradient */}
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              marginBottom: 16,
+              borderRadius: 20,
+              overflow: 'hidden',
+              shadowColor: '#7B5CFF',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
+            <LinearGradient
+              colors={['#7B5CFF', '#9B7FFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
+            >
+              <Ionicons name={getCategoryIcon()} size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '700',
+                color: '#FFFFFF',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                {event.category || 'Musique'}
+              </Text>
+            </LinearGradient>
           </View>
 
           {/* Titre */}
@@ -709,59 +811,132 @@ const EventDetailsScreen = () => {
 
           {/* Section Qui y va ? */}
           {participants.length > 0 && (
-            <View>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: theme.text,
-                marginBottom: 16,
-              }}>
-                Qui y va ?
-              </Text>
-              
+            <View style={{ marginTop: 24 }}>
               <View style={{
                 flexDirection: 'row',
+                justifyContent: 'space-between',
                 alignItems: 'center',
+                marginBottom: 16,
               }}>
-                {/* Avatars des participants (max 5 visibles) */}
-                {participants.slice(0, 5).map((participant, index) => (
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: theme.text,
+                }}>
+                  Qui y va ?
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.textSecondary,
+                }}>
+                  {participants.length} participant{participants.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+              
+              {/* Liste des participants avec boutons d'ajout */}
+              <View style={{ gap: 12 }}>
+                {participants.slice(0, 3).map((participant) => (
                   <View
                     key={participant.id}
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: theme.card,
+                      padding: 12,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                    }}
+                  >
+                    {/* Avatar */}
+                    <View style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
                       backgroundColor: '#7B5CFF',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderWidth: 2,
-                      borderColor: theme.background,
-                      marginLeft: index > 0 ? -12 : 0,
+                      marginRight: 12,
+                    }}>
+                      <Text style={{
+                        fontSize: 18,
+                        fontWeight: '700',
+                        color: '#FFFFFF',
+                      }}>
+                        {(participant.participantName || 'P').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    
+                    {/* Infos participant */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 15,
+                        fontWeight: '600',
+                        color: theme.text,
+                        marginBottom: 2,
+                      }}>
+                        {participant.participantName || 'Participant'}
+                      </Text>
+                      <Text style={{
+                        fontSize: 13,
+                        color: theme.textSecondary,
+                      }}>
+                        Participe à l'événement
+                      </Text>
+                    </View>
+                    
+                    {/* Bouton ajouter ami */}
+                    {participant.userId !== user?.uid && (
+                      <TouchableOpacity
+                        onPress={async () => {
+                          try {
+                            const { sendFriendRequest } = await import('../../services/friendsService');
+                            await sendFriendRequest(participant.userId);
+                            Alert.alert('Demande envoyée', `Demande d'ami envoyée à ${participant.participantName}`);
+                          } catch (error: any) {
+                            if (error.response?.status === 400) {
+                              Alert.alert('Info', 'Vous êtes déjà amis ou une demande est en attente');
+                            } else {
+                              Alert.alert('Erreur', 'Impossible d\'envoyer la demande');
+                            }
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: '#7B5CFF',
+                          backgroundColor: `${theme.primary}10`,
+                        }}
+                      >
+                        <Ionicons name="person-add" size={18} color="#7B5CFF" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                
+                {/* Bouton "Voir tous les participants" */}
+                {participants.length > 3 && (
+                  <TouchableOpacity
+                    style={{
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.card,
                     }}
                   >
                     <Text style={{
                       fontSize: 14,
-                      fontWeight: '700',
-                      color: '#FFFFFF',
-                    }}>
-                      {(participant.participantName || 'P').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                ))}
-                
-                {/* Compteur "+X autres" */}
-                {participants.length > 5 && (
-                  <View style={{
-                    marginLeft: 12,
-                  }}>
-                    <Text style={{
-                      fontSize: 14,
                       fontWeight: '600',
-                      color: theme.textSecondary,
+                      color: theme.primary,
                     }}>
-                      +{participants.length - 5} autres
+                      Voir tous les participants ({participants.length})
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
@@ -769,7 +944,7 @@ const EventDetailsScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Footer fixe avec prix et bouton */}
+      {/* Footer fixe avec prix et bouton gradient */}
       <View style={{
         position: 'absolute',
         bottom: 0,
@@ -777,55 +952,79 @@ const EventDetailsScreen = () => {
         right: 0,
         backgroundColor: theme.surface,
         paddingHorizontal: 20,
-        paddingVertical: 16,
-        paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+        paddingVertical: 20,
+        paddingBottom: Platform.OS === 'ios' ? 36 : 20,
         borderTopWidth: 1,
         borderTopColor: theme.border,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
       }}>
         <View>
           <Text style={{
-            fontSize: 12,
+            fontSize: 11,
             color: theme.textSecondary,
-            marginBottom: 4,
+            marginBottom: 6,
+            fontWeight: '600',
+            letterSpacing: 1,
           }}>
             PRIX
           </Text>
           <Text style={{
-            fontSize: 24,
-            fontWeight: '700',
+            fontSize: 28,
+            fontWeight: '900',
             color: theme.text,
           }}>
             {event.isFree ? 'Gratuit' : `${(event.price || 0).toFixed(2)} €`}
           </Text>
         </View>
         
-        <TouchableOpacity
-          onPress={handleGetTicket}
-          disabled={isRegistering || checkingTicket || hasTicket}
+        <View
           style={{
-            backgroundColor: hasTicket ? '#9CA3AF' : '#7B5CFF',
-            paddingHorizontal: 24,
-            paddingVertical: 14,
-            borderRadius: 999,
-            minWidth: 180,
-            alignItems: 'center',
+            borderRadius: 24,
+            overflow: 'hidden',
+            shadowColor: hasTicket ? '#9CA3AF' : '#7B5CFF',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
+            elevation: 6,
           }}
         >
-          {isRegistering || checkingTicket ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '700',
-              color: '#FFFFFF',
-            }}>
-              {hasTicket ? 'Déjà inscrit ✓' : 'Réserver ma place'}
-            </Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleGetTicket}
+            disabled={isRegistering || checkingTicket || hasTicket}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={hasTicket ? ['#9CA3AF', '#9CA3AF'] : ['#7B5CFF', '#9B7FFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingHorizontal: 32,
+                paddingVertical: 16,
+                minWidth: 180,
+                alignItems: 'center',
+              }}
+            >
+              {isRegistering || checkingTicket ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                }}>
+                  {hasTicket ? 'Déjà inscrit ✓' : 'Réserver ma place'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Modal

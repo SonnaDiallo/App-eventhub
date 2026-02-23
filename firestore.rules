@@ -22,11 +22,8 @@ service cloud.firestore {
     
     // Tickets collection
     match /tickets/{ticketId} {
-      // L'utilisateur peut lire ses propres tickets
-      allow read: if request.auth != null && 
-        (resource.data.userId == request.auth.uid || 
-         resource.data.participantEmail == request.auth.token.email ||
-         request.auth.uid == resource.data.userId);
+      // Tout utilisateur authentifié peut lire les tickets (pour voir les participants)
+      allow read: if request.auth != null;
       
       // Tout utilisateur authentifié peut créer un ticket
       allow create: if request.auth != null;

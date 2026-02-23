@@ -8,8 +8,10 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
@@ -130,6 +132,7 @@ const MyTicketsScreen = () => {
     return (
       <TouchableOpacity
         onPress={() => setSelectedTicket(item)}
+        activeOpacity={0.9}
         style={{
           backgroundColor: theme.card,
           borderRadius: 24,
@@ -137,33 +140,44 @@ const MyTicketsScreen = () => {
           borderWidth: 1,
           borderColor: theme.borderLight,
           overflow: 'hidden',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 6,
         }}
       >
-        {/* Logo EventHub */}
-        <View style={{
-          alignItems: 'center',
-          paddingTop: 24,
-          paddingBottom: 16,
-        }}>
+        {/* Header du billet avec gradient */}
+        <LinearGradient
+          colors={['#7B5CFF', '#9B7FFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            alignItems: 'center',
+            paddingTop: 24,
+            paddingBottom: 16,
+          }}
+        >
           <View style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: '#7B5CFF',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Ionicons name="calendar" size={24} color="#FFFFFF" />
+            <Ionicons name="ticket" size={28} color="#FFFFFF" />
           </View>
           <Text style={{
-            fontSize: 14,
-            fontWeight: '600',
-            color: theme.text,
+            fontSize: 16,
+            fontWeight: '700',
+            color: '#FFFFFF',
             marginTop: 8,
+            letterSpacing: 1,
           }}>
-            EventHub
+            EVENTHUB
           </Text>
-        </View>
+        </LinearGradient>
 
         {/* QR Code */}
         <View style={{
@@ -247,35 +261,57 @@ const MyTicketsScreen = () => {
             </Text>
           </View>
 
-          {/* Badge et code */}
+          {/* Badge et code avec gradient */}
           <View style={{
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}>
+            <View
+              style={{
+                borderRadius: 12,
+                overflow: 'hidden',
+                shadowColor: item.checkedIn ? '#EF4444' : '#10B981',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <LinearGradient
+                colors={item.checkedIn ? ['#EF4444', '#DC2626'] : ['#10B981', '#059669']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  letterSpacing: 0.5,
+                }}>
+                  {item.checkedIn ? '✓ UTILISÉ' : '✓ VALIDE'}
+                </Text>
+              </LinearGradient>
+            </View>
             <View style={{
-              backgroundColor: item.checkedIn ? '#EF4444' : '#10B981',
-              paddingHorizontal: 16,
-              paddingVertical: 8,
+              backgroundColor: `${theme.primary}10`,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
               borderRadius: 8,
             }}>
               <Text style={{
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: '700',
-                color: '#FFFFFF',
-                letterSpacing: 0.5,
+                color: theme.primary,
+                fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
               }}>
-                {item.checkedIn ? '✓ UTILISÉ' : '✓ BILLET VALIDE'}
+                #{item.code}
               </Text>
             </View>
-            <Text style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color: '#9CA3AF',
-              fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-            }}>
-              #{item.code}
-            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -307,74 +343,92 @@ const MyTicketsScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
-      {/* Header */}
-      <View
+      {/* Header avec gradient */}
+      <LinearGradient
+        colors={[theme.primary, `${theme.primary}DD`, theme.background]}
+        locations={[0, 0.5, 1]}
         style={{
-          backgroundColor: theme.header,
           paddingTop: Platform.OS === 'ios' ? 60 : 20,
-          paddingBottom: 16,
+          paddingBottom: 20,
           paddingHorizontal: 20,
+        }}
+      >
+        <View style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={{
-            width: 40,
-            height: 40,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={{ color: theme.text, fontWeight: '700', fontSize: 20, textAlign: 'center', flex: 1, marginRight: 40 }}>Mes Billets</Text>
-      </View>
+        }}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 24 }}>Mes Billets</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, marginTop: 4 }}>
+              {tickets.length} billet{tickets.length > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={{ width: 44 }} />
+        </View>
+      </LinearGradient>
 
-      {/* Onglets */}
+      {/* Onglets avec design moderne */}
       <View style={{
         flexDirection: 'row',
         paddingHorizontal: 20,
+        marginTop: 20,
         marginBottom: 20,
+        gap: 12,
       }}>
         <TouchableOpacity
           onPress={() => setActiveTab('upcoming')}
+          activeOpacity={0.8}
           style={{
             flex: 1,
-            paddingVertical: 12,
+            paddingVertical: 14,
             alignItems: 'center',
-            borderBottomWidth: 3,
-            borderBottomColor: activeTab === 'upcoming' ? theme.primary : 'transparent',
-            marginRight: 8,
+            borderRadius: 16,
+            backgroundColor: activeTab === 'upcoming' ? `${theme.primary}15` : theme.card,
+            borderWidth: 2,
+            borderColor: activeTab === 'upcoming' ? theme.primary : theme.border,
           }}
         >
           <Text style={{
-            fontSize: 16,
-            fontWeight: '600',
+            fontSize: 15,
+            fontWeight: '700',
             color: activeTab === 'upcoming' ? theme.primary : theme.textMuted,
           }}>
-            À venir
+            À venir ({upcomingTickets.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab('past')}
+          activeOpacity={0.8}
           style={{
             flex: 1,
-            paddingVertical: 12,
+            paddingVertical: 14,
             alignItems: 'center',
-            borderBottomWidth: 3,
-            borderBottomColor: activeTab === 'past' ? theme.primary : 'transparent',
-            marginLeft: 8,
+            borderRadius: 16,
+            backgroundColor: activeTab === 'past' ? `${theme.primary}15` : theme.card,
+            borderWidth: 2,
+            borderColor: activeTab === 'past' ? theme.primary : theme.border,
           }}
         >
           <Text style={{
-            fontSize: 16,
-            fontWeight: '600',
+            fontSize: 15,
+            fontWeight: '700',
             color: activeTab === 'past' ? theme.primary : theme.textMuted,
           }}>
-            Passés
+            Passés ({pastTickets.length})
           </Text>
         </TouchableOpacity>
       </View>
