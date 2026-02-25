@@ -8,6 +8,8 @@ import {
   Alert,
   RefreshControl,
   StyleSheet,
+  TextInput,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +34,7 @@ const ChatListScreen: React.FC<Props> = ({ navigation }) => {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -58,11 +61,18 @@ const ChatListScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => navigation.navigate('ChatRoom', { userId: item.user.id, userName: item.user.name })}
       activeOpacity={0.7}
     >
-      <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
-        <Text style={[styles.avatarText, { color: theme.primary }]}>
-          {(item.user.name || 'U').charAt(0).toUpperCase()}
-        </Text>
-      </View>
+      {item.user.photoURL ? (
+        <Image
+          source={{ uri: item.user.photoURL }}
+          style={styles.avatar}
+        />
+      ) : (
+        <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
+          <Text style={[styles.avatarText, { color: theme.primary }]}>
+            {(item.user.name || 'U').charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
       <View style={styles.body}>
         <View style={styles.rowTop}>
           <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
@@ -99,18 +109,44 @@ const ChatListScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  const filteredConversations = conversations.filter(conv => 
+    conv.user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Barre de recherche */}
+      <View style={[styles.searchContainer, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={styles.searchIcon} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Rechercher une conversation..."
+            placeholderTextColor={theme.textMuted}
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       <FlatList
-        data={conversations}
+        data={filteredConversations}
         keyExtractor={(item) => item.user.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="chatbubbles-outline" size={56} color={theme.textMuted} />
+            <Ionicons name="chatbubbles-outline" size={64} color={theme.textMuted} />
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>
+              {searchQuery ? 'Aucun résultat' : 'Aucune conversation'}
+            </Text>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              Aucune conversation. Accepte des demandes d'ami pour discuter.
+              {searchQuery ? 'Essaye une autre recherche' : 'Accepte des demandes d\'ami pour discuter.'}
             </Text>
           </View>
         }
@@ -124,7 +160,30 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+  },
   listContent: { padding: 16, paddingBottom: 32 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

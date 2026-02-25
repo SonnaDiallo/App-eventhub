@@ -6,6 +6,7 @@ export interface FriendUser {
   firstName?: string;
   lastName?: string;
   email?: string;
+  photoURL?: string;
 }
 
 export interface FriendRequestItem {

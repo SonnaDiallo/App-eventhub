@@ -45,11 +45,24 @@ export const getConversations = async (req: Request, res: Response) => {
       const u = uSnap.data()!;
 
       const [sentByMe, sentByThem] = await Promise.all([
-        firebaseDb.collection('messages').where('senderId', '==', firebaseUid).where('receiverId', '==', otherId).orderBy('createdAt', 'desc').limit(1).get(),
-        firebaseDb.collection('messages').where('senderId', '==', otherId).where('receiverId', '==', firebaseUid).orderBy('createdAt', 'desc').limit(1).get(),
+        firebaseDb.collection('messages').where('senderId', '==', firebaseUid).where('receiverId', '==', otherId).get(),
+        firebaseDb.collection('messages').where('senderId', '==', otherId).where('receiverId', '==', firebaseUid).get(),
       ]);
-      const lastMe = sentByMe.docs[0];
-      const lastThem = sentByThem.docs[0];
+      
+      // Trier en mémoire et prendre le dernier
+      const sortedMe = sentByMe.docs.sort((a, b) => {
+        const tA = a.data().createdAt?.toMillis?.() ?? 0;
+        const tB = b.data().createdAt?.toMillis?.() ?? 0;
+        return tB - tA;
+      });
+      const sortedThem = sentByThem.docs.sort((a, b) => {
+        const tA = a.data().createdAt?.toMillis?.() ?? 0;
+        const tB = b.data().createdAt?.toMillis?.() ?? 0;
+        return tB - tA;
+      });
+      
+      const lastMe = sortedMe[0];
+      const lastThem = sortedThem[0];
       let lastMsg: { doc: admin.firestore.DocumentSnapshot; fromMe: boolean } | null = null;
       if (lastMe && lastThem) {
         const tMe = lastMe.data().createdAt?.toMillis?.() ?? 0;
@@ -61,7 +74,7 @@ export const getConversations = async (req: Request, res: Response) => {
       const unreadSnap = await firebaseDb.collection('messages').where('senderId', '==', otherId).where('receiverId', '==', firebaseUid).where('readAt', '==', null).get();
 
       conversations.push({
-        user: { id: otherId, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Utilisateur', firstName: u.firstName, lastName: u.lastName, email: u.email },
+        user: { id: otherId, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Utilisateur', firstName: u.firstName, lastName: u.lastName, email: u.email, photoURL: u.photoURL },
         lastMessage: lastMsg ? { content: lastMsg.doc.data()!.content, createdAt: toDate(lastMsg.doc.data()!.createdAt), fromMe: lastMsg.fromMe } : undefined,
         unreadCount: unreadSnap.size,
       });
@@ -186,6 +199,51 @@ export const markMessageRead = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Message marked as read', readAt: new Date() });
   } catch (error: any) {
     console.error('markMessageRead error:', error?.message);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+/**
+ * DELETE /chat/messages/:id - Supprimer un message (seulement si envoyé il y a moins de 2h)
+ */
+export const deleteMessage = async (req: Request, res: Response) => {
+  try {
+    const firebaseUid = getUserId(req as AuthRequest);
+    if (!firebaseUid) return res.status(401).json({ message: 'Unauthorized' });
+
+    const me = await getUserByFirebaseUid(firebaseUid);
+    if (!me) return res.status(404).json({ message: 'User not found in database' });
+
+    const messageId = req.params.id;
+    if (!messageId) return res.status(400).json({ message: 'Invalid message id' });
+
+    const doc = await firebaseDb.collection('messages').doc(messageId).get();
+    if (!doc.exists) return res.status(404).json({ message: 'Message not found' });
+    
+    const data = doc.data()!;
+    
+    // Vérifier que c'est bien l'expéditeur
+    if (data.senderId !== firebaseUid) {
+      return res.status(403).json({ message: 'You can only delete your own messages' });
+    }
+
+    // Vérifier que le message a moins de 2h
+    const messageTime = data.createdAt?.toMillis?.() ?? 0;
+    const now = Date.now();
+    const twoHoursInMs = 2 * 60 * 60 * 1000;
+    
+    if (now - messageTime >= twoHoursInMs) {
+      return res.status(403).json({ message: 'You can only delete messages sent less than 2 hours ago' });
+    }
+
+    // Marquer le message comme supprimé au lieu de le supprimer complètement
+    await doc.ref.update({
+      content: 'Message supprimé',
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return res.status(200).json({ message: 'Message deleted successfully' });
+  } catch (error: any) {
+    console.error('deleteMessage error:', error?.message);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

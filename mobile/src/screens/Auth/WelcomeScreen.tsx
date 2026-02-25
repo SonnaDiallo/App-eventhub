@@ -1,6 +1,6 @@
 // mobile/src/screens/Auth/WelcomeScreen.tsx
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, Image } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -83,13 +83,13 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
         justifyContent: 'space-evenly',
       }}
     >
-      {/* Carte + blob */}
+      {/* Logo EventHub */}
       <View style={{ alignItems: 'center', marginTop: 20 }}>
         <View
           style={{
-            width: 240,
-            height: 240,
-            borderRadius: 40,
+            width: 220,
+            height: 220,
+            borderRadius: 35,
             backgroundColor: theme.surface,
             alignItems: 'center',
             justifyContent: 'center',
@@ -99,7 +99,14 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
             shadowRadius: 20,
           }}
         >
-          <MovingBlob />
+          <Image
+            source={require('../../../assets/images/logo eventhub1 (1).png')}
+            style={{
+              width: 200,
+              height: 200,
+            }}
+            resizeMode="contain"
+          />
         </View>
       </View>
 

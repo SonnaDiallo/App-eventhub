@@ -9,13 +9,17 @@ interface SearchBarProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   onFilterPress?: () => void;
+  onLocationPress?: () => void;
+  userCity?: string;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
-  placeholder = "Rechercher un événement, une ville...",
+  placeholder = "Rechercher un événement...",
   onFilterPress,
+  onLocationPress,
+  userCity = "Paris, FR",
 }) => {
   const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -111,6 +115,31 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           </TouchableOpacity>
         )}
       </View>
+      
+      {/* Bouton localisation */}
+      {onLocationPress && (
+        <TouchableOpacity
+          onPress={onLocationPress}
+          style={{
+            marginLeft: 12,
+            borderRadius: 20,
+            backgroundColor: theme.card,
+            borderWidth: 2,
+            borderColor: theme.border,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <Ionicons name="location" size={20} color={theme.primary} style={{ marginRight: 6 }} />
+        </TouchableOpacity>
+      )}
       
       {/* Bouton filtre avec gradient */}
       {onFilterPress && (

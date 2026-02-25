@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform, Image, Animated, Modal } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Platform, Image, Animated, Modal, ImageBackground, TextInput } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +43,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const { events, loading } = useEvents({ 
     limit: selectedCategory ? undefined : 15, 
@@ -71,47 +73,45 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   // Charger le nombre de notifications non lues
-  useEffect(() => {
-    const loadNotifications = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      
-      try {
-        // Importer les services pour compter toutes les notifications
-        const { getConversations } = await import('../../services/chatService');
-        const { getIncomingFriendRequests } = await import('../../services/friendsService');
+  useFocusEffect(
+    useCallback(() => {
+      const loadNotifications = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
         
-        // Charger en parallèle les messages non lus et les demandes d'amis
-        const [conversations, friendRequests] = await Promise.all([
-          getConversations().catch(() => []),
-          getIncomingFriendRequests().catch(() => []),
-        ]);
-        
-        // Compter le total de messages non lus
-        const unreadMessagesCount = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-        
-        // Compter les demandes d'amis en attente
-        const pendingRequestsCount = friendRequests.length;
-        
-        // Mettre à jour les états
-        setUnreadMessages(unreadMessagesCount);
-        setPendingRequests(pendingRequestsCount);
-        
-        // Total des notifications
-        const total = unreadMessagesCount + pendingRequestsCount;
-        setNotificationCount(total);
-      } catch (error) {
-        console.error('Error loading notifications:', error);
-        // En cas d'erreur, ne pas afficher de badge
-        setNotificationCount(0);
-      }
-    };
-    loadNotifications();
-    
-    // Recharger les notifications toutes les 30 secondes
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+        try {
+          // Importer les services pour compter toutes les notifications
+          const { getConversations } = await import('../../services/chatService');
+          const { getIncomingFriendRequests } = await import('../../services/friendsService');
+          
+          // Charger en parallèle les messages non lus et les demandes d'amis
+          const [conversations, friendRequests] = await Promise.all([
+            getConversations().catch(() => []),
+            getIncomingFriendRequests().catch(() => []),
+          ]);
+          
+          // Compter le total de messages non lus
+          const unreadMessagesCount = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+          
+          // Compter les demandes d'amis en attente
+          const pendingRequestsCount = friendRequests.length;
+          
+          // Mettre à jour les états
+          setUnreadMessages(unreadMessagesCount);
+          setPendingRequests(pendingRequestsCount);
+          
+          // Total des notifications
+          const total = unreadMessagesCount + pendingRequestsCount;
+          setNotificationCount(total);
+        } catch (error) {
+          console.error('Error loading notifications:', error);
+          // En cas d'erreur, ne pas afficher de badge
+          setNotificationCount(0);
+        }
+      };
+      loadNotifications();
+    }, [])
+  );
 
   const filtered = useMemo(() => {
     const filteredEvents = filterEvents(events, searchQuery, selectedCategory);
@@ -172,155 +172,284 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderHeader = () => (
-    <LinearGradient
-      colors={[theme.primary, `${theme.primary}DD`, theme.background]}
-      locations={[0, 0.5, 1]}
-      style={{
-        paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 20,
-        paddingBottom: 24,
-      }}
-    >
-      <View style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <View>
-          <Text style={{
-            fontSize: 32,
-            fontWeight: '900',
-            color: '#FFFFFF',
-            textShadowColor: 'rgba(0, 0, 0, 0.3)',
-            textShadowOffset: { width: 0, height: 2 },
-            textShadowRadius: 8,
+    <View style={{ position: 'relative', overflow: 'hidden' }}>
+      <ImageBackground
+        source={require('../../../assets/images/imagedefond.png')}
+        style={{
+          width: '100%',
+        }}
+        resizeMode="cover"
+      >
+        <LinearGradient
+          colors={['rgba(124, 58, 237, 0.88)', 'rgba(124, 58, 237, 0.85)', 'rgba(124, 58, 237, 0.70)', 'rgba(124, 58, 237, 0.50)', theme.background]}
+          locations={[0, 0.4, 0.7, 0.9, 1]}
+          style={{
+            paddingHorizontal: 20,
+            paddingTop: Platform.OS === 'ios' ? 60 : 20,
+            paddingBottom: 40,
+          }}
+        >
+          {/* Ligne du haut : EventHub + Badge + Notification */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 28,
           }}>
-            EventHub
-          </Text>
+            <Text style={{
+              fontSize: 28,
+              fontWeight: '900',
+              color: '#FFFFFF',
+              textShadowColor: 'rgba(0, 0, 0, 0.3)',
+              textShadowOffset: { width: 0, height: 2 },
+              textShadowRadius: 8,
+            }}>
+              EventHub
+            </Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  scrollViewRef.current?.scrollTo({ y: 600, animated: true });
+                }}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  marginRight: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}>
+                  Découvrez
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ChatList')}
+                style={{
+                  position: 'relative',
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  borderRadius: 999,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+                {notificationCount > 0 && (
+                  <View style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    backgroundColor: theme.error,
+                    borderRadius: 10,
+                    minWidth: 20,
+                    height: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 4,
+                  }}>
+                    <Text style={{
+                      color: theme.buttonPrimaryText,
+                      fontSize: 10,
+                      fontWeight: '700',
+                    }}>
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Titre principal */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{
+              fontSize: 36,
+              fontWeight: '900',
+              color: '#FFFFFF',
+              lineHeight: 42,
+              textShadowColor: 'rgba(0, 0, 0, 0.3)',
+              textShadowOffset: { width: 0, height: 2 },
+              textShadowRadius: 8,
+            }}>
+              Vivez des moments
+            </Text>
+            <Text style={{
+              fontSize: 36,
+              fontWeight: '900',
+              color: '#FFD700',
+              lineHeight: 42,
+              textShadowColor: 'rgba(0, 0, 0, 0.3)',
+              textShadowOffset: { width: 0, height: 2 },
+              textShadowRadius: 8,
+            }}>
+              inoubliables
+            </Text>
+          </View>
+
+          {/* Description */}
           <Text style={{
             fontSize: 14,
-            fontWeight: '600',
-            color: 'rgba(255, 255, 255, 0.8)',
-            marginTop: 4,
-          }}>
-            Découvre les meilleurs événements
-          </Text>
-        </View>
-        <View style={{ position: 'relative' }}>
-        <TouchableOpacity
-          style={{
-            width: 44,
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            borderRadius: 22,
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          }}
-          onPress={() => setShowNotificationMenu(!showNotificationMenu)}
-        >
-          <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-          {notificationCount > 0 && (
-            <View style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              backgroundColor: '#FF3B30',
-              borderRadius: 12,
-              minWidth: 20,
-              height: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 5,
-              borderWidth: 2,
-              borderColor: '#FFFFFF',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
-              elevation: 4,
-            }}>
-              <Text style={{
-                color: '#FFFFFF',
-                fontSize: 10,
-                fontWeight: '900',
-              }}>
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-      </View>
-    </LinearGradient>
-  );
-
-  const renderLocationSection = () => (
-    <View style={{
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      backgroundColor: theme.background,
-    }}>
-      <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: theme.card,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: theme.border,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 4,
-          elevation: 2,
-        }}
-        onPress={() => setShowLocationPicker(true)}
-      >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: `${theme.primary}15`,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 12,
-          }}
-        >
-          <Ionicons name="location" size={20} color={theme.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{
-            fontSize: 12,
-            color: theme.textMuted,
             fontWeight: '500',
-            marginBottom: 2,
+            color: 'rgba(255, 255, 255, 0.95)',
+            lineHeight: 20,
+            marginBottom: 36,
+            textShadowColor: 'rgba(0, 0, 0, 0.2)',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 4,
           }}>
-            Localisation
+            Trouvez et réservez les événements qui vous passionnent. Connectez-vous avec d'autres participants et partagez vos expériences.
           </Text>
-          <Text style={{
-            fontSize: 15,
-            color: theme.text,
-            fontWeight: '700',
-          }}>
-            {userCity}
-          </Text>
-        </View>
-        <Ionicons name="chevron-down" size={20} color={theme.textMuted} />
-      </TouchableOpacity>
+
+          {/* SearchBar intégrée dans le header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 28 }}>
+            {/* Input de recherche */}
+            <View style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'transparent',
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              marginRight: 8,
+              borderWidth: 1.5,
+              borderColor: 'rgba(255, 255, 255, 0.8)',
+            }}>
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Rechercher un..."
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                style={{
+                  flex: 1,
+                  fontSize: 15,
+                  color: '#FFFFFF',
+                }}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="rgba(255, 255, 255, 0.8)" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Bouton Rechercher (loupe) */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: 'transparent',
+                borderRadius: 16,
+                padding: 12,
+                marginRight: 8,
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+              }}
+            >
+              <Ionicons name="search" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* Bouton localisation */}
+            <TouchableOpacity
+              onPress={() => setShowLocationPicker(true)}
+              style={{
+                backgroundColor: 'transparent',
+                borderRadius: 16,
+                padding: 12,
+                marginRight: 8,
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+              }}
+            >
+              <Ionicons name="location" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* Bouton filtres */}
+            <TouchableOpacity
+              onPress={() => setShowSortMenu(!showSortMenu)}
+              style={{
+                backgroundColor: 'transparent',
+                borderRadius: 16,
+                padding: 12,
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+              }}
+            >
+              <Ionicons name="options" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Catégories sur l'image de fond */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 20 }}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedCategory(null)}
+              style={{
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 20,
+                marginRight: 12,
+                backgroundColor: !selectedCategory ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.3)',
+                borderWidth: !selectedCategory ? 0 : 1,
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="grid" size={18} color={!selectedCategory ? theme.primary : '#FFFFFF'} style={{ marginRight: 6 }} />
+                <Text style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: !selectedCategory ? theme.primary : '#FFFFFF',
+                }}>
+                  Tout
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setSelectedCategory(cat.id)}
+                style={{
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  marginRight: 12,
+                  backgroundColor: selectedCategory === cat.id ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.3)',
+                  borderWidth: selectedCategory === cat.id ? 0 : 1,
+                  borderColor: 'rgba(255, 255, 255, 0.5)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name={getCategoryIcon(cat.id) as any} size={18} color={selectedCategory === cat.id ? theme.primary : '#FFFFFF'} style={{ marginRight: 6 }} />
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: selectedCategory === cat.id ? theme.primary : '#FFFFFF',
+                  }}>
+                    {cat.nameFr}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </LinearGradient>
+      </ImageBackground>
     </View>
   );
 
+
   const renderSearchSection = () => (
-    <View style={{ paddingHorizontal: 20, paddingVertical: 12, backgroundColor: theme.background }}>
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        onFilterPress={() => setShowSortMenu(!showSortMenu)}
-      />
+    <View style={{ paddingHorizontal: 20, paddingTop: 12, backgroundColor: theme.background }}>
       {renderSortMenu()}
     </View>
   );
@@ -328,17 +457,29 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const renderFeaturedEvents = () => {
     if (loading || filtered.length === 0) return null;
     const featuredEvents = showAllFeatured ? filtered : filtered.slice(0, 3);
+    const isDarkMode = theme.background === '#000000' || theme.background === '#121212';
 
     return (
-      <View style={{ backgroundColor: theme.background, paddingVertical: 24 }}>
-        {/* En-tête de section avec design premium */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 20,
-          marginBottom: 20,
-        }}>
+      <View style={{ backgroundColor: theme.background }}>
+        {/* Zone de transition avec dégradé */}
+        <LinearGradient
+          colors={[
+            isDarkMode ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.08)',
+            theme.background
+          ]}
+          style={{
+            paddingTop: 32,
+            paddingBottom: 24,
+          }}
+        >
+          {/* En-tête de section avec design premium */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            marginBottom: 20,
+          }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
@@ -419,6 +560,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 shadowRadius: 8,
                 elevation: 5,
                 marginRight: index < featuredEvents.length - 1 ? 16 : 0,
+                borderWidth: 2,
+                borderColor: isDarkMode ? 'rgba(124, 58, 237, 0.6)' : 'rgba(124, 58, 237, 0.4)',
               }}
             >
               {/* Image de fond */}
@@ -496,6 +639,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+        </LinearGradient>
       </View>
     );
   };
@@ -729,6 +873,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderUpcomingEvents = () => {
+    const isDarkMode = theme.background === '#000000' || theme.background === '#121212';
     if (loading) {
       return <LoadingSpinner fullScreen message="Chargement des événements..." />;
     }
@@ -810,8 +955,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                     backgroundColor: theme.card,
                     borderRadius: 20,
                     padding: 12,
-                    borderWidth: 1,
-                    borderColor: theme.border,
+                    borderWidth: 2,
+                    borderColor: isDarkMode ? 'rgba(124, 58, 237, 0.6)' : 'rgba(124, 58, 237, 0.4)',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.1,
@@ -998,13 +1143,12 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView 
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         {renderHeader()}
-        {renderLocationSection()}
-        {renderSearchSection()}
-        {renderCategoryPills()}
+        {showSortMenu && renderSearchSection()}
         {selectedCategory ? (
           <>
             {renderGridEvents()}

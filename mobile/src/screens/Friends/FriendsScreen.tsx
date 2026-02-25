@@ -8,6 +8,8 @@ import {
   Alert,
   RefreshControl,
   StyleSheet,
+  TextInput,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,8 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'requests'>('all');
 
   const load = useCallback(async () => {
     try {
@@ -93,9 +97,16 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
     const rejecting = rejectingId === item.id;
     return (
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
-          <Text style={[styles.avatarText, { color: theme.primary }]}>{name.charAt(0).toUpperCase()}</Text>
-        </View>
+        {item.fromUser.photoURL ? (
+          <Image
+            source={{ uri: item.fromUser.photoURL }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
+            <Text style={[styles.avatarText, { color: theme.primary }]}>{name.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
         <View style={styles.cardBody}>
           <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
           {item.fromUser.email ? (
@@ -130,9 +141,16 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
         onPress={() => navigation.navigate('ChatRoom', { userId: item.id, userName: name })}
         activeOpacity={0.7}
       >
-        <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
-          <Text style={[styles.avatarText, { color: theme.primary }]}>{name.charAt(0).toUpperCase()}</Text>
-        </View>
+        {item.photoURL ? (
+          <Image
+            source={{ uri: item.photoURL }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: `${theme.primary}26` }]}>
+            <Text style={[styles.avatarText, { color: theme.primary }]}>{name.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
         <View style={styles.cardBody}>
           <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
           {item.email ? <Text style={[styles.email, { color: theme.textMuted }]}>{item.email}</Text> : null}
@@ -151,38 +169,101 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  const filteredFriends = friends.filter(friend => {
+    const name = friend.name || [friend.firstName, friend.lastName].filter(Boolean).join(' ') || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const filteredRequests = requests.filter(req => {
+    const name = req.fromUser.name || [req.fromUser.firstName, req.fromUser.lastName].filter(Boolean).join(' ') || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Barre de recherche */}
+      <View style={[styles.searchContainer, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={styles.searchIcon} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Rechercher dans ton réseau..."
+            placeholderTextColor={theme.textMuted}
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Onglets */}
+      <View style={[styles.tabsContainer, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'all' && styles.tabActive]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text style={[styles.tabText, { color: activeTab === 'all' ? theme.primary : theme.textMuted }]}>
+            Mes amis ({filteredFriends.length})
+          </Text>
+          {activeTab === 'all' && <View style={[styles.tabIndicator, { backgroundColor: theme.primary }]} />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
+          onPress={() => setActiveTab('requests')}
+        >
+          <Text style={[styles.tabText, { color: activeTab === 'requests' ? theme.primary : theme.textMuted }]}>
+            Demandes ({filteredRequests.length})
+          </Text>
+          {activeTab === 'requests' && <View style={[styles.tabIndicator, { backgroundColor: theme.primary }]} />}
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={[]}
         renderItem={() => null}
         ListHeaderComponent={
           <>
-            {requests.length > 0 ? (
+            {activeTab === 'requests' ? (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Demandes reçues</Text>
-                {requests.map((r) => (
-                  <View key={r.id}>{renderRequest({ item: r })}</View>
-                ))}
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((r) => (
+                    <View key={r.id}>{renderRequest({ item: r })}</View>
+                  ))
+                ) : (
+                  <View style={styles.empty}>
+                    <Ionicons name="person-add-outline" size={64} color={theme.textMuted} />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                      {searchQuery ? 'Aucun résultat' : 'Aucune demande'}
+                    </Text>
+                    <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                      {searchQuery ? 'Essaye une autre recherche' : 'Tu n\'as pas de demandes d\'ami en attente.'}
+                    </Text>
+                  </View>
+                )}
               </View>
-            ) : null}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Mes amis ({friends.length})
-              </Text>
-              {friends.length === 0 && requests.length === 0 ? (
-                <View style={styles.empty}>
-                  <Ionicons name="people-outline" size={56} color={theme.textMuted} />
-                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                    Aucun ami pour le moment. Ajoute des participants d'événements depuis la liste des participants.
-                  </Text>
-                </View>
-              ) : (
-                friends.map((f) => (
-                  <View key={f.id}>{renderFriend({ item: f })}</View>
-                ))
-              )}
-            </View>
+            ) : (
+              <View style={styles.section}>
+                {filteredFriends.length > 0 ? (
+                  filteredFriends.map((f) => (
+                    <View key={f.id}>{renderFriend({ item: f })}</View>
+                  ))
+                ) : (
+                  <View style={styles.empty}>
+                    <Ionicons name="people-outline" size={64} color={theme.textMuted} />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                      {searchQuery ? 'Aucun résultat' : 'Aucun ami'}
+                    </Text>
+                    <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                      {searchQuery ? 'Essaye une autre recherche' : 'Ajoute des participants d\'événements depuis la liste des participants.'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />}
@@ -196,6 +277,48 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabActive: {},
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderRadius: 2,
+  },
   listContent: { padding: 16, paddingBottom: 32 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
@@ -218,7 +341,12 @@ const styles = StyleSheet.create({
   btnReject: {},
   btnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { textAlign: 'center', marginTop: 12, paddingHorizontal: 24 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
+  },
+  emptyText: { textAlign: 'center', marginTop: 12, paddingHorizontal: 24, fontSize: 14 },
 });
 
 export default FriendsScreen;
