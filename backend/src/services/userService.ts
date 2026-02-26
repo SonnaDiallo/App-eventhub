@@ -10,6 +10,7 @@ export interface FirestoreUser {
   lastName?: string;
   email: string;
   role: string;
+  avatar?: string;
   canScanTickets?: boolean;
   themeMode?: string;
   language?: string;
@@ -92,6 +93,7 @@ function docToUser(id: string, data: admin.firestore.DocumentData): FirestoreUse
     lastName: data.lastName,
     email: data.email ?? '',
     role: data.role ?? 'user',
+    avatar: data.avatar,
     canScanTickets: data.canScanTickets,
     themeMode: data.themeMode,
     language: data.language,

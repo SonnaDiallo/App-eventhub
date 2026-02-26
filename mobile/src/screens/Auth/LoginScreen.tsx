@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
@@ -30,8 +30,40 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   const { request, response, promptAsync } = useGoogleAuth();
+
+  // Vérifier si l'utilisateur vient de vérifier son email (une seule fois au chargement)
+  useEffect(() => {
+    if (hasCheckedAuth) return;
+    
+    const checkAuth = async () => {
+      const user = auth.currentUser;
+      if (user && user.emailVerified) {
+        try {
+          const token = await user.getIdToken();
+          await saveToken(token);
+          
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          const userData = userDoc.data();
+          
+          // Redirection selon le rôle
+          if (userData?.role === 'organizer') {
+            navigation.replace('HomeOrganizer' as any);
+          } else {
+            navigation.replace('HomeParticipant' as any);
+          }
+        } catch (error) {
+          console.error('Auto-login error:', error);
+        }
+      }
+      setHasCheckedAuth(true);
+    };
+    
+    checkAuth();
+  }, [hasCheckedAuth]);
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -53,6 +85,32 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         email.trim().toLowerCase(),
         password
       );
+
+      // Vérifier si l'email est vérifié
+      if (!credential.user.emailVerified) {
+        Alert.alert(
+          'Email non vérifié',
+          'Veuillez vérifier votre email avant de vous connecter. Un email de vérification vous a été envoyé lors de votre inscription.',
+          [
+            {
+              text: 'Renvoyer l\'email',
+              onPress: async () => {
+                try {
+                  const { sendEmailVerification } = await import('firebase/auth');
+                  await sendEmailVerification(credential.user);
+                  Alert.alert('Succès', 'Email de vérification renvoyé !');
+                } catch (error) {
+                  Alert.alert('Erreur', 'Impossible de renvoyer l\'email');
+                }
+              }
+            },
+            { text: 'OK' }
+          ]
+        );
+        await auth.signOut();
+        setLoading(false);
+        return;
+      }
 
       const idToken = await credential.user.getIdToken();
       await saveToken(idToken);

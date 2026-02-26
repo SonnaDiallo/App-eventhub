@@ -24,17 +24,17 @@ export const signInWithGoogleToken = async (idToken: string) => {
   try {
     const credential = GoogleAuthProvider.credential(idToken);
     const result = await signInWithCredential(auth, credential);
-    return result.user;
-  } catch (error) {
+    return { success: true, user: result };
+  } catch (error: any) {
     console.error('Error signing in with Google:', error);
-    throw error;
+    return { success: false, error: error?.message || 'Erreur de connexion Google' };
   }
 };
 
 export const signInWithApple = async () => {
   try {
     if (Platform.OS !== 'ios') {
-      throw new Error('Apple Sign-In is only available on iOS');
+      return { success: false, error: 'Apple Sign-In is only available on iOS' };
     }
 
     const credential = await AppleAuthentication.signInAsync({
@@ -46,7 +46,7 @@ export const signInWithApple = async () => {
 
     const { identityToken } = credential;
     if (!identityToken) {
-      throw new Error('No identity token returned from Apple');
+      return { success: false, error: 'No identity token returned from Apple' };
     }
 
     const provider = new OAuthProvider('apple.com');
@@ -55,13 +55,13 @@ export const signInWithApple = async () => {
     });
 
     const result = await signInWithCredential(auth, firebaseCredential);
-    return result.user;
+    return { success: true, user: result };
   } catch (error: any) {
     if (error.code === 'ERR_REQUEST_CANCELED') {
-      throw new Error('Apple Sign-In was canceled');
+      return { success: false, error: 'Apple Sign-In was canceled' };
     }
     console.error('Error signing in with Apple:', error);
-    throw error;
+    return { success: false, error: error?.message || 'Erreur de connexion Apple' };
   }
 };
 

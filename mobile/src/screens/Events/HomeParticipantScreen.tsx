@@ -456,7 +456,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderFeaturedEvents = () => {
     if (loading || filtered.length === 0) return null;
-    const featuredEvents = showAllFeatured ? filtered : filtered.slice(0, 3);
+    const featuredEvents = filtered.slice(0, 3);
     const isDarkMode = theme.background === '#000000' || theme.background === '#121212';
 
     return (
@@ -516,7 +516,10 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           
           <TouchableOpacity 
-            onPress={() => setShowAllFeatured(!showAllFeatured)}
+            onPress={() => {
+              // Naviguer vers la page des événements populaires
+              navigation.navigate('TrendingEvents');
+            }}
             style={{
               paddingHorizontal: 16,
               paddingVertical: 8,
@@ -531,7 +534,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               fontWeight: '700',
               color: theme.primary,
             }}>
-              {showAllFeatured ? 'Voir moins' : 'Voir tout'}
+              Voir tout
             </Text>
           </TouchableOpacity>
         </View>
@@ -873,7 +876,6 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderUpcomingEvents = () => {
-    const isDarkMode = theme.background === '#000000' || theme.background === '#121212';
     if (loading) {
       return <LoadingSpinner fullScreen message="Chargement des événements..." />;
     }
@@ -938,179 +940,17 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <View style={{ paddingHorizontal: 20 }}>
-          {upcomingEvents.map((event) => {
-            const categoryInfo = categories.find(
-              (c) => c.id.toLowerCase() === (event.category || '').toLowerCase()
-            );
-
-            return (
-              <View key={event.id}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
-                  activeOpacity={0.8}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 16,
-                    backgroundColor: theme.card,
-                    borderRadius: 20,
-                    padding: 12,
-                    borderWidth: 2,
-                    borderColor: isDarkMode ? 'rgba(124, 58, 237, 0.6)' : 'rgba(124, 58, 237, 0.4)',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                    elevation: 4,
-                  }}
-                >
-                  {/* Image avec badge catégorie */}
-                  <View style={{ position: 'relative' }}>
-                    <View style={{
-                      width: 90,
-                      height: 90,
-                      borderRadius: 18,
-                      backgroundColor: theme.surface,
-                      overflow: 'hidden',
-                    }}>
-                      {event.coverImage ? (
-                        <Image
-                          source={{ uri: event.coverImage }}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                          }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={{
-                          width: '100%',
-                          height: '100%',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: `${theme.primary}10`,
-                        }}>
-                          <Ionicons name="calendar" size={32} color={theme.primary} />
-                        </View>
-                      )}
-                    </View>
-                    
-                    {/* Badge catégorie avec gradient */}
-                    {categoryInfo && (
-                      <View
-                        style={{
-                          position: 'absolute',
-                          bottom: -6,
-                          left: -6,
-                          borderRadius: 12,
-                          overflow: 'hidden',
-                          shadowColor: '#000',
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.2,
-                          shadowRadius: 4,
-                          elevation: 3,
-                        }}
-                      >
-                        <LinearGradient
-                          colors={['#FF6B6B', '#FF8E53']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                          }}
-                        >
-                          <Text style={{
-                            fontSize: 9,
-                            fontWeight: '900',
-                            color: '#FFFFFF',
-                            textTransform: 'uppercase',
-                          }}>
-                            {categoryInfo.nameFr}
-                          </Text>
-                        </LinearGradient>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Infos événement */}
-                  <View style={{
-                    flex: 1,
-                    marginLeft: 14,
-                    justifyContent: 'center',
-                  }}>
-                    <Text style={{
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: theme.text,
-                      marginBottom: 6,
-                      lineHeight: 20,
-                    }} numberOfLines={2}>
-                      {event.title}
-                    </Text>
-                    
-                    {/* Date et heure avec icône */}
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginBottom: 8,
-                    }}>
-                      <View
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 12,
-                          backgroundColor: `${theme.primary}15`,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginRight: 6,
-                        }}
-                      >
-                        <Ionicons name="time" size={12} color={theme.primary} />
-                      </View>
-                      <Text style={{
-                        fontSize: 13,
-                        color: theme.textMuted,
-                        fontWeight: '500',
-                      }}>
-                        {event.date} • {event.time}
-                      </Text>
-                    </View>
-                    
-                    {/* Badge INTÉRESSÉ avec gradient */}
-                    <View
-                      style={{
-                        alignSelf: 'flex-start',
-                        borderRadius: 12,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <LinearGradient
-                        colors={[`${theme.primary}25`, `${theme.primary}15`]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderWidth: 1,
-                          borderColor: `${theme.primary}30`,
-                        }}
-                      >
-                        <Text style={{
-                          fontSize: 11,
-                          fontWeight: '700',
-                          color: theme.primary,
-                          letterSpacing: 0.5,
-                        }}>
-                          INTÉRESSÉ
-                        </Text>
-                      </LinearGradient>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
+          {upcomingEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={{
+                ...event,
+                organizer: event.organizerName || event.organizer,
+              }}
+              onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
+              variant="list"
+            />
+          ))}
         </View>
       </View>
     );

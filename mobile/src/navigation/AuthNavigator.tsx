@@ -46,6 +46,12 @@ import ChatListScreen from '../screens/Chat/ChatListScreen';
 
 import ChatRoomScreen from '../screens/Chat/ChatRoomScreen';
 
+import { AddReviewScreen } from '../screens/Events/AddReviewScreen';
+
+import { PaymentScreen } from '../screens/Payment/PaymentScreen';
+
+import TrendingEventsScreen from '../screens/Events/TrendingEventsScreen';
+
 
 
 export type EventData = {
@@ -135,6 +141,12 @@ export type AuthStackParamList = {
   ChatList: undefined;
 
   ChatRoom: { userId: string; userName: string };
+
+  AddReview: { eventId: string; eventTitle: string };
+
+  Payment: { eventId: string; eventTitle: string; amount: number; ticketId: string };
+
+  TrendingEvents: undefined;
 
 };
 
@@ -366,12 +378,40 @@ const AuthNavigator: React.FC = () => {
 
       />
 
+      <Stack.Screen
+
+        name="AddReview"
+
+        component={AddReviewScreen}
+
+        options={{ headerShown: false }}
+
+      />
+
+      <Stack.Screen
+
+        name="Payment"
+
+        component={PaymentScreen}
+
+        options={{ headerShown: false }}
+
+      />
+
+      <Stack.Screen
+
+        name="TrendingEvents"
+
+        component={TrendingEventsScreen}
+
+        options={{ headerShown: false }}
+
+      />
+
     </Stack.Navigator>
 
   );
 
 };
-
-
 
 export default AuthNavigator;

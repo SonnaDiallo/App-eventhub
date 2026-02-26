@@ -9,15 +9,19 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
 import { leaveEvent } from '../../services/eventsService';
+import { api } from '../../services/api';
 
 interface Ticket {
   id: string;
@@ -40,8 +44,62 @@ const MyTicketsScreen = () => {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const user = auth.currentUser;
+
+  const handleDownloadPDF = async (ticket: Ticket) => {
+    try {
+      setDownloadingPdf(true);
+      
+      // Récupérer le token d'authentification
+      const token = await user?.getIdToken();
+      if (!token) {
+        Alert.alert('Erreur', 'Vous devez être connecté pour télécharger le billet');
+        return;
+      }
+
+      // URL de l'API backend
+      const baseURL = api.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000';
+      const pdfUrl = `${baseURL}/api/ticket-pdf/download/${ticket.id}`;
+
+      // Télécharger le PDF
+      const fileUri = `${FileSystem.documentDirectory}billet-${ticket.id}.pdf`;
+      
+      const downloadResult = await FileSystem.downloadAsync(
+        pdfUrl,
+        fileUri,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (downloadResult.status === 200) {
+        // Vérifier si le partage est disponible
+        const isAvailable = await Sharing.isAvailableAsync();
+        
+        if (isAvailable) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Télécharger le billet',
+            UTI: 'com.adobe.pdf',
+          });
+          Alert.alert('Succès', 'Billet téléchargé avec succès !');
+        } else {
+          Alert.alert('Succès', `Billet sauvegardé dans: ${fileUri}`);
+        }
+      } else {
+        Alert.alert('Erreur', 'Impossible de télécharger le billet');
+      }
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      Alert.alert('Erreur', 'Impossible de télécharger le billet. Vérifiez votre connexion.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleCancelReservation = async (ticket: Ticket) => {
     Alert.alert(
@@ -557,12 +615,36 @@ const MyTicketsScreen = () => {
               </View>
             )}
 
+            {/* Bouton Télécharger PDF */}
+            <TouchableOpacity
+              onPress={() => selectedTicket && handleDownloadPDF(selectedTicket)}
+              disabled={downloadingPdf}
+              style={{
+                marginTop: 16,
+                backgroundColor: '#10B981',
+                paddingVertical: 14,
+                borderRadius: 999,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+              }}
+            >
+              {downloadingPdf ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Télécharger le billet (PDF)</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
             {!selectedTicket?.checkedIn && (
               <TouchableOpacity
                 onPress={() => selectedTicket && handleCancelReservation(selectedTicket)}
                 disabled={cancelling}
                 style={{
-                  marginTop: 16,
+                  marginTop: 12,
                   backgroundColor: '#FEE2E2',
                   paddingVertical: 12,
                   borderRadius: 999,

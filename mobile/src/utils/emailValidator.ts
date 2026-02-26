@@ -2,9 +2,14 @@
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
-export const validateEmail = (email: string): boolean => {
+export const validateEmail = (email: string): { isValid: boolean; error?: string } => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  
+  if (!emailRegex.test(email)) {
+    return { isValid: false, error: 'Format d\'email invalide' };
+  }
+  
+  return { isValid: true };
 };
 
 export const checkEmailExists = async (email: string): Promise<boolean> => {

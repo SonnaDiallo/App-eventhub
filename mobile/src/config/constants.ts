@@ -5,7 +5,7 @@ declare const __DEV__: boolean;
 // Configuration de l'API
 export const API_CONFIG = {
   // ⚠️ IMPORTANT: Remplace cette IP par ton IP local (ipconfig sur Windows)
-  LOCAL_IP: '192.168.1.37', // Ton IP Wi-Fi actuelle
+  LOCAL_IP: '10.5.19.22', // Ton IP Wi-Fi actuelle
   PORT: 5000,
   TIMEOUT: 15000,
   TIMEOUT_WITH_EXTERNAL: 60000, // Pour Ticketmaster (plus lent)

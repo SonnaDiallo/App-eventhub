@@ -31,6 +31,137 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
     }).start();
   };
 
+  if (variant === 'list') {
+    return (
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.9}
+          style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            backgroundColor: theme.card,
+            borderWidth: 2,
+            borderColor: theme.primary,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 6,
+          }}
+        >
+          {/* Grande image */}
+          <View style={{ position: 'relative' }}>
+            <Image 
+              source={{ uri: event.coverImage }} 
+              style={{ width: '100%', height: 200 }} 
+              resizeMode="cover"
+            />
+            
+            {/* Badge catégorie en haut à gauche */}
+            {event.category && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  backgroundColor: theme.primary,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                  {event.category}
+                </Text>
+              </View>
+            )}
+
+            {/* Badge prix/gratuit en haut à droite */}
+            {event.isFree ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  backgroundColor: '#FFFFFF',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
+                  Gratuit
+                </Text>
+              </View>
+            ) : event.price && event.price > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  backgroundColor: '#FFFFFF',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
+                  {event.price}€
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Contenu */}
+          <View style={{ padding: 16 }}>
+            {/* Titre */}
+            <Text 
+              style={{ 
+                color: theme.text, 
+                fontWeight: '700', 
+                fontSize: 18, 
+                marginBottom: 12,
+                lineHeight: 24,
+              }}
+              numberOfLines={2}
+            >
+              {event.title}
+            </Text>
+            
+            {/* Date */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="calendar-outline" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
+              <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '500' }}>
+                {event.date}
+              </Text>
+            </View>
+            
+            {/* Lieu */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="location-outline" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
+              <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                {event.location}
+              </Text>
+            </View>
+            
+            {/* Organisateur */}
+            {event.organizer && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="person-outline" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
+                <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '500', flex: 1 }} numberOfLines={1}>
+                  Organisé par {event.organizer}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
   if (variant === 'featured') {
     return (
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>

@@ -140,10 +140,23 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       console.log('Sending email verification...');
       try {
-        await sendEmailVerification(credential.user);
+        const actionCodeSettings = {
+          url: 'https://eventhub-eedee.firebaseapp.com/?email=' + encodeURIComponent(email),
+          handleCodeInApp: true,
+          iOS: {
+            bundleId: 'com.eventhub.app',
+          },
+          android: {
+            packageName: 'com.eventhub.app',
+            installApp: true,
+            minimumVersion: '12',
+          },
+        };
+        
+        await sendEmailVerification(credential.user, actionCodeSettings);
         Alert.alert(
           'Succès',
-          'Compte créé ! Un email de vérification a été envoyé à votre adresse. Veuillez vérifier votre boîte de réception.',
+          'Compte créé ! Un email de vérification a été envoyé à votre adresse. Après vérification, vous pourrez vous connecter.',
           [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         );
       } catch (verificationError) {

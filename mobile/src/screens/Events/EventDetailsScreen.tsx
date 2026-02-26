@@ -31,6 +31,8 @@ import {
 } from '../../services/externalRegistrationService';
 import { useTheme } from '../../theme/ThemeContext';
 import { createStyles } from './EventDetailsScreen.styles';
+import { getEventReviews, getEventReviewStats, Review, ReviewStats } from '../../services/reviewService';
+import { ReviewCard } from '../../components/ReviewCard';
 
 const { width } = Dimensions.get('window');
 
@@ -111,6 +113,9 @@ const EventDetailsScreen = () => {
   const [loadingParticipants, setLoadingParticipants] = useState(true);
   const [ticketCodeModal, setTicketCodeModal] = useState<string | null>(null);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
@@ -141,6 +146,25 @@ const EventDetailsScreen = () => {
       }
     };
     loadParticipants();
+  }, [event.id]);
+
+  // Charger les avis
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        const [reviewsData, statsData] = await Promise.all([
+          getEventReviews(event.id, 1, 5),
+          getEventReviewStats(event.id),
+        ]);
+        setReviews(reviewsData.reviews);
+        setReviewStats(statsData);
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+    loadReviews();
   }, [event.id]);
 
   // Vérifier si l'événement est dans les favoris
@@ -941,6 +965,110 @@ const EventDetailsScreen = () => {
               </View>
             </View>
           )}
+
+          {/* Section Avis */}
+          <View style={{ marginTop: 24 }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: theme.text,
+              }}>
+                Avis
+              </Text>
+              {reviewStats && reviewStats.totalReviews > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="star" size={16} color="#FFD700" />
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: theme.text,
+                    marginLeft: 4,
+                  }}>
+                    {reviewStats.averageRating.toFixed(1)} ({reviewStats.totalReviews})
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {loadingReviews ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : reviews.length > 0 ? (
+              <View>
+                {reviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} theme={theme} />
+                ))}
+                {reviewStats && reviewStats.totalReviews > reviews.length && (
+                  <TouchableOpacity
+                    style={{
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.card,
+                      marginTop: 8,
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: theme.primary,
+                    }}>
+                      Voir tous les avis ({reviewStats.totalReviews})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={{
+                padding: 20,
+                alignItems: 'center',
+                backgroundColor: theme.card,
+                borderRadius: 12,
+              }}>
+                <Ionicons name="chatbubble-outline" size={32} color={theme.textSecondary} />
+                <Text style={{
+                  fontSize: 14,
+                  color: theme.textSecondary,
+                  marginTop: 8,
+                }}>
+                  Aucun avis pour le moment
+                </Text>
+              </View>
+            )}
+
+            {hasTicket && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('AddReview', { eventId: event.id, eventTitle: event.title })}
+                style={{
+                  marginTop: 16,
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  backgroundColor: theme.primary,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="star" size={20} color="#FFFFFF" />
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#FFFFFF',
+                  marginLeft: 8,
+                }}>
+                  Donner mon avis
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </ScrollView>
 
