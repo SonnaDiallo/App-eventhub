@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 module.exports = {
   name: "EventHub",
   slug: "eventhub",
@@ -47,12 +49,12 @@ module.exports = {
       projectId: "831774299826"
     },
     firebase: {
-      apiKey: "AIzaSyCsT-eOgyJWJT_1GcsUxVdI1wJuHevJP08",
-      authDomain: "eventhub-eedee.firebaseapp.com",
-      projectId: "eventhub-eedee",
-      storageBucket: "eventhub-eedee.firebasestorage.app",
-      messagingSenderId: "831774299826",
-      appId: "1:831774299826:web:c3e8f3e8f3e8f3e8f3e8f3"
+      apiKey: process.env.FIREBASE_API_KEY || "AIzaSyCsT-eOgyJWJT_1GcsUxVdI1wJuHevJP08",
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN || "eventhub-eedee.firebaseapp.com",
+      projectId: process.env.FIREBASE_PROJECT_ID || "eventhub-eedee",
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "eventhub-eedee.firebasestorage.app",
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "831774299826",
+      appId: process.env.FIREBASE_APP_ID || "1:831774299826:web:c3e8f3e8f3e8f3e8f3e8f3"
     }
   }
 };
