@@ -34,7 +34,7 @@ export const signInWithGoogleToken = async (idToken: string) => {
 export const signInWithApple = async () => {
   try {
     if (Platform.OS !== 'ios') {
-      return { success: false, error: 'Apple Sign-In is only available on iOS' };
+      throw new Error('Apple Sign-In is only available on iOS');
     }
 
     const credential = await AppleAuthentication.signInAsync({
@@ -46,7 +46,7 @@ export const signInWithApple = async () => {
 
     const { identityToken } = credential;
     if (!identityToken) {
-      return { success: false, error: 'No identity token returned from Apple' };
+      throw new Error('No identity token returned from Apple');
     }
 
     const provider = new OAuthProvider('apple.com');
@@ -55,13 +55,13 @@ export const signInWithApple = async () => {
     });
 
     const result = await signInWithCredential(auth, firebaseCredential);
-    return { success: true, user: result };
+    return result.user;
   } catch (error: any) {
     if (error.code === 'ERR_REQUEST_CANCELED') {
-      return { success: false, error: 'Apple Sign-In was canceled' };
+      throw new Error('Apple Sign-In was canceled');
     }
     console.error('Error signing in with Apple:', error);
-    return { success: false, error: error?.message || 'Erreur de connexion Apple' };
+    throw error;
   }
 };
 

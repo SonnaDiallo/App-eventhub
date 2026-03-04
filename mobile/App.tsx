@@ -23,9 +23,31 @@ function AppContent() {
       const url = event.url;
       console.log('Deep link received:', url);
       
-      // Vérifier si c'est un lien de vérification d'email Firebase
+      // Vérifier si c'est un lien de vérification d'email
+      if (url.includes('verify-email')) {
+        console.log('✅ Email verification link detected');
+        
+        // Essayer de recharger l'utilisateur actuel pour voir si l'email a été vérifié
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          try {
+            await currentUser.reload();
+            if (currentUser.emailVerified) {
+              console.log('✅ Email verified successfully!');
+              // L'utilisateur restera sur l'écran actuel mais sera connecté
+            } else {
+              console.log('⏳ Email verification in progress...');
+            }
+          } catch (error) {
+            console.error('Error reloading user:', error);
+          }
+        } else {
+          console.log('User not logged in yet - will verify on login');
+        }
+      }
+      
+      // Autres cas: lien Firebase standard
       if (url.includes('firebaseapp.com') || url.includes('page.link')) {
-        // Recharger l'état de l'utilisateur pour vérifier si l'email est vérifié
         const currentUser = auth.currentUser;
         if (currentUser) {
           await currentUser.reload();

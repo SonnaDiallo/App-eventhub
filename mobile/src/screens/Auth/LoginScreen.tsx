@@ -49,12 +49,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           const userDoc = await getDoc(userDocRef);
           const userData = userDoc.data();
           
-          // Redirection selon le rôle
-          if (userData?.role === 'organizer') {
-            navigation.replace('HomeOrganizer' as any);
-          } else {
-            navigation.replace('HomeParticipant' as any);
-          }
+          // Redirection vers l'accueil principal
+          navigation.replace('HomeParticipant' as any);
         } catch (error) {
           console.error('Auto-login error:', error);
         }

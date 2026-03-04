@@ -27,8 +27,9 @@ import {
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Friends'>;
 
-const FriendsScreen: React.FC<Props> = ({ navigation }) => {
+const FriendsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { theme } = useTheme();
+  const openTab = route.params?.openTab;
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [requests, setRequests] = useState<FriendRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'requests'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'requests'>(openTab === 'requests' ? 'requests' : 'all');
 
   const load = useCallback(async () => {
     try {
@@ -58,7 +59,8 @@ const FriendsScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      if (openTab === 'requests') setActiveTab('requests');
+    }, [load, openTab])
   );
 
   const onRefresh = () => {

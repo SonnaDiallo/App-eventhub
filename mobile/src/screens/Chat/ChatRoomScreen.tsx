@@ -41,6 +41,14 @@ const ChatRoomScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       const list = await getMessages(userId, { limit: 80 });
       setMessages(list);
+      // Marquer comme lus tous les messages reçus non lus dès l'ouverture de la conversation
+      const unreadFromThem = list.filter((m) => !m.fromMe && !m.readAt);
+      unreadFromThem.forEach((m) => {
+        if (!markedAsReadRef.current.has(m.id)) {
+          markedAsReadRef.current.add(m.id);
+          markMessageRead(m.id).catch(() => markedAsReadRef.current.delete(m.id));
+        }
+      });
     } catch (err: any) {
       console.error('Load messages error', err);
       Alert.alert('Erreur', 'Impossible de charger les messages.');

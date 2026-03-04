@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
+import os from 'os';
 import './config/firebaseAdmin';
 import { validateEnv } from './config/validateEnv';
 import { apiLimiter } from './middleware/rateLimit';
@@ -51,6 +52,43 @@ app.use(errorHandler);
 validateEnv();
 const PORT = Number(process.env.PORT) || 5000;
 
+/** Affiche les URLs d'accès et la ligne à mettre dans mobile/.env (plus besoin de toucher au code) */
+function printLocalUrls() {
+  const ifaces = os.networkInterfaces();
+  const all: string[] = [];
+  const preferred: string[] = []; // 172.20.x = souvent hotspot iPhone ; 192.168.x = WiFi / partage Android
+  for (const name of Object.keys(ifaces)) {
+    const iface = ifaces[name];
+    if (!iface) continue;
+    for (const conf of iface) {
+      if (conf.family === 'IPv4' && !conf.internal) {
+        const url = `http://${conf.address}:${PORT}/api`;
+        all.push(url);
+        if (/^192\.168\.|^172\.20\.|^10\./.test(conf.address)) preferred.push(url);
+      }
+    }
+  }
+  const suggested = preferred.length > 0 ? preferred[0] : all[0];
+  console.log('\n--- API EventHub ---');
+  console.log(`Port: ${PORT}`);
+  if (all.length > 0) {
+    if (preferred.length > 0) {
+      console.log('Recommandé (partage / WiFi classique) :');
+      preferred.forEach((u) => console.log('  ', u));
+    }
+    if (all.length > 1) {
+      console.log('Autres interfaces :');
+      all.filter((u) => !preferred.includes(u)).forEach((u) => console.log('  ', u));
+    }
+    console.log('\nDans mobile/.env mets (essaie la première si ça ne marche pas, une autre) :');
+    console.log('  API_URL=' + suggested);
+  } else {
+    console.log('  (IP locale non détectée – utilise ton IP manuellement)');
+  }
+  console.log('---\n');
+}
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT} (Firestore only)`);
+  console.log(`Server running on port ${PORT}`);
+  printLocalUrls();
 });

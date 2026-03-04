@@ -140,20 +140,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       console.log('Sending email verification...');
       try {
-        const actionCodeSettings = {
-          url: 'https://eventhub-eedee.firebaseapp.com/?email=' + encodeURIComponent(email),
-          handleCodeInApp: true,
-          iOS: {
-            bundleId: 'com.eventhub.app',
-          },
-          android: {
-            packageName: 'com.eventhub.app',
-            installApp: true,
-            minimumVersion: '12',
-          },
-        };
-        
-        await sendEmailVerification(credential.user, actionCodeSettings);
+        // Envoyer l'email de vérification sans configuration custom
+        // Firebase gère automatiquement le lien de vérification
+        await sendEmailVerification(credential.user);
         Alert.alert(
           'Succès',
           'Compte créé ! Un email de vérification a été envoyé à votre adresse. Après vérification, vous pourrez vous connecter.',

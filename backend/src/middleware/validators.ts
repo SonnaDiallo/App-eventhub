@@ -72,9 +72,9 @@ export const loginValidators = [validateLogin];
 export const createEventValidators = [
   // Validation basique pour la création d'événement
   (req: Request, res: Response, next: NextFunction) => {
-    const { title, location, date } = req.body;
+    const { title, location, startDate, date } = req.body;
 
-    if (!title || !location || !date) {
+    if (!title || !location || (!startDate && !date)) {
       return res.status(400).json({
         success: false,
         message: 'Title, location, and date are required',

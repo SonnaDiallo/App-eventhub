@@ -1,18 +1,29 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 declare const __DEV__: boolean;
 
 // Configuration de l'API
+// ✅ Plus besoin de changer l'IP dans le code : mets API_URL dans mobile/.env (copie .env.example en .env).
+// Au démarrage, le backend affiche la ligne exacte à copier (API_URL=http://...).
 export const API_CONFIG = {
-  // ⚠️ IMPORTANT: Remplace cette IP par ton IP local (ipconfig sur Windows)
-  LOCAL_IP: '10.5.19.22', // Ton IP Wi-Fi actuelle
+  LOCAL_IP: '10.5.21.22', // utilisé seulement si API_URL absent dans .env
   PORT: 5000,
   TIMEOUT: 15000,
-  TIMEOUT_WITH_EXTERNAL: 60000, // Pour Ticketmaster (plus lent)
+  TIMEOUT_WITH_EXTERNAL: 60000,
 };
 
 // Fonction pour obtenir l'URL de base de l'API
 export const getApiBaseUrl = (): string => {
+  // 1. Vérifier d'abord s'il y a une URL publique configurée dans app.json
+  const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
+  const publicApiUrl = extra.apiUrl as string | undefined;
+  
+  if (publicApiUrl) {
+    console.log('🌐 Using public API URL from app.json:', publicApiUrl);
+    return publicApiUrl;
+  }
+
   if (__DEV__) {
     // iOS (iPhone ou Simulator) : utilise toujours l'IP locale
     if (Platform.OS === 'ios') {

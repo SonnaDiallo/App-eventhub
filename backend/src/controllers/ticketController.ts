@@ -109,25 +109,34 @@ export const getTicketByCode = async (req: Request, res: Response) => {
 
 export const verifyTicket = async (req: Request, res: Response) => {
   try {
-    const code = (req.params.code || '').toUpperCase();
-    const eventIdQuery = req.query.eventId as string | undefined;
+    const code = (req.params.code || '').trim().toUpperCase();
+    const eventIdQuery = (req.query.eventId as string | undefined)?.trim();
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const user = await getUserByFirebaseUid(userId);
-    if (!user || (!user.canScanTickets && user.role !== 'organizer' && user.role !== 'admin')) {
-      return res.status(403).json({ message: 'Forbidden: You do not have permission to scan tickets' });
-    }
     if (!code) return res.status(400).json({ message: 'Ticket code is required' });
 
     const snap = await firebaseDb.collection('tickets').where('code', '==', code).limit(1).get();
     if (snap.empty) return res.status(404).json({ message: 'Ticket not found' });
 
     const doc = snap.docs[0];
-    const t = doc.data();
-    if (eventIdQuery && t.eventId !== eventIdQuery) {
-      const eventSnap = await firebaseDb.collection('events').doc(t.eventId).get();
-      const otherTitle = eventSnap.exists ? (eventSnap.data() as any).title : 'Événement';
+    const t = doc.data() as { eventId?: string; checkedIn?: boolean; checkedInAt?: unknown; code?: string; userId?: string; participantName?: string };
+    const ticketEventId = (t.eventId || '').trim();
+
+    // Vérifier que le scanner peut valider ce billet : organisateur de l'événement OU rôle global organizer/admin/canScanTickets
+    const eventSnap = await firebaseDb.collection('events').doc(ticketEventId).get();
+    const eventData = eventSnap.exists ? (eventSnap.data() as { organizerId?: string; title?: string }) : null;
+    const isOrganizerOfEvent = !!eventData?.organizerId && eventData.organizerId === userId;
+
+    const user = await getUserByFirebaseUid(userId);
+    const hasGlobalPermission = user && (user.canScanTickets === true || user.role === 'organizer' || user.role === 'admin');
+
+    if (!isOrganizerOfEvent && !hasGlobalPermission) {
+      return res.status(403).json({ message: 'Forbidden: You do not have permission to scan tickets for this event' });
+    }
+
+    if (eventIdQuery && ticketEventId !== eventIdQuery) {
+      const otherTitle = eventData?.title ?? 'Événement';
       return res.status(400).json({
         message: `Ce billet appartient à l'événement "${otherTitle}". Sélectionnez le bon événement.`,
       });
@@ -142,7 +151,7 @@ export const verifyTicket = async (req: Request, res: Response) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const scannerName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || 'Utilisateur';
+    const scannerName = (user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim()) || 'Utilisateur';
     await firebaseDb.collection('scanHistory').add({
       ticketId: doc.id,
       ticketCode: t.code || code,
@@ -154,8 +163,7 @@ export const verifyTicket = async (req: Request, res: Response) => {
       scannedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const eventSnap = await firebaseDb.collection('events').doc(t.eventId).get();
-    const eventTitle = eventSnap.exists ? (eventSnap.data() as any).title : '';
+    const eventTitle = eventData?.title ?? '';
 
     return res.status(200).json({
       message: 'Ticket verified successfully',

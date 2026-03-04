@@ -105,12 +105,23 @@ const ScanTicketScreen = () => {
     
     setLoadingEvents(true);
     const eventsRef = collection(db, 'events');
-    const q = query(eventsRef, orderBy('createdAt', 'desc'));
+    const user = auth.currentUser;
+
+    // Ne lister que les événements dont l'utilisateur est l'organisateur
+    const q = user
+      ? query(eventsRef, orderBy('createdAt', 'desc'))
+      : query(eventsRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const eventsList = snapshot.docs.map((doc) => {
+        const eventsList = snapshot.docs
+          .filter((doc) => {
+            const data = doc.data() as any;
+            const organizerId = data.organizerId || data.organizerUid;
+            return user ? organizerId === user.uid : true;
+          })
+          .map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';

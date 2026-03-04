@@ -136,7 +136,7 @@ export type AuthStackParamList = {
 
   ParticipantsOverview: { eventId: string; eventTitle?: string };
 
-  Friends: undefined;
+  Friends: { openTab?: 'requests' } | undefined;
 
   ChatList: undefined;
 

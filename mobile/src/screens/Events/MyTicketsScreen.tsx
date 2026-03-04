@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';

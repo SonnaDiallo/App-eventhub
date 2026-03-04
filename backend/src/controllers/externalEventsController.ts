@@ -268,7 +268,7 @@ export const getExternalEvents = async (req: Request, res: Response) => {
       filteredEvents = allEvents.filter(event =>
         event.title.toLowerCase().includes(searchLower) ||
         event.description?.toLowerCase().includes(searchLower) ||
-        event.location.toLowerCase().includes(searchLower)
+        event.location?.toLowerCase().includes(searchLower)
       );
     }
 

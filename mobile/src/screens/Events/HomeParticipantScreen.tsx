@@ -233,7 +233,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => navigation.navigate('ChatList')}
+                onPress={() => setShowNotificationMenu(true)}
                 style={{
                   position: 'relative',
                   backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -1131,38 +1131,39 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => setShowNotificationMenu(false)}
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
             justifyContent: 'flex-start',
             paddingTop: Platform.OS === 'ios' ? 110 : 70,
-            paddingHorizontal: 20,
+            paddingHorizontal: 16,
+            alignItems: 'flex-end',
           }}
         >
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
             style={{
-              alignSelf: 'flex-end',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: theme.surface || '#FFFFFF',
               borderRadius: 16,
-              width: 300,
+              width: 320,
+              maxWidth: '100%',
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.25,
-              shadowRadius: 16,
+              shadowOpacity: 0.28,
+              shadowRadius: 20,
               elevation: 12,
               overflow: 'hidden',
             }}
           >
             <View style={{
-              paddingHorizontal: 16,
-              paddingVertical: 12,
+              paddingHorizontal: 20,
+              paddingVertical: 14,
               borderBottomWidth: 1,
-              borderBottomColor: theme.border,
+              borderBottomColor: theme.border || '#E5E7EB',
             }}>
               <Text style={{
-                fontSize: 16,
+                fontSize: 17,
                 fontWeight: '700',
-                color: theme.text,
+                color: theme.text || '#111827',
               }}>
                 Notifications
               </Text>
@@ -1170,112 +1171,114 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
 
             {notificationCount === 0 ? (
               <View style={{
-                paddingHorizontal: 16,
-                paddingVertical: 24,
+                paddingHorizontal: 20,
+                paddingVertical: 28,
                 alignItems: 'center',
               }}>
-                <Ionicons name="notifications-off-outline" size={32} color={theme.textMuted} />
+                <Ionicons name="notifications-off-outline" size={36} color={theme.textMuted || '#9CA3AF'} />
                 <Text style={{
-                  marginTop: 8,
-                  fontSize: 14,
-                  color: theme.textMuted,
+                  marginTop: 10,
+                  fontSize: 15,
+                  color: theme.textMuted || '#9CA3AF',
                   textAlign: 'center',
                 }}>
                   Aucune notification
                 </Text>
               </View>
             ) : (
-              <>
+              <View style={{ paddingBottom: 8 }}>
                 {unreadMessages > 0 && (
                   <TouchableOpacity
                     style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
                       flexDirection: 'row',
                       alignItems: 'center',
                       borderBottomWidth: 1,
-                      borderBottomColor: theme.border,
+                      borderBottomColor: theme.border || '#E5E7EB',
                     }}
                     onPress={() => {
                       setShowNotificationMenu(false);
                       navigation.navigate('ChatList');
                     }}
+                    activeOpacity={0.7}
                   >
                     <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: `${theme.primary}20`,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: `${theme.primary}18`,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginRight: 12,
+                      marginRight: 14,
                     }}>
-                      <Ionicons name="chatbubble" size={20} color={theme.primary} />
+                      <Ionicons name="chatbubble" size={22} color={theme.primary} />
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={{
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: '600',
-                        color: theme.text,
+                        color: theme.text || '#111827',
                       }}>
                         Messages
                       </Text>
                       <Text style={{
-                        fontSize: 12,
-                        color: theme.textMuted,
+                        fontSize: 13,
+                        color: theme.textMuted || '#6B7280',
                         marginTop: 2,
                       }}>
                         {unreadMessages} message{unreadMessages > 1 ? 's' : ''} non lu{unreadMessages > 1 ? 's' : ''}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+                    <Ionicons name="chevron-forward" size={22} color={theme.textMuted || '#9CA3AF'} style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 )}
 
                 {pendingRequests > 0 && (
                   <TouchableOpacity
                     style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
                       flexDirection: 'row',
                       alignItems: 'center',
                     }}
                     onPress={() => {
                       setShowNotificationMenu(false);
-                      navigation.navigate('Friends');
+                      navigation.navigate('Friends', { openTab: 'requests' });
                     }}
+                    activeOpacity={0.7}
                   >
                     <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: `${theme.success}20`,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: `${theme.success}18`,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginRight: 12,
+                      marginRight: 14,
                     }}>
-                      <Ionicons name="person-add" size={20} color={theme.success} />
+                      <Ionicons name="person-add" size={22} color={theme.success} />
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={{
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: '600',
-                        color: theme.text,
+                        color: theme.text || '#111827',
                       }}>
                         Demandes d'amis
                       </Text>
                       <Text style={{
-                        fontSize: 12,
-                        color: theme.textMuted,
+                        fontSize: 13,
+                        color: theme.textMuted || '#6B7280',
                         marginTop: 2,
                       }}>
                         {pendingRequests} demande{pendingRequests > 1 ? 's' : ''} en attente
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+                    <Ionicons name="chevron-forward" size={22} color={theme.textMuted || '#9CA3AF'} style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 )}
-              </>
+              </View>
             )}
           </TouchableOpacity>
         </TouchableOpacity>

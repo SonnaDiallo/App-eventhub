@@ -53,6 +53,49 @@ const CreateEventScreen = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
+  // Location autocomplete
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<Array<{ display_name: string; lat: string; lon: string }>>([]); 
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const locationTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchLocation = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      return;
+    }
+    try {
+      setSearchingLocation(true);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=fr`,
+        { headers: { 'User-Agent': 'EventHub-App/1.0' } }
+      );
+      const data = await response.json();
+      setLocationSuggestions(data);
+      setShowLocationSuggestions(data.length > 0);
+    } catch (error) {
+      console.error('Location search error:', error);
+    } finally {
+      setSearchingLocation(false);
+    }
+  };
+
+  const onLocationTextChange = (text: string) => {
+    setLocationQuery(text);
+    setEventData({...eventData, location: text});
+    if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
+    locationTimeoutRef.current = setTimeout(() => searchLocation(text), 400);
+  };
+
+  const selectLocation = (item: { display_name: string; lat: string; lon: string }) => {
+    setEventData({...eventData, location: item.display_name});
+    setLocationQuery(item.display_name);
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
+  };
+
   useEffect(() => {
     loadCategories();
   }, []);
@@ -83,56 +126,70 @@ const CreateEventScreen = () => {
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
   };
 
+  // Dates temporaires pour la modale iOS
+  const [tempStartDate, setTempStartDate] = useState(new Date());
+  const [tempEndDate, setTempEndDate] = useState(new Date(Date.now() + 3600000));
+
   const onStartDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowStartPicker(false);
-    }
-    if (selectedDate) {
-      if (pickerMode === 'date') {
-        const newDate = new Date(eventData.startDate);
-        newDate.setFullYear(selectedDate.getFullYear());
-        newDate.setMonth(selectedDate.getMonth());
-        newDate.setDate(selectedDate.getDate());
-        setEventData({...eventData, startDate: newDate});
-        if (Platform.OS === 'android') {
+      if (selectedDate) {
+        if (pickerMode === 'date') {
+          const newDate = new Date(eventData.startDate);
+          newDate.setFullYear(selectedDate.getFullYear());
+          newDate.setMonth(selectedDate.getMonth());
+          newDate.setDate(selectedDate.getDate());
+          setEventData({...eventData, startDate: newDate});
           setPickerMode('time');
           setTimeout(() => setShowStartPicker(true), 100);
+        } else {
+          const newDate = new Date(eventData.startDate);
+          newDate.setHours(selectedDate.getHours());
+          newDate.setMinutes(selectedDate.getMinutes());
+          setEventData({...eventData, startDate: newDate});
+          setPickerMode('date');
         }
-      } else {
-        const newDate = new Date(eventData.startDate);
-        newDate.setHours(selectedDate.getHours());
-        newDate.setMinutes(selectedDate.getMinutes());
-        setEventData({...eventData, startDate: newDate});
-        setPickerMode('date');
-        setShowStartPicker(false);
       }
+    } else if (selectedDate) {
+      // iOS: mettre à jour la date temporaire
+      setTempStartDate(selectedDate);
     }
   };
 
   const onEndDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowEndPicker(false);
-    }
-    if (selectedDate) {
-      if (pickerMode === 'date') {
-        const newDate = new Date(eventData.endDate);
-        newDate.setFullYear(selectedDate.getFullYear());
-        newDate.setMonth(selectedDate.getMonth());
-        newDate.setDate(selectedDate.getDate());
-        setEventData({...eventData, endDate: newDate});
-        if (Platform.OS === 'android') {
+      if (selectedDate) {
+        if (pickerMode === 'date') {
+          const newDate = new Date(eventData.endDate);
+          newDate.setFullYear(selectedDate.getFullYear());
+          newDate.setMonth(selectedDate.getMonth());
+          newDate.setDate(selectedDate.getDate());
+          setEventData({...eventData, endDate: newDate});
           setPickerMode('time');
           setTimeout(() => setShowEndPicker(true), 100);
+        } else {
+          const newDate = new Date(eventData.endDate);
+          newDate.setHours(selectedDate.getHours());
+          newDate.setMinutes(selectedDate.getMinutes());
+          setEventData({...eventData, endDate: newDate});
+          setPickerMode('date');
         }
-      } else {
-        const newDate = new Date(eventData.endDate);
-        newDate.setHours(selectedDate.getHours());
-        newDate.setMinutes(selectedDate.getMinutes());
-        setEventData({...eventData, endDate: newDate});
-        setPickerMode('date');
-        setShowEndPicker(false);
       }
+    } else if (selectedDate) {
+      // iOS: mettre à jour la date temporaire
+      setTempEndDate(selectedDate);
     }
+  };
+
+  const confirmStartDate = () => {
+    setEventData({...eventData, startDate: tempStartDate});
+    setShowStartPicker(false);
+  };
+
+  const confirmEndDate = () => {
+    setEventData({...eventData, endDate: tempEndDate});
+    setShowEndPicker(false);
   };
 
   const pickImage = async () => {
@@ -312,6 +369,7 @@ const CreateEventScreen = () => {
               style={styles.dateInput}
               onPress={() => {
                 setPickerMode('date');
+                setTempStartDate(eventData.startDate);
                 setShowStartPicker(true);
               }}
             >
@@ -325,6 +383,7 @@ const CreateEventScreen = () => {
               style={styles.dateInput}
               onPress={() => {
                 setPickerMode('date');
+                setTempEndDate(eventData.endDate);
                 setShowEndPicker(true);
               }}
             >
@@ -334,38 +393,192 @@ const CreateEventScreen = () => {
           </View>
         </View>
 
-        {showStartPicker && (
+        {/* Android: picker natif */}
+        {Platform.OS === 'android' && showStartPicker && (
           <DateTimePicker
             value={eventData.startDate}
             mode={pickerMode}
             is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display="default"
             onChange={onStartDateChange}
+            minimumDate={new Date()}
           />
         )}
-
-        {showEndPicker && (
+        {Platform.OS === 'android' && showEndPicker && (
           <DateTimePicker
             value={eventData.endDate}
             mode={pickerMode}
             is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display="default"
             onChange={onEndDateChange}
+            minimumDate={eventData.startDate}
           />
         )}
 
-        <View style={styles.inputGroup}>
+        {/* iOS: modale avec calendrier + heure séparés */}
+        {Platform.OS === 'ios' && (
+          <Modal
+            visible={showStartPicker}
+            transparent
+            animationType="slide"
+          >
+            <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+              <View style={{ backgroundColor: theme.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <TouchableOpacity onPress={() => setShowStartPicker(false)}>
+                    <Text style={{ color: theme.error, fontSize: 16, fontWeight: '600' }}>Annuler</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>Date de début</Text>
+                  <TouchableOpacity onPress={confirmStartDate}>
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: '700' }}>Valider</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={tempStartDate}
+                  mode="date"
+                  display="inline"
+                  locale="fr"
+                  onChange={(event: any, date?: Date) => {
+                    if (date) {
+                      const newDate = new Date(tempStartDate);
+                      newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                      setTempStartDate(newDate);
+                    }
+                  }}
+                  minimumDate={new Date()}
+                  style={{ height: 340 }}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>Heure</Text>
+                  <DateTimePicker
+                    value={tempStartDate}
+                    mode="time"
+                    is24Hour={true}
+                    display="compact"
+                    locale="fr"
+                    onChange={(event: any, date?: Date) => {
+                      if (date) {
+                        const newDate = new Date(tempStartDate);
+                        newDate.setHours(date.getHours(), date.getMinutes());
+                        setTempStartDate(newDate);
+                      }
+                    }}
+                    style={{ minWidth: 80 }}
+                  />
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {Platform.OS === 'ios' && (
+          <Modal
+            visible={showEndPicker}
+            transparent
+            animationType="slide"
+          >
+            <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+              <View style={{ backgroundColor: theme.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <TouchableOpacity onPress={() => setShowEndPicker(false)}>
+                    <Text style={{ color: theme.error, fontSize: 16, fontWeight: '600' }}>Annuler</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>Date de fin</Text>
+                  <TouchableOpacity onPress={confirmEndDate}>
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: '700' }}>Valider</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={tempEndDate}
+                  mode="date"
+                  display="inline"
+                  locale="fr"
+                  onChange={(event: any, date?: Date) => {
+                    if (date) {
+                      const newDate = new Date(tempEndDate);
+                      newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                      setTempEndDate(newDate);
+                    }
+                  }}
+                  minimumDate={eventData.startDate}
+                  style={{ height: 340 }}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>Heure</Text>
+                  <DateTimePicker
+                    value={tempEndDate}
+                    mode="time"
+                    is24Hour={true}
+                    display="compact"
+                    locale="fr"
+                    onChange={(event: any, date?: Date) => {
+                      if (date) {
+                        const newDate = new Date(tempEndDate);
+                        newDate.setHours(date.getHours(), date.getMinutes());
+                        setTempEndDate(newDate);
+                      }
+                    }}
+                    style={{ minWidth: 80 }}
+                  />
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        <View style={[styles.inputGroup, { zIndex: 10 }]}>
           <Text style={styles.label}>Lieu</Text>
           <View style={styles.locationInput}>
             <Ionicons name="location-outline" size={20} color={theme.primary} style={styles.inputIcon} />
             <TextInput
-              style={[styles.input, { paddingLeft: 40 }]}
-              placeholder="Adresse de l'événement"
+              style={[styles.input, { paddingLeft: 40, paddingRight: 40 }]}
+              placeholder="Rechercher une adresse..."
               placeholderTextColor={theme.inputPlaceholder}
               value={eventData.location}
-              onChangeText={(text) => setEventData({...eventData, location: text})}
+              onChangeText={onLocationTextChange}
+              onFocus={() => { if (locationSuggestions.length > 0) setShowLocationSuggestions(true); }}
             />
+            {searchingLocation && (
+              <ActivityIndicator size="small" color={theme.primary} style={{ position: 'absolute', right: 12, top: 14 }} />
+            )}
           </View>
+          {showLocationSuggestions && (
+            <View style={{
+              backgroundColor: theme.surface,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: theme.border || 'rgba(255,255,255,0.1)',
+              marginTop: 4,
+              maxHeight: 200,
+              overflow: 'hidden',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 5,
+            }}>
+              <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
+                {locationSuggestions.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.lat}-${item.lon}-${index}`}
+                    onPress={() => selectLocation(item)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 12,
+                      borderBottomWidth: index < locationSuggestions.length - 1 ? 1 : 0,
+                      borderBottomColor: theme.border || 'rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <Ionicons name="location" size={18} color={theme.primary} style={{ marginRight: 10 }} />
+                    <Text style={{ color: theme.text, fontSize: 14, flex: 1 }} numberOfLines={2}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         <View style={styles.inputGroup}>

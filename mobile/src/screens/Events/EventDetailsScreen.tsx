@@ -18,7 +18,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -116,14 +116,64 @@ const EventDetailsScreen = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [organizerNameOverride, setOrganizerNameOverride] = useState<string | null>(null);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
-  const organizerDisplayName =
+  const baseOrganizerName =
     (event.organizer && typeof event.organizer === 'object' ? event.organizer?.name : event.organizer) ||
-    event.organizerName ||
-    'Organisateur';
+    event.organizerName;
+  const organizerDisplayName = organizerNameOverride || baseOrganizerName || 'Organisateur';
   const user = auth.currentUser;
+  const isOwner = user?.uid === event.organizerId;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadOrganizerName = async () => {
+      if (!event.organizerId) return;
+      if (baseOrganizerName && baseOrganizerName !== 'Organisateur') return;
+      try {
+        const snap = await getDoc(doc(db, 'users', event.organizerId));
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const name = data?.firstName && data?.lastName
+          ? `${data.firstName} ${data.lastName}`
+          : data?.name || data?.displayName;
+        if (!cancelled && name) setOrganizerNameOverride(name);
+      } catch (error) {
+        console.error('Error loading organizer name:', error);
+      }
+    };
+    loadOrganizerName();
+    return () => {
+      cancelled = true;
+    };
+  }, [event.organizerId, baseOrganizerName]);
+
+  // Supprimer l'événement (organisateur uniquement)
+  const handleDeleteEvent = () => {
+    Alert.alert(
+      'Supprimer l\'événement',
+      'Es-tu sûr(e) de vouloir supprimer cet événement ? Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/events/${event.id}`);
+              Alert.alert('Succès', 'Événement supprimé !');
+              navigation.goBack();
+            } catch (error: any) {
+              console.error('Delete event error:', error);
+              Alert.alert('Erreur', error?.response?.data?.message || 'Impossible de supprimer l\'événement');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Charger les participants qui ont réservé
   useEffect(() => {
@@ -541,6 +591,27 @@ const EventDetailsScreen = () => {
             >
               <Ionicons name="share-outline" size={24} color="#000000" />
             </TouchableOpacity>
+
+            {isOwner && (
+              <TouchableOpacity
+                onPress={handleDeleteEvent}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(255, 70, 70, 0.95)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

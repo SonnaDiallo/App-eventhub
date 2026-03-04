@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+// Charger .env depuis le dossier mobile (même si tu lances expo depuis la racine)
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 module.exports = {
   name: "EventHub",
@@ -48,6 +50,9 @@ module.exports = {
     eas: {
       projectId: "831774299826"
     },
+    // 🌐 URL publique pour accéder au backend depuis n'importe quel réseau
+    // Remplacez par votre domaine/DNS ou URL publique
+    apiUrl: process.env.API_URL, // ex: "https://eventhub.example.com/api" ou "http://192.168.x.x:5000/api"
     firebase: {
       apiKey: process.env.FIREBASE_API_KEY,
       authDomain: process.env.FIREBASE_AUTH_DOMAIN,

@@ -25,14 +25,12 @@ export interface ScanHistoryItem {
 }
 
 export const verifyTicket = async (
-  ticketId: string,
-  eventId: string
+  ticketCode: string,
+  eventId?: string
 ): Promise<VerifyTicketResponse> => {
   try {
-    const response = await api.post(`/tickets/verify`, {
-      ticketId,
-      eventId,
-    });
+    const query = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
+    const response = await api.post(`/tickets/verify/${encodeURIComponent(ticketCode)}${query}`);
     return response.data;
   } catch (error: any) {
     console.error('Error verifying ticket:', error);
@@ -46,8 +44,8 @@ export const getEventScanHistory = async (
   eventId: string
 ): Promise<ScanHistoryItem[]> => {
   try {
-    const response = await api.get(`/tickets/scan-history/${eventId}`);
-    return response.data.history || [];
+    const response = await api.get(`/tickets/event/${eventId}/scans`);
+    return response.data.scans || [];
   } catch (error: any) {
     console.error('Error fetching scan history:', error);
     return [];

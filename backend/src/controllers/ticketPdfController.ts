@@ -49,7 +49,7 @@ export const downloadTicketPDF = async (req: Request, res: Response) => {
     // Si c'est un événement backend, récupérer plus de détails
     if (ticketData?.eventId && !ticketData.eventId.startsWith('external_') && !ticketData.eventId.startsWith('ticketmaster_')) {
       try {
-        const eventRef = db.collection('events').doc(ticketData.eventId);
+        const eventRef = firebaseDb.collection('events').doc(ticketData.eventId);
         const eventDoc = await eventRef.get();
         
         if (eventDoc.exists) {

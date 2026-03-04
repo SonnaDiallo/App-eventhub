@@ -92,7 +92,7 @@ export const getIncomingRequests = async (req: Request, res: Response) => {
       const u = userMap[data.fromUserId];
       return {
         id: d.id,
-        fromUser: u ? { id: data.fromUserId, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' '), firstName: u.firstName, lastName: u.lastName, email: u.email } : null,
+        fromUser: u ? { id: data.fromUserId, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' '), firstName: u.firstName, lastName: u.lastName, email: u.email, photoURL: u.photoURL || u.profileImage } : null,
         status: data.status,
         createdAt: toDate(data.createdAt),
       };

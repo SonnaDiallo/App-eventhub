@@ -8,6 +8,8 @@ import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { testConnection } from '../../services/api';
+import { getApiBaseUrl } from '../../config/constants';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
@@ -16,6 +18,24 @@ const SettingsScreen = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [publicProfile, setPublicProfile] = useState(false);
+  const [apiTesting, setApiTesting] = useState(false);
+
+  const handleTestApi = async () => {
+    setApiTesting(true);
+    try {
+      const ok = await testConnection();
+      if (ok) {
+        Alert.alert('Connexion OK', 'Le backend répond correctement.');
+      } else {
+        Alert.alert(
+          'Connexion échouée',
+          'Backend injoignable. Vérifie que :\n• Le backend tourne (cd backend && npm run dev)\n• mobile/.env contient API_URL=http://IP:5000/api (IP = celle affichée au démarrage du backend)\n• Téléphone et PC sur le même réseau / partage de connexion\n• Pare-feu Windows : autoriser Node sur le port 5000'
+        );
+      }
+    } finally {
+      setApiTesting(false);
+    }
+  };
 
   useEffect(() => {
     loadUserData();
@@ -187,6 +207,7 @@ const SettingsScreen = () => {
           <Text style={styles.sectionTitle}>COMPTE</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
             {renderSettingItem('person', '#7B5CFF', 'Modifier le profil', '', () => navigation.navigate('EditProfile' as never))}
+            {renderSettingItem('people', '#10B981', 'Amis et demandes', 'Voir mes amis, accepter des demandes', () => navigation.navigate('Friends' as never))}
             {renderSettingItem('mail', '#7B5CFF', 'Email', userData?.email || 'alex@example.com', () => Alert.alert('Email', 'Fonctionnalité à venir'))}
             {renderSettingItem('lock-closed', '#7B5CFF', 'Mot de passe', '', () => Alert.alert('Mot de passe', 'Fonctionnalité à venir'))}
             {renderSettingItem('shield-checkmark', '#7B5CFF', 'Sécurité', '', () => Alert.alert('Sécurité', 'Fonctionnalité à venir'))}
@@ -210,6 +231,41 @@ const SettingsScreen = () => {
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
             {renderToggleItem('eye', '#7B5CFF', 'Profil public', publicProfile, setPublicProfile)}
             {renderSettingItem('ban', '#7B5CFF', 'Utilisateurs bloqués', '', () => Alert.alert('Utilisateurs bloqués', 'Fonctionnalité à venir'))}
+          </View>
+        </View>
+
+        {/* Connexion API (dev) */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>CONNEXION API</Text>
+          <View style={[styles.section, { backgroundColor: theme.surface }]}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.iconContainer, { backgroundColor: '#10B98120' }]}>
+                  <Ionicons name="server" size={20} color="#10B981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingItemText, { color: theme.text }]}>URL backend</Text>
+                  <Text style={[styles.settingItemValue, { color: theme.textSecondary, marginTop: 4, fontSize: 11 }]} numberOfLines={2}>
+                    {getApiBaseUrl()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.settingItem, { opacity: apiTesting ? 0.7 : 1 }]}
+              onPress={handleTestApi}
+              disabled={apiTesting}
+            >
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.iconContainer, { backgroundColor: '#7B5CFF20' }]}>
+                  <Ionicons name="wifi" size={20} color="#7B5CFF" />
+                </View>
+                <Text style={[styles.settingItemText, { color: theme.text }]}>
+                  {apiTesting ? 'Test en cours...' : 'Tester la connexion'}
+                </Text>
+              </View>
+              {!apiTesting && <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
+            </TouchableOpacity>
           </View>
         </View>
 

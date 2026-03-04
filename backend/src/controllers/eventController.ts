@@ -30,6 +30,16 @@ function eventDocToResponse(
   organizer?: { id: string; name?: string; email?: string } | null,
   participantsCount?: number
 ) {
+  const rawOrganizerName =
+    typeof data.organizerName === 'string' ? data.organizerName.trim() : '';
+
+  // Si organizerName est vide ou vaut seulement "Organisateur" (valeur par défaut),
+  // on privilégie toujours le vrai nom de l'organisateur issu de la collection users.
+  const resolvedOrganizerName =
+    (!rawOrganizerName || rawOrganizerName === 'Organisateur')
+      ? organizer?.name || organizer?.email || rawOrganizerName || 'Organisateur'
+      : rawOrganizerName;
+
   return {
     id,
     title: data.title,
@@ -42,7 +52,7 @@ function eventDocToResponse(
     isFree: data.isFree ?? true,
     price: data.price,
     capacity: data.capacity,
-    organizerName: data.organizerName,
+    organizerName: resolvedOrganizerName,
     organizerId: data.organizerId,
     organizer,
     ...(participantsCount !== undefined && { participantsCount }),
@@ -90,22 +100,30 @@ export const createEvent = async (req: Request, res: Response) => {
     const user = await getUserByFirebaseUid(userId);
     if (!user) return res.status(404).json({ message: 'User not found in database' });
 
+    const organizerNameValue =
+      (typeof organizerName === 'string' && organizerName.trim()) ||
+      user.name ||
+      [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+      'Organisateur';
+
     const payload: Record<string, unknown> = {
       title,
       coverImage: finalCoverImage,
       category: eventCategory,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      location: typeof location === 'string' ? location : undefined,
-      description: typeof description === 'string' ? description : undefined,
-      isFree: typeof isFree === 'boolean' ? isFree : true,
-      price: typeof price === 'number' ? price : undefined,
-      capacity: typeof capacity === 'number' ? capacity : undefined,
-      organizerName: typeof organizerName === 'string' ? organizerName : undefined,
       organizerId: userId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+
+    // Ajouter les champs optionnels seulement s'ils sont définis
+    if (startDate) payload.startDate = new Date(startDate);
+    if (endDate) payload.endDate = new Date(endDate);
+    if (typeof location === 'string') payload.location = location;
+    if (typeof description === 'string') payload.description = description;
+    if (typeof isFree === 'boolean') payload.isFree = isFree;
+    if (typeof price === 'number') payload.price = price;
+    if (typeof capacity === 'number') payload.capacity = capacity;
+    payload.organizerName = organizerNameValue;
 
     const ref = await firebaseDb.collection('events').add(payload);
     const snap = await ref.get();
@@ -119,9 +137,10 @@ export const createEvent = async (req: Request, res: Response) => {
     return res.status(201).json({
       event: { ...created, createdAt: toDate(data.createdAt as admin.firestore.Timestamp), updatedAt: toDate(data.updatedAt as admin.firestore.Timestamp) },
     });
-  } catch (error) {
-    console.error('Create event error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Create event error:', error?.message || error);
+    console.error('Stack:', error?.stack);
+    return res.status(500).json({ message: 'Internal server error', details: error?.message });
   }
 };
 
