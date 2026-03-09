@@ -18,7 +18,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -30,6 +30,7 @@ import {
   checkExternalEventRegistration,
   type ExternalRegistration 
 } from '../../services/externalRegistrationService';
+import { sendFriendRequest } from '../../services/friendsService';
 import { useTheme } from '../../theme/ThemeContext';
 import { createStyles } from './EventDetailsScreen.styles';
 import { getEventReviews, getEventReviewStats, Review, ReviewStats } from '../../services/reviewService';
@@ -117,39 +118,17 @@ const EventDetailsScreen = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [organizerNameOverride, setOrganizerNameOverride] = useState<string | null>(null);
+  const [followRequestSent, setFollowRequestSent] = useState(false);
+  const [sendingFollowRequest, setSendingFollowRequest] = useState(false);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
-  const baseOrganizerName =
+  const organizerDisplayName =
     (event.organizer && typeof event.organizer === 'object' ? event.organizer?.name : event.organizer) ||
-    event.organizerName;
-  const organizerDisplayName = organizerNameOverride || baseOrganizerName || 'Organisateur';
+    event.organizerName ||
+    'Organisateur';
   const user = auth.currentUser;
   const isOwner = user?.uid === event.organizerId;
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadOrganizerName = async () => {
-      if (!event.organizerId) return;
-      if (baseOrganizerName && baseOrganizerName !== 'Organisateur') return;
-      try {
-        const snap = await getDoc(doc(db, 'users', event.organizerId));
-        if (!snap.exists()) return;
-        const data = snap.data();
-        const name = data?.firstName && data?.lastName
-          ? `${data.firstName} ${data.lastName}`
-          : data?.name || data?.displayName;
-        if (!cancelled && name) setOrganizerNameOverride(name);
-      } catch (error) {
-        console.error('Error loading organizer name:', error);
-      }
-    };
-    loadOrganizerName();
-    return () => {
-      cancelled = true;
-    };
-  }, [event.organizerId, baseOrganizerName]);
 
   // Supprimer l'événement (organisateur uniquement)
   const handleDeleteEvent = () => {
@@ -711,23 +690,49 @@ const EventDetailsScreen = () => {
                 {organizerDisplayName}
               </Text>
             </View>
-            <TouchableOpacity
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 6,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#7B5CFF',
-              }}
-            >
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: '#7B5CFF',
-              }}>
-                Suivre
-              </Text>
-            </TouchableOpacity>
+            {event.organizerId && !isOwner && (
+              <TouchableOpacity
+                onPress={async () => {
+                  if (sendingFollowRequest || followRequestSent) return;
+                  setSendingFollowRequest(true);
+                  try {
+                    await sendFriendRequest(event.organizerId!);
+                    setFollowRequestSent(true);
+                    Alert.alert('Demande envoyée', `Demande de suivi envoyée à ${organizerDisplayName}. Vous pourrez discuter une fois qu'elle sera acceptée.`);
+                  } catch (error: any) {
+                    const msg = error?.message || error?.response?.data?.message || '';
+                    if (msg.includes('déjà amis') || msg.includes('already-exists')) {
+                      setFollowRequestSent(true);
+                      Alert.alert('Info', 'Vous êtes déjà amis avec cet organisateur');
+                    } else if (msg.includes('déjà en cours') || msg.includes('en cours')) {
+                      setFollowRequestSent(true);
+                      Alert.alert('Info', 'Une demande est déjà en attente');
+                    } else {
+                      Alert.alert('Erreur', msg || "Impossible d'envoyer la demande de suivi");
+                    }
+                  } finally {
+                    setSendingFollowRequest(false);
+                  }
+                }}
+                disabled={sendingFollowRequest || followRequestSent}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: followRequestSent ? theme.textMuted : '#7B5CFF',
+                  opacity: sendingFollowRequest ? 0.6 : 1,
+                }}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: followRequestSent ? theme.textMuted : '#7B5CFF',
+                }}>
+                  {followRequestSent ? 'Demande envoyée' : sendingFollowRequest ? 'Envoi…' : 'Suivre'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Date et heure */}

@@ -128,6 +128,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       // Firestore write (non-blocking - don't let it block registration)
       console.log('Writing to Firestore...');
       setDoc(doc(db, 'users', credential.user.uid), {
+        name: fullName,
         firstName,
         lastName,
         email: email.trim().toLowerCase(),

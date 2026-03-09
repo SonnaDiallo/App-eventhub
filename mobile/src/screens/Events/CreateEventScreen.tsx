@@ -239,6 +239,10 @@ const CreateEventScreen = () => {
       Alert.alert('Erreur', 'Veuillez entrer un lieu');
       return false;
     }
+    if (!coverImageBase64) {
+      Alert.alert('Erreur', "L'image de couverture est obligatoire. Veuillez ajouter une photo pour votre événement.");
+      return false;
+    }
     const now = Date.now();
     const graceMs = 60 * 1000;
     if (eventData.startDate.getTime() < now - graceMs) {
@@ -603,13 +607,13 @@ const CreateEventScreen = () => {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Image de couverture</Text>
+        <Text style={styles.sectionTitle}>Image de couverture <Text style={{ color: theme.error, fontSize: 14 }}>*</Text></Text>
         {coverImage ? (
           <View style={styles.defaultImageContainer}>
             <Image source={{ uri: coverImage }} style={styles.coverImagePreview} />
             <TouchableOpacity 
               style={styles.removeImageButton}
-              onPress={() => setCoverImage(null)}
+              onPress={() => { setCoverImage(null); setCoverImageBase64(null); setCoverImageMimeType(null); }}
             >
               <Ionicons name="trash-outline" size={16} color={theme.error} />
               <Text style={styles.removeImageText}>Supprimer l'image</Text>

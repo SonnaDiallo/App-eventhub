@@ -31,6 +31,7 @@ import ScanTicketScreen from '../screens/Organizer/ScanTicketScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 
 import EditProfileScreen from '../screens/Settings/EditProfileScreen';
+import ChangePasswordScreen from '../screens/Settings/ChangePasswordScreen';
 
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 
@@ -107,6 +108,8 @@ export type EventData = {
 
   externalLink?: string;
 
+  source?: string;
+
 };
 
 
@@ -138,6 +141,8 @@ export type AuthStackParamList = {
   Settings: undefined;
 
   EditProfile: undefined;
+
+  ChangePassword: undefined;
 
   Profile: undefined;
 
@@ -331,6 +336,16 @@ const AuthNavigator: React.FC = () => {
         name="EditProfile"
 
         component={EditProfileScreen}
+
+        options={{ headerShown: false }}
+
+      />
+
+      <Stack.Screen
+
+        name="ChangePassword"
+
+        component={ChangePasswordScreen}
 
         options={{ headerShown: false }}
 

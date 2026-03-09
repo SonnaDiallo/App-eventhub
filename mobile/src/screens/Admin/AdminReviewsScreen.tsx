@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAdminReviews, deleteAdminReview, type AdminReviewItem } from '../../services/adminService';
@@ -19,6 +20,18 @@ export default function AdminReviewsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredReviews = useMemo(() => {
+    if (!searchQuery.trim()) return reviews;
+    const q = searchQuery.toLowerCase();
+    return reviews.filter(
+      (r) =>
+        r.eventTitle?.toLowerCase().includes(q) ||
+        r.userName?.toLowerCase().includes(q) ||
+        r.comment?.toLowerCase().includes(q)
+    );
+  }, [reviews, searchQuery]);
 
   const load = useCallback((page = 1) => {
     setError('');
@@ -84,8 +97,23 @@ export default function AdminReviewsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>Avis</Text>
+      <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Ionicons name="search" size={20} color={theme.textSecondary} style={styles.searchIcon} />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Rechercher (événement, auteur, commentaire…)"
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.searchInput, { color: theme.text }]}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
       <FlatList
-        data={reviews}
+        data={filteredReviews}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
@@ -146,7 +174,19 @@ const styles = StyleSheet.create({
   error: { fontSize: 16, textAlign: 'center', marginBottom: 16 },
   retryBtn: { backgroundColor: '#7B5CFF', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
   retryBtnText: { color: '#FFF', fontWeight: '600', fontSize: 15 },
-  title: { fontSize: 20, fontWeight: '700', marginHorizontal: 20, marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '700', marginHorizontal: 20, marginBottom: 12 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 4 },
   list: { padding: 20, paddingTop: 0, paddingBottom: 24 },
   empty: { textAlign: 'center', marginTop: 24 },
   card: { borderRadius: 12, padding: 14, marginBottom: 12 },

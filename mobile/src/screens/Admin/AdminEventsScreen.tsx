@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -39,6 +40,19 @@ export default function AdminEventsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return events;
+    const q = searchQuery.toLowerCase();
+    return events.filter(
+      (e) =>
+        (e.title || '').toLowerCase().includes(q) ||
+        (e.location || '').toLowerCase().includes(q) ||
+        (e.category || '').toLowerCase().includes(q) ||
+        (e.organizerName || '').toLowerCase().includes(q)
+    );
+  }, [events, searchQuery]);
 
   const load = useCallback((page = 1) => {
     setError('');
@@ -174,7 +188,19 @@ const styles = StyleSheet.create({
   errorHint: { fontSize: 13, textAlign: 'center', marginBottom: 20 },
   retryBtn: { backgroundColor: '#7B5CFF', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
   retryBtnText: { color: '#FFF', fontWeight: '600', fontSize: 15 },
-  title: { fontSize: 20, fontWeight: '700', marginHorizontal: 20, marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '700', marginHorizontal: 20, marginBottom: 12 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 4 },
   list: { padding: 20, paddingTop: 0, paddingBottom: 24 },
   empty: { textAlign: 'center', marginTop: 24 },
   card: { borderRadius: 12, padding: 12, marginBottom: 12 },

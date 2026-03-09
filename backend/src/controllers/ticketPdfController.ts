@@ -58,13 +58,13 @@ export const downloadTicketPDF = async (req: Request, res: Response) => {
           eventLocation = eventData?.location || eventLocation;
           price = eventData?.price || price;
           
-          if (eventData?.date) {
-            const date = eventData.date.toDate ? eventData.date.toDate() : new Date(eventData.date);
+          const dateField = eventData?.startDate ?? eventData?.date;
+          if (dateField) {
+            const date = dateField.toDate ? dateField.toDate() : new Date(dateField);
             eventDate = date.toLocaleDateString('fr-FR', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
             });
             eventTime = date.toLocaleTimeString('fr-FR', {
               hour: '2-digit',

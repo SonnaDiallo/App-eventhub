@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getAdminEvents, deleteAdminEvent, type EventItem } from '../api/client';
 import styles from './Events.module.css';
 
@@ -8,6 +8,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = (page = 1) => {
     setLoading(true);
@@ -23,6 +24,18 @@ export default function Events() {
   useEffect(() => {
     load();
   }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return events;
+    const q = search.toLowerCase();
+    return events.filter(
+      (e) =>
+        (e.title || '').toLowerCase().includes(q) ||
+        (e.location || '').toLowerCase().includes(q) ||
+        (e.category || '').toLowerCase().includes(q) ||
+        (e.organizerName || '').toLowerCase().includes(q)
+    );
+  }, [events, search]);
 
   const handleDelete = async (eventId: string) => {
     if (!window.confirm('Supprimer cet événement ?')) return;
@@ -53,12 +66,28 @@ export default function Events() {
   };
 
   if (loading && events.length === 0) {
-    return <div className={styles.loading}>Chargement…</div>;
+    return (
+      <div className={styles.page}>
+        <div className={styles.skeletonTitle} />
+        <div className={styles.skeletonTable} />
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h1 className={styles.title}>Événements</h1>
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Événements</h1>
+        <div className={styles.searchWrap}>
+          <input
+            type="search"
+            placeholder="Rechercher (titre, lieu, catégorie…)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.search}
+          />
+        </div>
+      </div>
       {error && (
         <div className={styles.error} onClick={() => setError('')}>
           {error}
@@ -68,7 +97,7 @@ export default function Events() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Titre</th>
+              <th>Événement</th>
               <th>Catégorie</th>
               <th>Lieu</th>
               <th>Date</th>
@@ -78,17 +107,21 @@ export default function Events() {
             </tr>
           </thead>
           <tbody>
-            {events.map((e) => (
+            {filtered.map((e) => (
               <tr key={e.id}>
                 <td>
                   <div className={styles.titleCell}>
-                    {e.coverImage && (
+                    {e.coverImage ? (
                       <img src={e.coverImage} alt="" className={styles.thumb} />
+                    ) : (
+                      <div className={styles.thumbPlaceholder}>📅</div>
                     )}
                     <span>{e.title}</span>
                   </div>
                 </td>
-                <td>{e.category || '—'}</td>
+                <td>
+                  <span className={styles.categoryBadge}>{e.category || '—'}</span>
+                </td>
                 <td>{e.location || '—'}</td>
                 <td>{formatDate(e.startDate)}</td>
                 <td>{e.organizerName || e.organizerId || '—'}</td>
@@ -108,6 +141,9 @@ export default function Events() {
           </tbody>
         </table>
       </div>
+      {filtered.length === 0 && (
+        <div className={styles.empty}>Aucun événement trouvé</div>
+      )}
       {pagination.pages > 1 && (
         <div className={styles.pagination}>
           <button

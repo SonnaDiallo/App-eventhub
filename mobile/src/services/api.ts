@@ -24,10 +24,15 @@ export const api = axios.create({
   },
 });
 
-// Intercepteur de requête
+// Intercepteur de requête : token frais (force refresh pour éviter auth/id-token-expired)
 api.interceptors.request.use(
   async (config) => {
-    const token = await getToken();
+    let token: string | null = null;
+    if (auth.currentUser) {
+      token = await auth.currentUser.getIdToken(true);
+      await saveToken(token);
+    }
+    // Ne pas utiliser getToken() quand currentUser est null : token stocké peut être expiré
     if (token) {
       config.headers = {
         ...((config.headers as any) || {}),

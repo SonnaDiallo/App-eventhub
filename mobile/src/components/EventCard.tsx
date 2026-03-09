@@ -45,6 +45,10 @@ interface EventCardProps {
 export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 'grid' }) => {
   const { theme } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const [imageError, setImageError] = React.useState(false);
+  const displayUri = imageError
+    ? PLACEHOLDER_IMAGES[hashString(event.id || event.title || '') % PLACEHOLDER_IMAGES.length]
+    : getEventImageUri(event);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -86,9 +90,10 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
           {/* Grande image */}
           <View style={{ position: 'relative' }}>
             <Image 
-              source={{ uri: getEventImageUri(event) }} 
+              source={{ uri: displayUri }} 
               style={{ width: '100%', height: 200 }} 
               resizeMode="cover"
+              onError={() => setImageError(true)}
             />
             
             {/* Badge catégorie en haut à gauche */}
@@ -213,10 +218,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
         >
           <View style={{ position: 'relative' }}>
             {/* Image de fond */}
-            <Image 
-              source={{ uri: getEventImageUri(event) }} 
-              style={{ width: '100%', height: 280 }} 
+            <Image
+              source={{ uri: displayUri }}
+              style={{ width: '100%', height: 280 }}
               resizeMode="cover"
+              onError={() => setImageError(true)}
             />
             
             {/* Gradient overlay dynamique */}
@@ -394,10 +400,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
       >
         {/* Image avec overlay gradient */}
         <View style={{ position: 'relative' }}>
-          <Image 
-            source={{ uri: getEventImageUri(event) }} 
-            style={{ width: '100%', height: 160 }} 
+          <Image
+            source={{ uri: displayUri }}
+            style={{ width: '100%', height: 160 }}
             resizeMode="cover"
+            onError={() => setImageError(true)}
           />
           <LinearGradient
             colors={['transparent', 'rgba(0, 0, 0, 0.4)']}

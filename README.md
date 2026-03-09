@@ -5,57 +5,77 @@ Plateforme mobile de découverte et gestion d'événements avec système de bill
 ## 📱 Description
 
 EventHub est une application mobile qui permet aux utilisateurs de :
-- Découvrir des événements (concerts, festivals, conférences, etc.)
-- Réserver et acheter des billets
+- Découvrir des événements (concerts, festivals, conférences, gastronomie, sport, etc.)
+- Réserver et acheter des billets (paiement Stripe)
 - Créer et gérer ses propres événements
 - Scanner des billets (organisateurs)
 - Discuter avec d'autres participants
 - Gérer ses amis et favoris
+- Noter et laisser des avis sur les événements
+- S'inscrire à des événements externes (Ticketmaster, Paris Open Data)
 
 ## 🏗️ Architecture
 
-### Frontend Mobile (React Native)
-- **Technologie** : React Native + TypeScript
+### Frontend Mobile (Expo / React Native)
+- **Technologie** : Expo 54 + React Native + TypeScript
 - **Navigation** : React Navigation
 - **Thème** : Système de thème clair/sombre
-- **Authentification** : Firebase Auth
+- **Authentification** : Firebase Auth (email, Google Sign-In)
+- **UI** : expo-linear-gradient, expo-blur, Stripe React Native
 
 ### Backend (Node.js)
-- **Technologie** : Node.js + Express + TypeScript
-- **Base de données** : MongoDB + Firebase Firestore
-- **APIs externes** : Ticketmaster, Paris Open Data
-- **Authentification** : JWT
+- **Technologie** : Node.js + Express 5 + TypeScript
+- **Base de données** : Firebase Firestore uniquement
+- **APIs externes** : Ticketmaster, Paris Open Data, Unsplash
+- **Authentification** : Firebase Admin + JWT
+- **Paiements** : Stripe
+- **Images** : Cloudinary
+- **PDF** : Génération de billets (PDFKit, QR codes)
+
+### Admin (Vite + React)
+- **Technologie** : Vite 6 + React 19 + TypeScript
+- **Rôle** : Dashboard admin, gestion événements, utilisateurs, avis
 
 ### Services Cloud
-- **Firebase** : Authentification, Firestore, Functions
-- **MongoDB** : Base de données principale
-- **Stockage** : Firebase Storage
+- **Firebase** : Auth, Firestore, Storage, Functions
+- **Firebase Functions** : Création d'événements, billets, emails (Nodemailer), Stripe
 
 ## 📁 Structure du Projet
 
 ```
 eventhub/
-├── mobile/                 # Application React Native
+├── mobile/                 # Application Expo / React Native
 │   ├── src/
-│   │   ├── screens/       # Écrans de l'application
+│   │   ├── screens/       # Écrans (Auth, Events, Chat, Admin, etc.)
 │   │   ├── components/    # Composants réutilisables
-│   │   ├── navigation/    # Configuration navigation
-│   │   ├── services/      # Services API
-│   │   ├── theme/         # Thème et styles
-│   │   └── contexts/      # Contextes React
-│   └── App.tsx           # Point d'entrée
-├── backend/               # Serveur Node.js
+│   │   ├── navigation/    # AuthNavigator, EventNavigator
+│   │   ├── services/      # API, Firebase, Stripe, etc.
+│   │   ├── hooks/         # useEvents, useUserRole, useNotifications
+│   │   ├── theme/         # Thème et ThemeContext
+│   │   ├── utils/         # eventFilters, eventHelpers
+│   │   └── config/        # constants
+│   ├── app.config.js      # Config Expo (variables d'environnement)
+│   └── package.json
+├── backend/               # API Node.js
 │   ├── src/
-│   │   ├── controllers/   # Contrôleurs API
-│   │   ├── models/        # Modèles de données
+│   │   ├── controllers/   # auth, event, ticket, payment, admin, etc.
 │   │   ├── routes/        # Routes Express
-│   │   ├── services/      # Services métier
-│   │   └── middleware/    # Middlewares
-│   └── server.ts         # Point d'entrée
-├── functions/            # Fonctions Firebase
+│   │   ├── services/      # externalEvents, imageService, pdfService
+│   │   ├── middleware/    # requireAuth, requireRole, rateLimit
+│   │   └── config/        # firebaseAdmin, stripe, validateEnv
+│   └── server.ts
+├── admin/                 # Interface admin web (Vite + React)
+│   ├── src/
+│   │   ├── pages/         # Dashboard, Users, Events, Login
+│   │   ├── components/    # Layout
+│   │   └── contexts/     # AuthContext
+│   └── package.json
+├── functions/             # Firebase Cloud Functions
 │   └── src/
-│       └── email/        # Service d'envoi d'emails
-└── firebase.json         # Configuration Firebase
+│       └── index.ts       # createEvent, createTicket, sendEmail, etc.
+├── firebase.json          # Config Firebase (Firestore, Storage, Functions)
+├── firestore.rules
+└── storage.rules
 ```
 
 ## 🚀 Installation et Démarrage
@@ -64,182 +84,202 @@ eventhub/
 
 - Node.js (v18+)
 - npm ou yarn
-- React Native CLI
-- Android Studio / Xcode
-- MongoDB Atlas
-- Firebase project
+- Compte Firebase
+- Compte Stripe (pour les paiements)
+- Clé API Ticketmaster (optionnel, pour événements externes)
 
-### Configuration Backend
+### 1. Cloner le projet
 
-1. **Cloner le projet**
 ```bash
 git clone https://github.com/SonnaDiallo/App-eventhub
 cd eventhub
 ```
 
-2. **Installer les dépendances backend**
+### 2. Backend
+
 ```bash
 cd backend
 npm install
-```
-
-3. **Configurer les variables d'environnement**
-```bash
 cp .env.example .env
-# Éditer .env avec vos clés d'API et configurations
-```
-
-4. **Démarrer le serveur backend**
-```bash
+# Éditer .env : PORT, FIREBASE_SERVICE_ACCOUNT_PATH, JWT_SECRET, STRIPE_*, TICKETMASTER_API_KEY
 npm run dev
 ```
 
-### Configuration Mobile
+Le serveur démarre sur le port 5000. L'URL API locale s'affiche (ex: `http://192.168.x.x:5000/api`).
 
-1. **Installer les dépendances mobile**
+### 3. Mobile (Expo)
+
 ```bash
 cd mobile
 npm install
+cp .env.example .env
+# Éditer .env : API_URL (ex: http://192.168.x.x:5000/api), Firebase, GOOGLE_WEB_CLIENT_ID
+npx expo start --go
 ```
 
-2. **Configurer Firebase**
+Utiliser Expo Go sur téléphone ou émulateur pour tester.
+
+### 4. Admin (optionnel)
+
 ```bash
-# Ajouter votre fichier de configuration Firebase
-# Suivre la documentation React Native Firebase
+cd admin
+npm install
+cp .env.example .env
+# Éditer .env : API_URL, Firebase
+npm run dev
 ```
 
-3. **Démarrer l'application**
-```bash
-npm start
-```
+### 5. Firebase Functions (optionnel)
 
-### Configuration Firebase Functions
-
-1. **Installer les dépendances**
 ```bash
 cd functions
 npm install
-```
-
-2. **Configurer l'email**
-```bash
-firebase functions:config:set email.user="votre-email@gmail.com" email.pass="mot-de passe-app"
-```
-
-3. **Déployer**
-```bash
+cp .env.example .env
+# Éditer .env : STRIPE_SECRET_KEY, TICKETMASTER_API_KEY, EMAIL_USER, EMAIL_PASS
 npm run deploy
 ```
 
 ## 🔧 Variables d'Environnement
 
-### Backend (.env)
+### Backend (`backend/.env`)
+
 ```env
-# Base de données
-MONGODB_URI=mongodb+srv://...
-FIREBASE_PROJECT_ID=your-project-id
-
-# Authentification
-JWT_SECRET=your-jwt-secret
-
-# APIs externes
-TICKETMASTER_API_KEY=your-ticketmaster-key
-
-# Email
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-password
-
-# Serveur
 PORT=5000
 NODE_ENV=development
+
+# Firebase Admin (chemin vers le fichier JSON service account)
+FIREBASE_SERVICE_ACCOUNT_PATH=./path/to/serviceAccountKey.json
+
+# JWT
+JWT_SECRET=your_jwt_secret_here
+
+# Admins (emails séparés par des virgules)
+ADMIN_EMAILS=admin@example.com
+
+# APIs externes
+TICKETMASTER_API_KEY=your_ticketmaster_key
+UNSPLASH_ACCESS_KEY=your_unsplash_key
+
+# Stripe (obligatoire pour paiements)
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
 ```
 
-## Fonctionnalités Principales
+### Mobile (`mobile/.env`)
 
-### Utilisateur
-- Authentification (email/mot de passe)
-- Profil personnalisé
-- Mes billets et réservations
-- Événements favoris
-- Messagerie instantanée
-- Gestion des amis
+```env
+API_URL=http://192.168.x.x:5000/api
 
-### Organisateur
-- Création d'événements
-- Gestion des billets
-- Scan de tickets QR
-- Dashboard statistiques
-- Gestion des participants
+FIREBASE_API_KEY=...
+FIREBASE_AUTH_DOMAIN=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_STORAGE_BUCKET=...
+FIREBASE_MESSAGING_SENDER_ID=...
+FIREBASE_APP_ID=...
 
-### Système
-- Multi-langues (Français/Anglais)
-- Thème clair/sombre
-- Recherche avancée
-- Catégories d'événements
-- Synchronisation temps réel
+GOOGLE_WEB_CLIENT_ID=...apps.googleusercontent.com
+```
 
-## 🛠️ Technologies Utilisées
+### Functions (`functions/.env`)
 
-### Frontend
-- React Native
-- TypeScript
-- React Navigation
-- Firebase (Auth, Firestore)
-- Expo
-- React Native Vector Icons
-
-### Backend
-- Node.js
-- Express
-- TypeScript
-- MongoDB
-- Mongoose
-- Firebase Admin
-- JWT
-- Nodemailer
-
-### DevOps
-- Firebase Functions
-- GitHub Actions (optionnel)
-- ESLint
-- Prettier
+```env
+STRIPE_SECRET_KEY=sk_test_xxx
+TICKETMASTER_API_KEY=...
+EMAIL_USER=votre-email@gmail.com
+EMAIL_PASS=mot-de-passe-app
+```
 
 ## 📊 API Endpoints
 
 ### Authentification
 - `POST /api/auth/register` - Inscription
 - `POST /api/auth/login` - Connexion
-- `GET /api/auth/profile` - Profil utilisateur
+- `GET /api/auth/me` - Profil utilisateur (JWT)
 
 ### Événements
 - `GET /api/events` - Lister les événements
 - `POST /api/events` - Créer un événement
 - `GET /api/events/:id` - Détails événement
 - `PUT /api/events/:id` - Modifier événement
+- `POST /api/events/:id/join` - Rejoindre
+- `POST /api/events/:id/leave` - Quitter
 
 ### Billets
-- `POST /api/tickets` - Acheter billet
 - `GET /api/tickets/my` - Mes billets
-- `POST /api/tickets/scan` - Scanner billet
+- `GET /api/tickets/code/:code` - Billet par code
+- `POST /api/tickets/verify` - Vérifier/Scanner billet
+
+### Paiements
+- `POST /api/payments/create-intent` - Créer PaymentIntent Stripe
+- `POST /api/payments/confirm` - Confirmer paiement
+- `POST /api/payments/webhook` - Webhook Stripe
+
+### Avis
+- `POST /api/reviews` - Créer un avis
+- `GET /api/reviews/event/:eventId` - Avis d'un événement
 
 ### Amis
 - `GET /api/friends` - Liste d'amis
 - `POST /api/friends/request` - Demande d'ami
-- `PUT /api/friends/accept/:id` - Accepter ami
+- `PUT /api/friends/accept/:id` - Accepter
 
-## 🧪 Tests
+### Utilisateurs (admin)
+- `GET /api/users` - Liste des utilisateurs
+- `PATCH /api/users/:id/role` - Modifier le rôle
+- `DELETE /api/users/:id` - Supprimer un utilisateur
 
-```bash
-# Backend tests
-cd backend
-npm test
+### Admin
+- `GET /api/admin/stats` - Statistiques dashboard
+- `GET /api/admin/events` - Liste événements
+- `DELETE /api/admin/events/:id` - Supprimer événement
+- `GET /api/admin/reviews` - Liste avis
+- `DELETE /api/admin/reviews/:id` - Supprimer avis
 
-# Mobile tests
-cd mobile
-npm test
-```
+### Événements externes
+- `GET /api/external-events` - Événements Ticketmaster / Paris Open Data
+- `POST /api/external-events/register` - S'inscrire à un événement externe
+
+## 🛠️ Technologies Utilisées
+
+### Mobile
+- Expo 54, React Native 0.81
+- TypeScript
+- React Navigation 7
+- Firebase (Auth, Firestore)
+- Stripe React Native
+- expo-linear-gradient, expo-blur, expo-notifications
+- react-native-svg, react-native-qrcode-svg
+
+### Backend
+- Node.js, Express 5
+- TypeScript
+- Firebase Admin
+- Stripe
+- Cloudinary
+- PDFKit, QRCode
+- Nodemailer
+- Socket.io
+
+### Admin
+- Vite 6, React 19
+- React Router 7
+- Firebase
+- Axios
+
+## 📱 Catégories d'événements
+
+- **Musique** - Concerts, festivals
+- **Sport** - Événements sportifs
+- **Arts** - Expositions, théâtre, danse
+- **Gastronomie** - Événements culinaires
+- **Famille** - Activités familiales
+- **Autre**
+
+## 🔔 Notifications Push
+
+Les notifications sont gérées via `expo-notifications` et `notificationService.ts`.
+
+Types : rappels d'événements, confirmation de billet, nouveaux messages, etc.
 
 ## 📦 Déploiement
 
@@ -250,132 +290,39 @@ npm run build
 npm start
 ```
 
-### Mobile
+### Mobile (EAS Build)
 ```bash
-# Build production
 cd mobile
-npm run build
-
-# Pour iOS
-npx react-native run-ios --configuration Release
-
-# Pour Android
-npx react-native run-android --variant=release
+npx eas build --platform android
+npx eas build --platform ios
 ```
 
-### Firebase Functions
+### Admin
 ```bash
-cd functions
-npm run deploy
+cd admin
+npm run build
+# Déployer le dossier dist/ sur un hébergeur statique
 ```
 
-## Contribuer
-
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commit les changements (`git commit -am 'Ajout nouvelle fonctionnalité'`)
-4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
-5. Créer une Pull Request
-
-##  Licence
-
-Ce projet est sous licence propriétaire - tous droits réservés. Voir le fichier [LICENSE](LICENSE) pour les détails.
-
-##  Support
-
-Pour toute question ou problème :
-- Créer une issue sur GitHub
-- Contacter l'équipe de développement
-
-## � Notifications Push
-
-### Configuration
-
-Les notifications push sont implémentées dans l'application mobile. Pour les activer :
-
-#### 1. Ajouter dans `mobile/app.json`
-
-```json
-{
-  "expo": {
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#7B5CFF"
-        }
-      ]
-    ],
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#7B5CFF",
-      "androidMode": "default"
-    },
-    "android": {
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
-      ]
-    },
-    "ios": {
-      "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Cette application envoie des notifications pour vous rappeler vos événements."
-      }
-    }
-  }
-}
+### Firebase
+```bash
+firebase deploy
 ```
 
-### Utilisation
-
-#### Planifier un rappel d'événement
-
-```typescript
-import { scheduleEventReminder } from './src/services/notificationService';
-
-// Rappel 1h avant l'événement
-await scheduleEventReminder(
-  eventId,
-  'Soirée Networking Tech',
-  new Date('2024-12-25T19:00:00'),
-  60 // minutes avant
-);
-```
-
-#### Envoyer une notification immédiate
-
-```typescript
-import { sendImmediateNotification } from './src/services/notificationService';
-
-await sendImmediateNotification(
-  'Billet confirmé ! 🎉',
-  'Votre billet a été confirmé',
-  { eventId: '123', type: 'ticket_confirmed' }
-);
-```
-
-#### Types de notifications
-
-- `event_reminder` - Rappel avant un événement
-- `new_event` - Nouvel événement
-- `friend_joined` - Un ami s'est inscrit
-- `ticket_confirmed` - Confirmation de billet
-- `event_update` - Mise à jour d'événement
-- `event_cancelled` - Événement annulé
-
-### Fichiers créés
-
-- `mobile/src/services/notificationService.ts` - Service de gestion des notifications
-- `mobile/src/hooks/useNotifications.ts` - Hook React pour les notifications
-
-## �🗺️ Roadmap
+## 🗺️ Roadmap
 
 - [x] Notifications push ✅
-- [ ] Paiement en ligne intégré
+- [x] Paiement en ligne (Stripe) ✅
+- [x] Système d'avis et notes ✅
+- [x] Interface admin (web) ✅
+- [x] Événements externes (Ticketmaster, Paris Open Data) ✅
 - [ ] Carte interactive des événements
-- [ ] Système d'avis et notes
 - [ ] Intégration réseaux sociaux
 - [ ] Mode hors-ligne partiel
+
+## 📄 Licence
+
+Ce projet est sous licence propriétaire - tous droits réservés. Voir [LICENSE](LICENSE).
 
 ---
 

@@ -14,6 +14,7 @@ import { useUserRole, canCreateEvents } from '../../hooks/useUserRole';
 import { useEvents } from '../../hooks/useEvents';
 
 import { EventCard } from '../../components/EventCard';
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn';
 import { SearchBar } from '../../components/SearchBar';
 import { CategoryFilter } from '../../components/CategoryFilter';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
@@ -125,52 +126,74 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const otherEvents = filtered.length > 1 ? filtered.slice(1) : [];
 
   const renderSortMenu = () => {
-    if (!showSortMenu) return null;
-
     const sortOptions = [
-      { value: 'date' as SortOption, label: '📅 Date (plus proche)', icon: 'calendar-outline' },
-      { value: 'price-asc' as SortOption, label: '💰 Prix (croissant)', icon: 'arrow-up-outline' },
-      { value: 'price-desc' as SortOption, label: '💰 Prix (décroissant)', icon: 'arrow-down-outline' },
-      { value: 'title' as SortOption, label: '🔤 Titre (A-Z)', icon: 'text-outline' },
+      { value: 'date' as SortOption, label: 'Date (plus proche)', icon: 'calendar-outline' },
+      { value: 'price-asc' as SortOption, label: 'Prix (croissant)', icon: 'arrow-up-outline' },
+      { value: 'price-desc' as SortOption, label: 'Prix (décroissant)', icon: 'arrow-down-outline' },
+      { value: 'title' as SortOption, label: 'Titre (A-Z)', icon: 'text-outline' },
     ];
 
     return (
-      <View style={styles.sortMenu}>
-        <Text style={styles.sortMenuTitle}>Trier par</Text>
-        <View style={styles.sortMenuOptions}>
-          {sortOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              onPress={() => {
-                setSortBy(option.value);
-                setShowSortMenu(false);
-              }}
-              style={[
-                styles.sortOption,
-                sortBy === option.value && styles.sortOptionActive,
-              ]}
-            >
-              <Ionicons 
-                name={option.icon as any} 
-                size={18} 
-                color={sortBy === option.value ? theme.primary : theme.textMuted} 
-              />
-              <Text
-                style={[
-                  styles.sortOptionText,
-                  { color: sortBy === option.value ? theme.primary : theme.text },
-                  sortBy === option.value && styles.sortOptionTextActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-              {sortBy === option.value && (
-                <Ionicons name="checkmark" size={18} color={theme.primary} style={{ marginLeft: 'auto' }} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      <Modal
+        visible={showSortMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSortMenu(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'flex-start',
+            paddingTop: Platform.OS === 'ios' ? 120 : 100,
+            paddingHorizontal: 20,
+          }}
+          onPress={() => setShowSortMenu(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.sortMenu, { marginHorizontal: 0 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={styles.sortMenuTitle}>Trier par</Text>
+                <TouchableOpacity onPress={() => setShowSortMenu(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={24} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {sortOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => {
+                    setSortBy(option.value);
+                    setShowSortMenu(false);
+                  }}
+                  style={[
+                    styles.sortOption,
+                    sortBy === option.value && styles.sortOptionActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={option.icon as any}
+                    size={20}
+                    color={sortBy === option.value ? theme.primary : theme.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      { color: sortBy === option.value ? theme.primary : theme.text },
+                      sortBy === option.value && styles.sortOptionTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {sortBy === option.value && (
+                    <Ionicons name="checkmark-circle" size={22} color={theme.primary} style={{ marginLeft: 'auto' }} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     );
   };
 
@@ -271,30 +294,59 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Titre principal */}
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{
-              fontSize: 36,
-              fontWeight: '900',
-              color: '#FFFFFF',
-              lineHeight: 42,
-              textShadowColor: 'rgba(0, 0, 0, 0.3)',
-              textShadowOffset: { width: 0, height: 2 },
-              textShadowRadius: 8,
-            }}>
-              Vivez des moments
-            </Text>
-            <Text style={{
-              fontSize: 36,
-              fontWeight: '900',
-              color: '#FFD700',
-              lineHeight: 42,
-              textShadowColor: 'rgba(0, 0, 0, 0.3)',
-              textShadowOffset: { width: 0, height: 2 },
-              textShadowRadius: 8,
-            }}>
-              inoubliables
-            </Text>
+          {/* Titre principal - halo violet (multi-couches) + texte net - compatible Android */}
+          <View style={{ marginBottom: 20, position: 'relative' }}>
+            {/* Halo : copies décalées en violet pour simuler le flou (Android ne supporte pas textShadowRadius) */}
+            {[
+              { x: -1, y: -1, o: 0.4 }, { x: 1, y: -1, o: 0.4 }, { x: -1, y: 1, o: 0.4 }, { x: 1, y: 1, o: 0.4 },
+              { x: -2, y: -2, o: 0.3 }, { x: 2, y: -2, o: 0.3 }, { x: -2, y: 2, o: 0.3 }, { x: 2, y: 2, o: 0.3 },
+              { x: -3, y: 0, o: 0.25 }, { x: 3, y: 0, o: 0.25 }, { x: 0, y: -3, o: 0.25 }, { x: 0, y: 3, o: 0.25 },
+              { x: -4, y: -4, o: 0.2 }, { x: 4, y: -4, o: 0.2 }, { x: -4, y: 4, o: 0.2 }, { x: 4, y: 4, o: 0.2 },
+            ].map(({ x, y, o }, i) => (
+              <View key={i} style={{ position: 'absolute', top: y, left: x }}>
+                <Text style={{
+                  fontSize: 36,
+                  fontWeight: '900',
+                  color: theme.primary,
+                  lineHeight: 42,
+                  letterSpacing: 0.5,
+                  opacity: o,
+                }}>
+                  Vivez des moments
+                </Text>
+                <Text style={{
+                  fontSize: 36,
+                  fontWeight: '900',
+                  color: theme.primary,
+                  lineHeight: 42,
+                  letterSpacing: 0.5,
+                  opacity: o,
+                }}>
+                  inoubliables
+                </Text>
+              </View>
+            ))}
+            {/* Texte net et lisible */}
+            <View>
+              <Text style={{
+                fontSize: 36,
+                fontWeight: '900',
+                color: '#FFFFFF',
+                lineHeight: 42,
+                letterSpacing: 0.5,
+              }}>
+                Vivez des moments
+              </Text>
+              <Text style={{
+                fontSize: 36,
+                fontWeight: '900',
+                color: '#FFD700',
+                lineHeight: 42,
+                letterSpacing: 0.5,
+              }}>
+                inoubliables
+              </Text>
+            </View>
           </View>
 
           {/* Description */}
@@ -451,12 +503,6 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   );
 
 
-  const renderSearchSection = () => (
-    <View style={{ paddingHorizontal: 20, paddingTop: 12, backgroundColor: theme.background }}>
-      {renderSortMenu()}
-    </View>
-  );
-
   const renderFeaturedEvents = () => {
     if (loading || filtered.length === 0) return null;
     const featuredEvents = filtered.slice(0, 3);
@@ -550,8 +596,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           }}
         >
           {featuredEvents.map((event, index) => (
+            <AnimatedFadeIn key={event.id} delay={index * 80} duration={350}>
             <TouchableOpacity
-              key={event.id}
               onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
               style={{
                 width: 280,
@@ -571,17 +617,15 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               }}
             >
               {/* Image de fond */}
-              {event.coverImage && (
-                <Image
-                  source={{ uri: normalizeImageUrl(event.coverImage) }}
-                  style={{
-                    position: 'absolute',
-                    width: '100%',
-                    height: '100%',
-                  }}
-                  resizeMode="cover"
-                />
-              )}
+              <Image
+                source={{ uri: (event.coverImage && normalizeImageUrl(event.coverImage)) || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800' }}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                }}
+                resizeMode="cover"
+              />
               
               {/* Gradient overlay dynamique */}
               <LinearGradient
@@ -643,6 +687,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
             </TouchableOpacity>
+            </AnimatedFadeIn>
           ))}
         </ScrollView>
         </LinearGradient>
@@ -770,18 +815,15 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
           flexWrap: 'wrap',
           justifyContent: 'space-between',
         }}>
-          {filtered.map((event) => {
+          {filtered.map((event, index) => {
             const categoryInfo = categories.find(
               (c) => c.id.toLowerCase() === (event.category || '').toLowerCase()
             );
             return (
+              <AnimatedFadeIn key={event.id} delay={index * 50} duration={300} style={{ width: '48%', marginBottom: 20 }}>
               <TouchableOpacity
-                key={event.id}
                 onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
-                style={{
-                  width: '48%',
-                  marginBottom: 20,
-                }}
+                style={{ width: '100%' }}
               >
                 <View style={{
                   backgroundColor: theme.surface,
@@ -810,17 +852,11 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
 
                   {/* Image */}
-                  {event.coverImage ? (
-                    <Image
-                      source={{ uri: normalizeImageUrl(event.coverImage) }}
-                      style={{ width: '100%', height: 140 }}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={{ width: '100%', height: 140, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="image-outline" size={40} color={theme.border} />
-                    </View>
-                  )}
+                  <Image
+                    source={{ uri: (event.coverImage && normalizeImageUrl(event.coverImage)) || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800' }}
+                    style={{ width: '100%', height: 140 }}
+                    resizeMode="cover"
+                  />
                 </View>
 
                 {/* Infos événement */}
@@ -871,6 +907,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
               </TouchableOpacity>
+              </AnimatedFadeIn>
             );
           })}
         </View>
@@ -943,16 +980,17 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <View style={{ paddingHorizontal: 20 }}>
-          {upcomingEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={{
-                ...event,
-                organizer: event.organizerName || event.organizer,
-              }}
-              onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
-              variant="list"
-            />
+          {upcomingEvents.map((event, index) => (
+            <AnimatedFadeIn key={event.id} delay={index * 70} duration={350}>
+              <EventCard
+                event={{
+                  ...event,
+                  organizer: event.organizerName || event.organizer,
+                }}
+                onPress={() => navigation.navigate('EventDetails', { event: eventForNav(event) })}
+                variant="list"
+              />
+            </AnimatedFadeIn>
           ))}
         </View>
       </View>
@@ -991,7 +1029,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         {renderHeader()}
-        {showSortMenu && renderSearchSection()}
+        {renderSortMenu()}
         {selectedCategory ? (
           <>
             {renderGridEvents()}

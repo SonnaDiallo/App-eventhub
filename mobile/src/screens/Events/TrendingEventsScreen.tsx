@@ -9,6 +9,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useEvents } from '../../hooks/useEvents';
 import { normalizeImageUrl } from '../../config/constants';
 import { EventCard } from '../../components/EventCard';
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { EmptyState } from '../../components/EmptyState';
 import { eventForNav, ensureUniqueImages } from '../../utils/eventHelpers';
@@ -148,7 +149,8 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
       >
         {/* Top 3 en grand format */}
         {trendingEvents.slice(0, 3).map((event, index) => (
-          <View key={event.id} style={{ marginBottom: 24, paddingHorizontal: 20 }}>
+          <AnimatedFadeIn key={event.id} delay={index * 100} duration={400}>
+          <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
             {/* Badge de classement avec effet premium */}
             <View
               style={{
@@ -347,6 +349,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </TouchableOpacity>
           </View>
+          </AnimatedFadeIn>
         ))}
 
         {/* Autres événements en format compact */}
@@ -371,7 +374,8 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {trendingEvents.slice(3).map((event, index) => (
-              <View key={event.id} style={{ marginBottom: 16 }}>
+              <AnimatedFadeIn key={event.id} delay={index * 60} duration={320} style={{ marginBottom: 16 }}>
+              <View style={{ position: 'relative' }}>
                 <EventCard
                   event={{
                     ...event,
@@ -410,6 +414,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 )}
               </View>
+              </AnimatedFadeIn>
             ))}
           </View>
         )}

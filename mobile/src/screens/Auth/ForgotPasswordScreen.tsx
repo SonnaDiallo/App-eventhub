@@ -50,6 +50,8 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
         errorMessage = 'Aucun compte trouvé avec cette adresse email';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Adresse email invalide';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Trop de tentatives. Réessayez plus tard.';
       }
       
       Alert.alert('Erreur', errorMessage);

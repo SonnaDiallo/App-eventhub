@@ -110,21 +110,24 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Sort Menu
+  // Sort Menu (Modal)
   sortMenu: {
-    marginTop: 12,
     backgroundColor: theme.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.border,
-    padding: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
 
   sortMenuTitle: {
     color: theme.text,
     fontWeight: '700',
-    fontSize: 14,
-    marginBottom: 12,
+    fontSize: 18,
   },
 
   sortMenuOptions: {
@@ -133,9 +136,10 @@ export const createStyles = (theme: ThemeColors) => StyleSheet.create({
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 12,
+    marginBottom: 4,
   },
 
   sortOptionActive: {

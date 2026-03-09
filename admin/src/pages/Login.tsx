@@ -12,7 +12,12 @@ export default function Login() {
   const navigate = useNavigate();
 
   if (authLoading) {
-    return <div className={styles.center}>Chargement…</div>;
+    return (
+      <div className={styles.center}>
+        <div className={styles.spinner} />
+        <p className={styles.loadingText}>Chargement…</p>
+      </div>
+    );
   }
   if (user && role === 'admin') {
     return <Navigate to="/dashboard" replace />;
@@ -35,7 +40,11 @@ export default function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>EventHub Admin</h1>
+        <div className={styles.logo}>
+          <span className={styles.logoIcon}>◆</span>
+          EventHub
+        </div>
+        <h1 className={styles.title}>Administration</h1>
         <p className={styles.subtitle}>Connexion réservée aux administrateurs</p>
         <form onSubmit={handleSubmit} className={styles.form}>
           {error && <div className={styles.error}>{error}</div>}
@@ -47,6 +56,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              placeholder="admin@eventhub.com"
               className={styles.input}
             />
           </label>
@@ -58,11 +68,19 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              placeholder="••••••••"
               className={styles.input}
             />
           </label>
           <button type="submit" disabled={loading} className={styles.button}>
-            {loading ? 'Connexion…' : 'Se connecter'}
+            {loading ? (
+              <>
+                <span className={styles.btnSpinner} />
+                Connexion…
+              </>
+            ) : (
+              'Se connecter'
+            )}
           </button>
         </form>
       </div>

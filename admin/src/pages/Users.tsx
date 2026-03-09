@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   getUsers,
   updateUserRole,
@@ -14,6 +14,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = () => {
     setLoading(true);
@@ -26,6 +27,16 @@ export default function Users() {
   useEffect(() => {
     load();
   }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return users;
+    const q = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+    );
+  }, [users, search]);
 
   const handleRoleChange = async (userId: string, role: User['role']) => {
     setUpdating(userId);
@@ -52,11 +63,35 @@ export default function Users() {
     }
   };
 
-  if (loading) return <div className={styles.loading}>Chargement…</div>;
+  const roleBadgeClass = (role: string) => {
+    if (role === 'admin') return styles.badgeAdmin;
+    if (role === 'organizer') return styles.badgeOrganizer;
+    return styles.badgeUser;
+  };
+
+  if (loading && users.length === 0) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.skeletonTitle} />
+        <div className={styles.skeletonTable} />
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h1 className={styles.title}>Utilisateurs</h1>
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Utilisateurs</h1>
+        <div className={styles.searchWrap}>
+          <input
+            type="search"
+            placeholder="Rechercher par nom ou email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.search}
+          />
+        </div>
+      </div>
       {error && (
         <div className={styles.error} onClick={() => setError('')}>
           {error}
@@ -66,18 +101,23 @@ export default function Users() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Nom / Email</th>
+              <th>Utilisateur</th>
               <th>Rôle</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {filtered.map((u) => (
               <tr key={u.id}>
                 <td>
                   <div className={styles.userCell}>
-                    <strong>{u.name || u.email}</strong>
-                    {u.name && <span className={styles.email}>{u.email}</span>}
+                    <div className={styles.avatar}>
+                      {(u.name || u.email || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <strong>{u.name || u.email}</strong>
+                      {u.name && <span className={styles.email}>{u.email}</span>}
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -91,6 +131,9 @@ export default function Users() {
                     <option value="organizer">Organisateur</option>
                     <option value="admin">Admin</option>
                   </select>
+                  <span className={`${styles.roleBadge} ${roleBadgeClass(u.role)}`}>
+                    {u.role}
+                  </span>
                 </td>
                 <td>
                   {u.id !== currentUser?.uid && (
@@ -100,7 +143,7 @@ export default function Users() {
                       onClick={() => handleDelete(u.id)}
                       disabled={updating === u.id}
                     >
-                      Supprimer
+                      {updating === u.id ? '…' : 'Supprimer'}
                     </button>
                   )}
                 </td>
@@ -109,6 +152,9 @@ export default function Users() {
           </tbody>
         </table>
       </div>
+      {filtered.length === 0 && (
+        <div className={styles.empty}>Aucun utilisateur trouvé</div>
+      )}
     </div>
   );
 }

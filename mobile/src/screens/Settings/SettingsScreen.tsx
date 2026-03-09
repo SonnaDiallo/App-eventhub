@@ -233,7 +233,7 @@ const SettingsScreen = () => {
             {renderSettingItem('person', '#7B5CFF', 'Modifier le profil', '', () => navigation.navigate('EditProfile' as never))}
             {renderSettingItem('people', '#10B981', 'Amis et demandes', 'Voir mes amis, accepter des demandes', () => navigation.navigate('Friends' as never))}
             {renderSettingItem('mail', '#7B5CFF', 'Email', userData?.email || 'alex@example.com', () => Alert.alert('Email', 'Fonctionnalité à venir'))}
-            {renderSettingItem('lock-closed', '#7B5CFF', 'Mot de passe', '', () => Alert.alert('Mot de passe', 'Fonctionnalité à venir'))}
+            {renderSettingItem('lock-closed', '#7B5CFF', 'Mot de passe', 'Modifier', () => navigation.navigate('ChangePassword' as never))}
             {renderSettingItem('shield-checkmark', '#7B5CFF', 'Sécurité', '', () => Alert.alert('Sécurité', 'Fonctionnalité à venir'))}
           </View>
         </View>

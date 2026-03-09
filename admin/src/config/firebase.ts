@@ -12,7 +12,7 @@ const config = {
 
 if (!config.apiKey || !config.projectId || !config.appId) {
   throw new Error(
-    'Firebase config manquant. Définissez VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID dans admin/.env'
+    'Firebase config manquant. Copiez admin/.env.example vers admin/.env et remplissez VITE_FIREBASE_*'
   );
 }
 

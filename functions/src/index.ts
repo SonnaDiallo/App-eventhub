@@ -567,6 +567,47 @@ export const sendTicketEmail = functions.firestore
     }
   });
 
+// Email de confirmation quand le statut du billet passe à "confirmed" (paiement validé)
+export const sendPaymentConfirmationEmail = functions.firestore
+  .document('tickets/{ticketId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (before?.status === 'confirmed' || after?.status !== 'confirmed') return null;
+    const ticket = after;
+    const email = ticket.participantEmail || ticket.userEmail;
+    if (!email || typeof email !== 'string' || !email.trim()) return null;
+
+    const mailOptions = {
+      from: `EventHub <${process.env.EMAIL_USER || 'noreply@eventhub.com'}>`,
+      to: email.trim(),
+      subject: `✅ Paiement confirmé - ${ticket.eventTitle || 'Votre billet'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f5f5f5;">
+          <h1 style="color: #10b981; text-align: center;">✅ EventHub</h1>
+          <div style="background: white; padding: 20px; border-radius: 12px;">
+            <h2 style="margin: 0 0 20px; color: #111;">Paiement confirmé !</h2>
+            <p>Votre réservation pour <strong>${ticket.eventTitle || 'l\'événement'}</strong> a été confirmée.</p>
+            <p><strong>📅 Date:</strong> ${ticket.eventDate || '-'}</p>
+            <p><strong>🕐 Heure:</strong> ${ticket.eventTime || '-'}</p>
+            <p><strong>📍 Lieu:</strong> ${ticket.eventLocation || '-'}</p>
+            <p><strong>Code billet:</strong> <span style="font-size: 18px; font-weight: bold; letter-spacing: 2px;">${ticket.code || ''}</span></p>
+            <p style="margin-top: 20px; color: #666;">Consultez "Mes billets" dans l'application pour afficher votre billet.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log('Payment confirmation email sent to:', email);
+      return { success: true };
+    } catch (error) {
+      console.error('Error sending payment confirmation email:', error);
+      return { success: false, error };
+    }
+  });
+
 // ==================== PAYMENTS (Stripe) ====================
 // Note: Nécessite d'installer stripe: npm install stripe
 // Configure STRIPE_SECRET_KEY dans functions/.env

@@ -58,6 +58,7 @@ export const useEvents = (options?: UseEventsOptions) => {
             if (e.id && !byId.has(e.id)) byId.set(e.id, e);
           });
           let filteredEvents = Array.from(byId.values());
+          filteredEvents = filteredEvents.filter((e) => (e.coverImage || '').trim().length > 0);
           filteredEvents = ensureUniqueImages(filteredEvents);
           if (options?.limit) {
             filteredEvents = filteredEvents.slice(0, options.limit);
@@ -129,7 +130,7 @@ export const useEvents = (options?: UseEventsOptions) => {
         };
       });
 
-      // Images uniques : pas de même photo pour plusieurs événements
+      eventsList = eventsList.filter((e) => (e.coverImage || '').trim().length > 0);
       eventsList = ensureUniqueImages(eventsList);
 
       if (!options?.category) {
@@ -171,6 +172,7 @@ export const useEvents = (options?: UseEventsOptions) => {
         if (options?.limit) {
           filteredEvents = filteredEvents.slice(0, options.limit);
         }
+        filteredEvents = filteredEvents.filter((e) => (e.coverImage || '').trim().length > 0);
         filteredEvents = ensureUniqueImages(filteredEvents);
         if (currentId === requestIdRef.current) {
           setEvents(filteredEvents);

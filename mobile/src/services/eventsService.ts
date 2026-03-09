@@ -9,6 +9,7 @@ import {
   doc,
   orderBy,
   deleteDoc,
+  where,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { joinEventViaFunctions, getExternalEventsViaFunctions } from './functionsService';
@@ -86,7 +87,9 @@ export const getEvents = async (params?: {
           page: params?.page,
           limit: params?.limit,
         });
-        externalEvents = externalResult.events || [];
+        externalEvents = (externalResult.events || []).filter(
+          (e) => (e.coverImage || '').trim().length > 0
+        );
       } catch (err) {
         console.warn('Could not fetch external events:', err);
       }
@@ -96,7 +99,10 @@ export const getEvents = async (params?: {
     const seenKeys = new Set<string>();
     const deduped: EventData[] = [];
     for (const e of [...localEvents, ...externalEvents]) {
-      const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
+      const startVal = e.startDate;
+      const start: Date = (startVal as unknown) instanceof Date
+        ? (startVal as unknown as Date)
+        : new Date(typeof startVal === 'string' || typeof startVal === 'number' ? startVal : 0);
       const key = `${(e.title || '').trim().toLowerCase()}|${start.toISOString()}|${(e.location || '').trim().toLowerCase()}`;
       if (key && !seenKeys.has(key)) {
         seenKeys.add(key);
@@ -104,6 +110,10 @@ export const getEvents = async (params?: {
       }
     }
     let events = deduped;
+
+    // Exclure les événements sans image (locaux et externes)
+    events = events.filter((e) => (e.coverImage || '').trim().length > 0);
+
     console.log(
       '[eventsService.getEvents] counts -> local =',
       localEvents.length,
@@ -122,7 +132,7 @@ export const getEvents = async (params?: {
     }
     if (params?.upcoming) {
       const now = new Date();
-      events = events.filter(e => new Date(e.startDate) >= now);
+      events = events.filter(e => new Date(e.startDate ?? 0) >= now);
     }
     if (params?.search) {
       const searchLower = params.search.toLowerCase();
@@ -134,7 +144,7 @@ export const getEvents = async (params?: {
     }
 
     // Trier par date
-    events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    events.sort((a, b) => new Date(a.startDate ?? 0).getTime() - new Date(b.startDate ?? 0).getTime());
 
     // Pagination
     const page = params?.page || 1;
@@ -187,7 +197,7 @@ export const getEventById = async (eventId: string): Promise<{ event: EventData 
       organizerName: data.organizerName || 'Organisateur',
       organizerId: data.organizerId || '',
       source: 'local',
-    };
+    } as EventData;
 
     return { event };
   } catch (error: any) {
@@ -204,24 +214,25 @@ export const getExternalEvents = async (params?: ExternalEventsParams): Promise<
   const page = params?.page ?? 1;
   const limit = params?.limit ?? 20;
 
-  const mapBackendEvent = (e: any): EventData => ({
-    id: e.id,
-    title: e.title || '',
-    coverImage: e.coverImage || '',
-    category: e.category || 'other',
-    startDate: e.startDate,
-    endDate: e.endDate,
-    location: e.location || e.venueName || '',
-    description: e.description || '',
-    isFree: e.isFree ?? false,
-    price: e.price ?? 0,
-    capacity: 0,
-    organizerName: e.organizerName || 'Organisateur externe',
-    organizerId: '',
-    source: 'ticketmaster',
-    isExternal: true,
-    externalLink: e.externalUrl,
-  });
+  const mapBackendEvent = (e: any): EventData =>
+    ({
+      id: e.id,
+      title: e.title || '',
+      coverImage: e.coverImage || '',
+      category: e.category || 'other',
+      startDate: e.startDate,
+      endDate: e.endDate,
+      location: e.location || e.venueName || '',
+      description: e.description || '',
+      isFree: e.isFree ?? false,
+      price: e.price ?? 0,
+      capacity: 0,
+      organizerName: e.organizerName || 'Organisateur externe',
+      organizerId: '',
+      source: 'ticketmaster',
+      isExternal: true,
+      externalLink: e.externalUrl,
+    } as EventData);
 
   try {
     const res = await api.get<{
