@@ -8,8 +8,9 @@ import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { testConnection } from '../../services/api';
+import { getMe } from '../../services/api';
 import { getApiBaseUrl } from '../../config/constants';
+import { uploadProfileImageFromUri } from '../../services/storageService';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
@@ -23,15 +24,20 @@ const SettingsScreen = () => {
   const handleTestApi = async () => {
     setApiTesting(true);
     try {
-      const ok = await testConnection();
-      if (ok) {
-        Alert.alert('Connexion OK', 'Le backend répond correctement.');
+      // Test de connexion Firebase
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          Alert.alert('Connexion OK', 'Firebase fonctionne correctement.');
+        } else {
+          Alert.alert('Info', 'Connecté à Firebase mais profil non trouvé.');
+        }
       } else {
-        Alert.alert(
-          'Connexion échouée',
-          'Backend injoignable. Vérifie que :\n• Le backend tourne (cd backend && npm run dev)\n• mobile/.env contient API_URL=http://IP:5000/api (IP = celle affichée au démarrage du backend)\n• Téléphone et PC sur le même réseau / partage de connexion\n• Pare-feu Windows : autoriser Node sur le port 5000'
-        );
+        Alert.alert('Info', 'Non connecté à Firebase.');
       }
+    } catch (error: any) {
+      Alert.alert('Erreur', `Impossible de se connecter à Firebase: ${error.message}`);
     } finally {
       setApiTesting(false);
     }
@@ -44,13 +50,18 @@ const SettingsScreen = () => {
   const loadUserData = async () => {
     try {
       const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData(data);
-          setProfileImage(data.profileImage || null);
-        }
+      if (!user) return;
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const firestoreData = userDoc.exists() ? userDoc.data() : {};
+      const roleFromFirestore = firestoreData.role;
+      setUserData({ ...firestoreData, role: roleFromFirestore || 'user' });
+      const img = firestoreData.profileImage;
+      setProfileImage(img && (img.startsWith('http://') || img.startsWith('https://')) ? img : null);
+
+      const me = await getMe();
+      if (me && typeof me.role === 'string') {
+        setUserData((prev: any) => ({ ...(prev || {}), ...me, role: me.role }));
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -65,7 +76,7 @@ const SettingsScreen = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -74,18 +85,19 @@ const SettingsScreen = () => {
     if (!result.canceled && result.assets[0]) {
       const imageUri = result.assets[0].uri;
       setProfileImage(imageUri);
-      
+
       try {
         const user = auth.currentUser;
-        if (user) {
-          await updateDoc(doc(db, 'users', user.uid), {
-            profileImage: imageUri,
-          });
-          Alert.alert('Succès', 'Photo de profil mise à jour !');
-        }
-      } catch (error) {
+        if (!user) return;
+        const downloadUrl = await uploadProfileImageFromUri(imageUri);
+        await updateDoc(doc(db, 'users', user.uid), {
+          profileImage: downloadUrl,
+        });
+        setProfileImage(downloadUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour !');
+      } catch (error: any) {
         console.error('Error updating profile image:', error);
-        Alert.alert('Erreur', 'Impossible de mettre à jour la photo de profil');
+        Alert.alert('Erreur', error?.message || 'Impossible de mettre à jour la photo de profil');
       }
     }
   };
@@ -135,12 +147,24 @@ const SettingsScreen = () => {
         </View>
       </View>
       <View style={styles.profileInfo}>
-        <Text style={[styles.profileName, { color: theme.text }]}>
-          {userData?.name || 'Utilisateur'}
-        </Text>
+        <View style={styles.profileNameRow}>
+          <Text style={[styles.profileName, { color: theme.text }]}>
+            {(userData?.name || [userData?.firstName, userData?.lastName].filter(Boolean).join(' ')) || 'Utilisateur'}
+          </Text>
+          {userData?.role === 'admin' && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>Admin</Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.profileSubtitle, { color: theme.textSecondary }]}>
-          {userData?.role === 'organizer' ? 'Organisateur' : 'Passionné d\'événements'} • {userData?.city || 'Paris'}
+          {userData?.role === 'admin' ? 'Administrateur' : userData?.role === 'organizer' ? 'Organisateur' : 'Passionné d\'événements'} • {userData?.city || 'Paris'}
         </Text>
+        {userData?.role && (
+          <Text style={[styles.profileRole, { color: theme.textSecondary }]}>
+            Rôle : {userData.role === 'admin' ? 'Admin' : userData.role === 'organizer' ? 'Organisateur' : 'Utilisateur'}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -269,6 +293,16 @@ const SettingsScreen = () => {
           </View>
         </View>
 
+        {/* ADMIN Section (visible only for admin) */}
+        {userData?.role === 'admin' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>ADMIN</Text>
+            <View style={[styles.section, { backgroundColor: theme.surface }]}>
+              {renderSettingItem('shield-checkmark', '#7B5CFF', 'Espace admin', 'Tableau de bord, utilisateurs, événements', () => navigation.navigate('AdminHome' as never))}
+            </View>
+          </View>
+        )}
+
         {/* SUPPORT Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>SUPPORT</Text>
@@ -368,13 +402,33 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     flex: 1,
   },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   profileName: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 4,
+  },
+  adminBadge: {
+    backgroundColor: '#7B5CFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  adminBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
   },
   profileSubtitle: {
     fontSize: 14,
+  },
+  profileRole: {
+    fontSize: 12,
+    marginTop: 2,
   },
   sectionContainer: {
     marginTop: 24,

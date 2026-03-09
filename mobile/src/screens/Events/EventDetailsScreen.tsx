@@ -18,11 +18,12 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
+import { normalizeImageUrl } from '../../config/constants';
 import { 
   registerForExternalEvent, 
   cancelExternalEventRegistration, 
@@ -162,12 +163,13 @@ const EventDetailsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await api.delete(`/events/${event.id}`);
+              // Supprimer l'événement de Firestore
+              await deleteDoc(doc(db, 'events', event.id));
               Alert.alert('Succès', 'Événement supprimé !');
               navigation.goBack();
             } catch (error: any) {
               console.error('Delete event error:', error);
-              Alert.alert('Erreur', error?.response?.data?.message || 'Impossible de supprimer l\'événement');
+              Alert.alert('Erreur', error?.message || 'Impossible de supprimer l\'événement');
             }
           },
         },
@@ -491,7 +493,7 @@ const EventDetailsScreen = () => {
       {/* Grande image de l'événement avec gradient overlay */}
       <View style={{ position: 'relative' }}>
         <Image
-          source={{ uri: event.coverImage }}
+          source={{ uri: normalizeImageUrl(event.coverImage) }}
           style={{ width: '100%', height: 320 }}
           resizeMode="cover"
         />

@@ -62,5 +62,57 @@ service cloud.firestore {
       // Seuls les organisateurs peuvent créer des entrées d'historique
       allow create: if request.auth != null;
     }
+
+    // Conversations collection (chat entre amis)
+    match /conversations/{conversationId} {
+      // Un utilisateur peut lire/écrire une conversation s'il en fait partie
+      allow read, write: if request.auth != null && 
+        request.auth.uid in conversationId.split('_');
+      
+      // Messages dans une conversation
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && 
+          request.auth.uid in conversationId.split('_');
+      }
+    }
+
+    // Friend Requests collection
+    match /friendRequests/{requestId} {
+      // L'utilisateur peut lire les demandes qu'il a envoyées ou reçues
+      allow read: if request.auth != null;
+      // Tout utilisateur authentifié peut créer une demande
+      allow create: if request.auth != null;
+      // Seuls les utilisateurs concernés peuvent modifier/supprimer
+      allow update, delete: if request.auth != null;
+    }
+
+    // Reviews collection
+    match /reviews/{reviewId} {
+      // Tout le monde peut lire les avis
+      allow read: if true;
+      // Utilisateurs authentifiés peuvent créer
+      allow create: if request.auth != null;
+      // L'auteur peut modifier/supprimer son avis
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Payments collection
+    match /payments/{paymentId} {
+      // L'utilisateur peut lire ses propres paiements
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      // Création via Cloud Functions uniquement
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // External Registrations collection
+    match /externalRegistrations/{registrationId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
   }
 }

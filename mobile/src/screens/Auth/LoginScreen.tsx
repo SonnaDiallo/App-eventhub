@@ -17,7 +17,6 @@ import { doc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
 import { saveToken } from '../../services/authStorage';
-import { api } from '../../services/api';
 import { useTheme } from '../../theme/ThemeContext';
 import { useGoogleAuth, signInWithGoogleToken, signInWithApple } from '../../services/socialAuth';
 
@@ -44,13 +43,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         try {
           const token = await user.getIdToken();
           await saveToken(token);
-          
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
-          const userData = userDoc.data();
-          
-          // Redirection vers l'accueil principal
-          navigation.replace('HomeParticipant' as any);
+          const role = userDoc.exists() ? userDoc.data()?.role : undefined;
+          if (role === 'admin') {
+            navigation.replace('AdminHome' as any);
+          } else {
+            navigation.replace('HomeParticipant' as any);
+          }
         } catch (error) {
           console.error('Auto-login error:', error);
         }
@@ -111,9 +111,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const idToken = await credential.user.getIdToken();
       await saveToken(idToken);
 
-      // Synchroniser l'utilisateur vers MongoDB (backend) pour événements / billets
-      api.get('/auth/me').catch(() => {});
-
       const uid = credential.user.uid;
       const profileSnap = await getDoc(doc(db, 'users', uid));
 
@@ -128,12 +125,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
 
-      // Tous les utilisateurs (participants et organisateurs) vont sur la page d'accueil
-      // Les organisateurs peuvent accéder au tableau de bord depuis leur profil
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'HomeParticipant' }],
-      });
+      if (role === 'admin') {
+        navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+      }
     } catch (error: any) {
       console.error('Login error', error?.message);
       Alert.alert(
@@ -169,20 +165,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       if (result.user) {
         const token = await result.user.user.getIdToken();
         await saveToken(token);
-        api.get('/auth/me').catch(() => {});
 
         const uid = result.user.user.uid;
         const profileSnap = await getDoc(doc(db, 'users', uid));
+        const role = profileSnap.exists() ? profileSnap.data()?.role : undefined;
         const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
         const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
         const name = firstName && lastName ? `${firstName} ${lastName}` : result.user.user.displayName;
 
         Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
 
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'HomeParticipant' }],
-        });
+        if (role === 'admin') {
+          navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+        } else {
+          navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+        }
       }
     } catch (error: any) {
       console.error('Google Sign-In token error:', error);
@@ -205,20 +202,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       if (result.user) {
         const idToken = await result.user.user.getIdToken();
         await saveToken(idToken);
-        api.get('/auth/me').catch(() => {});
 
         const uid = result.user.user.uid;
         const profileSnap = await getDoc(doc(db, 'users', uid));
+        const role = profileSnap.exists() ? profileSnap.data()?.role : undefined;
         const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
         const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
         const name = firstName && lastName ? `${firstName} ${lastName}` : result.user.user.displayName;
 
         Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
 
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'HomeParticipant' }],
-        });
+        if (role === 'admin') {
+          navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+        } else {
+          navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+        }
       }
     } catch (error: any) {
       console.error('Apple Sign-In error:', error);

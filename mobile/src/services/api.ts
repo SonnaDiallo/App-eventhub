@@ -1,8 +1,9 @@
 // mobile/src/services/api.ts
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 import { Platform } from 'react-native';
 
-import { getToken } from './authStorage';
+import { getToken, saveToken } from './authStorage';
+import { auth } from './firebase';
 import { getApiBaseUrl, API_CONFIG } from '../config/constants';
 
 declare const __DEV__: boolean;
@@ -51,23 +52,37 @@ api.interceptors.request.use(
 let lastNetworkWarn = 0;
 const NETWORK_WARN_THROTTLE_MS = 10000;
 
-// Intercepteur de réponse
+// Intercepteur de réponse : sur 401, rafraîchir le token Firebase et réessayer une fois
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Success:', response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error: AxiosError) => {
+    const config = error.config as typeof error.config & { _retried?: boolean };
+    const status = error.response?.status;
+
+    if (status === 401 && config && !config._retried && auth.currentUser) {
+      config._retried = true;
+      try {
+        const newToken = await auth.currentUser.getIdToken(true);
+        await saveToken(newToken);
+        config.headers = { ...config.headers, Authorization: `Bearer ${newToken}` } as any;
+        return api.request(config);
+      } catch (refreshErr) {
+        // Échec du refresh, on rejette l'erreur initiale
+      }
+    }
+
     const isNetworkOrTimeout =
       !error.response &&
-      (error.request || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout'));
+      (error.request || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || (error as any).message?.includes('timeout'));
 
     if (error.response) {
-      const status = error.response.status;
       if (status === 404) {
-        console.log('📭 Not found (404):', error.config?.url);
+        console.log('📭 Not found (404):', config?.url);
       } else {
-        console.error('❌ Server Error:', { status, data: error.response.data, url: error.config?.url });
+        console.error('❌ Server Error:', { status, data: (error.response as any)?.data, url: config?.url });
       }
     } else if (error.request || isNetworkOrTimeout) {
       const now = Date.now();
@@ -76,11 +91,33 @@ api.interceptors.response.use(
         console.warn('⚠️ API injoignable – backend éteint ou réseau (cd backend && npm run dev | même WiFi | IP dans api.ts)');
       }
     } else {
-      console.warn('❌ Request Error:', error.message);
+      console.warn('❌ Request Error:', (error as Error).message);
     }
     return Promise.reject(error);
   }
 );
+
+/** Récupère le profil courant depuis le backend (source de vérité pour le rôle, ex. admin) */
+export type MeUser = {
+  id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+  canScanTickets?: boolean;
+  themeMode?: string;
+  language?: string;
+};
+
+export const getMe = async (): Promise<MeUser | null> => {
+  try {
+    const { data } = await api.get<{ user: MeUser }>('/auth/me');
+    return data?.user ?? null;
+  } catch {
+    return null;
+  }
+};
 
 // Test de connexion
 export const testConnection = async () => {

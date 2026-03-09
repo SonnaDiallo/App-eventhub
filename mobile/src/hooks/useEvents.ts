@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getEvents } from '../services/eventsService';
 import { EventsCache } from '../services/eventsCache';
+import { normalizeImageUrl } from '../config/constants';
+import { ensureUniqueImages } from '../utils/eventHelpers';
 
 export interface Event {
   id: string;
@@ -45,18 +47,18 @@ export const useEvents = (options?: UseEventsOptions) => {
       setLoading(true);
       setError(null);
 
-      // Désactiver le cache si on filtre par catégorie (pour éviter les conflits)
-      const USE_CACHE = !options?.category;
+      // Pas de cache si on filtre par catégorie ou si on veut uniquement les événements à venir (données fraîches)
+      const USE_CACHE = !options?.category && !options?.upcoming;
       
       if (!forceRefresh && USE_CACHE) {
         const cachedEvents = await EventsCache.getEvents();
         if (cachedEvents && cachedEvents.length > 0) {
-          // Dédupliquer par id avant toute utilisation
           const byId = new Map<string, Event>();
           cachedEvents.forEach((e) => {
             if (e.id && !byId.has(e.id)) byId.set(e.id, e);
           });
           let filteredEvents = Array.from(byId.values());
+          filteredEvents = ensureUniqueImages(filteredEvents);
           if (options?.limit) {
             filteredEvents = filteredEvents.slice(0, options.limit);
           }
@@ -75,7 +77,7 @@ export const useEvents = (options?: UseEventsOptions) => {
         limit: options?.limit || 100,
         category: options?.category,
         includeExternal: options?.includeExternal,
-        upcoming: options?.upcoming,
+        upcoming: options?.upcoming, // à venir uniquement (pas d’anciens événements type janvier)
       });
 
       // Dédupliquer les événements par ID uniquement (évite doublons API / multi-sources)
@@ -115,7 +117,7 @@ export const useEvents = (options?: UseEventsOptions) => {
           startDate: event.startDate,
           endDate: event.endDate,
           location: event.location || '',
-          coverImage: event.coverImage || '',
+          coverImage: normalizeImageUrl(event.coverImage),
           price: event.price,
           isFree: event.isFree ?? true,
           category: event.category || undefined,
@@ -127,16 +129,16 @@ export const useEvents = (options?: UseEventsOptions) => {
         };
       });
 
-      // Sauvegarder dans le cache (déjà dédupliquée par id) uniquement si on ne filtre pas par catégorie
+      // Images uniques : pas de même photo pour plusieurs événements
+      eventsList = ensureUniqueImages(eventsList);
+
       if (!options?.category) {
-        const toCache = eventsList.slice(0, 200); // limiter la taille du cache
+        const toCache = eventsList.slice(0, 200);
         await EventsCache.saveEvents(toCache);
       }
-      
       if (options?.limit) {
         eventsList = eventsList.slice(0, options.limit);
       }
-
       if (currentId === requestIdRef.current) {
         setEvents(eventsList);
       }
@@ -153,6 +155,13 @@ export const useEvents = (options?: UseEventsOptions) => {
           if (e.id && !byId.has(e.id)) byId.set(e.id, e);
         });
         let filteredEvents = Array.from(byId.values());
+        if (options?.upcoming) {
+          const now = new Date();
+          filteredEvents = filteredEvents.filter((e) => {
+            const d = e.startDate ? new Date(e.startDate) : null;
+            return d && d >= now;
+          });
+        }
         if (options?.category) {
           const catLower = options.category.toLowerCase();
           filteredEvents = filteredEvents.filter(
@@ -162,6 +171,7 @@ export const useEvents = (options?: UseEventsOptions) => {
         if (options?.limit) {
           filteredEvents = filteredEvents.slice(0, options.limit);
         }
+        filteredEvents = ensureUniqueImages(filteredEvents);
         if (currentId === requestIdRef.current) {
           setEvents(filteredEvents);
           setError(null);

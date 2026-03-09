@@ -19,7 +19,6 @@ import {
 import { sendFriendRequest } from '../../services/friendsService';
 import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
-import { api } from '../../services/api';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Participants'>;
 

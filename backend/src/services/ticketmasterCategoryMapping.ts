@@ -16,8 +16,10 @@ export const TICKETMASTER_CATEGORY_MAPPING: Record<EventCategory, {
   segmentId: string;
   segmentName: string;
   classificationNames?: string[];
-  /** Mot-clé pour filtrer dans le segment Miscellaneous (évite mélange gastronomie/tech/santé) */
+  /** Mot-clé pour filtrer (obligatoire si keywordOnly) */
   keyword?: string;
+  /** Si true, on n'envoie pas segmentId : recherche par keyword sur tous les segments (Miscellaneous renvoie peu d'événements à Paris) */
+  keywordOnly?: boolean;
 }> = {
   [EventCategory.MUSIC]: {
     segmentId: 'KZFzniwnSyZfZ7v7nJ',
@@ -38,42 +40,22 @@ export const TICKETMASTER_CATEGORY_MAPPING: Record<EventCategory, {
     segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Food & Drink', 'Culinary'],
-    keyword: 'food drink culinary gastronomy wine tasting chef',
-  },
-  [EventCategory.TECHNOLOGY]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1',
-    segmentName: 'Miscellaneous',
-    classificationNames: ['Technology', 'Tech'],
-    keyword: 'tech technology conference startup digital',
-  },
-  [EventCategory.BUSINESS]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1',
-    segmentName: 'Miscellaneous',
-    classificationNames: ['Business', 'Conference'],
-    keyword: 'business conference networking professional',
-  },
-  [EventCategory.EDUCATION]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1',
-    segmentName: 'Miscellaneous',
-    classificationNames: ['Education', 'Workshop', 'Seminar'],
-    keyword: 'education workshop seminar training',
-  },
-  [EventCategory.HEALTH]: {
-    segmentId: 'KZFzniwnSyZfZ7v7n1',
-    segmentName: 'Miscellaneous',
-    classificationNames: ['Health', 'Wellness', 'Fitness'],
-    keyword: 'health wellness fitness yoga meditation',
+    keyword: 'food culinary gastronomy wine tasting chef dégustation cuisine',
+    keywordOnly: true,
   },
   [EventCategory.FAMILY]: {
     segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Family', 'Kids', 'Children'],
-    keyword: 'family kids children',
+    keyword: 'family kids children famille',
+    keywordOnly: true,
   },
   [EventCategory.OTHER]: {
     segmentId: 'KZFzniwnSyZfZ7v7n1',
     segmentName: 'Miscellaneous',
     classificationNames: ['Other', 'Miscellaneous'],
+    keywordOnly: true,
+    keyword: 'event',
   },
 };
 
@@ -131,4 +113,12 @@ export function getAllTicketmasterClassifications(category: EventCategory): stri
  */
 export function getTicketmasterKeyword(category: EventCategory): string | undefined {
   return TICKETMASTER_CATEGORY_MAPPING[category]?.keyword;
+}
+
+/**
+ * Si true, on ne passe pas segmentId à l'API (recherche par keyword sur tous les segments).
+ * Utilisé pour Food, Family, Other car le segment Miscellaneous renvoie peu d'événements à Paris.
+ */
+export function useKeywordOnly(category: EventCategory): boolean {
+  return !!TICKETMASTER_CATEGORY_MAPPING[category]?.keywordOnly;
 }

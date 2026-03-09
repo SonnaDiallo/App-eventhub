@@ -53,45 +53,27 @@ export function getCategoryDefaultImage(
 export function detectCategoryFromTitle(title: string): EventCategory {
   const titleLower = title.toLowerCase();
 
-  if (titleLower.includes('yoga') || titleLower.includes('méditation') || titleLower.includes('meditation') || 
-      titleLower.includes('santé') || titleLower.includes('sante') || titleLower.includes('bien-être') || 
-      titleLower.includes('bien-etre') || titleLower.includes('wellness')) {
-    return EventCategory.HEALTH;
-  } else if (titleLower.includes('théâtre') || titleLower.includes('theatre') || 
-             titleLower.includes('spectacle') || titleLower.includes('danse') || 
-             titleLower.includes('dance') || titleLower.includes('ballet') ||
-             titleLower.includes('art') || titleLower.includes('exposition') || 
-             titleLower.includes('exhibition') || titleLower.includes('gallery')) {
+  if (titleLower.includes('théâtre') || titleLower.includes('theatre') || titleLower.includes('spectacle') ||
+      titleLower.includes('danse') || titleLower.includes('dance') || titleLower.includes('ballet') ||
+      titleLower.includes('art') || titleLower.includes('exposition') || titleLower.includes('exhibition') ||
+      titleLower.includes('gallery')) {
     return EventCategory.ARTS;
-  } else if (titleLower.includes('concert') || titleLower.includes('musique') || 
-             titleLower.includes('music') || titleLower.includes('festival')) {
+  }
+  if (titleLower.includes('concert') || titleLower.includes('musique') || titleLower.includes('music') ||
+      titleLower.includes('festival')) {
     return EventCategory.MUSIC;
-  } else if (titleLower.includes('conférence') || titleLower.includes('conference') || 
-             titleLower.includes('talk') || titleLower.includes('business') ||
-             titleLower.includes('networking') || titleLower.includes('séminaire') ||
-             titleLower.includes('seminaire')) {
-    return EventCategory.BUSINESS;
-  } else if (titleLower.includes('sport') || titleLower.includes('fitness') || 
-             titleLower.includes('marathon') || titleLower.includes('run') ||
-             titleLower.includes('football') || titleLower.includes('basketball') ||
-             titleLower.includes('tennis')) {
+  }
+  if (titleLower.includes('sport') || titleLower.includes('fitness') || titleLower.includes('marathon') ||
+      titleLower.includes('run') || titleLower.includes('football') || titleLower.includes('basketball') ||
+      titleLower.includes('tennis')) {
     return EventCategory.SPORTS;
-  } else if (titleLower.includes('atelier') || titleLower.includes('workshop') || 
-             titleLower.includes('formation') || titleLower.includes('cours') ||
-             titleLower.includes('apprendre') || titleLower.includes('learn')) {
-    return EventCategory.EDUCATION;
-  } else if (titleLower.includes('food') || titleLower.includes('cuisine') || 
-             titleLower.includes('restaurant') || titleLower.includes('gastronomie') ||
-             titleLower.includes('dégustation') || titleLower.includes('degustation')) {
+  }
+  if (titleLower.includes('food') || titleLower.includes('cuisine') || titleLower.includes('restaurant') ||
+      titleLower.includes('gastronomie') || titleLower.includes('dégustation') || titleLower.includes('degustation')) {
     return EventCategory.FOOD;
-  } else if (titleLower.includes('tech') || titleLower.includes('technologie') || 
-             titleLower.includes('startup') || titleLower.includes('innovation') ||
-             titleLower.includes('hackathon') || titleLower.includes('coding') ||
-             titleLower.includes('développement') || titleLower.includes('developpement')) {
-    return EventCategory.TECHNOLOGY;
-  } else if (titleLower.includes('enfant') || titleLower.includes('kid') || 
-             titleLower.includes('children') || titleLower.includes('family') ||
-             titleLower.includes('famille')) {
+  }
+  if (titleLower.includes('enfant') || titleLower.includes('kid') || titleLower.includes('children') ||
+      titleLower.includes('family') || titleLower.includes('famille')) {
     return EventCategory.FAMILY;
   }
 

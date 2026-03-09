@@ -1,6 +1,4 @@
-const path = require('path');
-// Charger .env depuis le dossier mobile (même si tu lances expo depuis la racine)
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config();
 
 module.exports = {
   name: "EventHub",

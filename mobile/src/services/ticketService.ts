@@ -1,5 +1,11 @@
 // mobile/src/services/ticketService.ts
-import { api } from './api';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from './firebase';
+import { 
+  getMyTicketsViaFunctions, 
+  verifyTicketViaFunctions, 
+  joinEventViaFunctions 
+} from './functionsService';
 
 export interface VerifyTicketResponse {
   success: boolean;
@@ -29,14 +35,15 @@ export const verifyTicket = async (
   eventId?: string
 ): Promise<VerifyTicketResponse> => {
   try {
-    const query = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
-    const response = await api.post(`/tickets/verify/${encodeURIComponent(ticketCode)}${query}`);
-    return response.data;
+    const result = await verifyTicketViaFunctions(ticketCode, eventId, true);
+    return {
+      success: result.valid,
+      message: result.message || (result.valid ? 'Ticket valide' : 'Ticket invalide'),
+      ticket: result.ticket,
+    };
   } catch (error: any) {
     console.error('Error verifying ticket:', error);
-    throw new Error(
-      error.response?.data?.message || 'Erreur lors de la vérification du billet'
-    );
+    throw new Error(error.message || 'Erreur lors de la vérification du billet');
   }
 };
 
@@ -44,8 +51,27 @@ export const getEventScanHistory = async (
   eventId: string
 ): Promise<ScanHistoryItem[]> => {
   try {
-    const response = await api.get(`/tickets/event/${eventId}/scans`);
-    return response.data.scans || [];
+    // Récupérer directement depuis Firestore les tickets scannés pour cet événement
+    const ticketsRef = collection(db, 'tickets');
+    const q = query(
+      ticketsRef, 
+      where('eventId', '==', eventId),
+      where('checkedIn', '==', true),
+      orderBy('checkedInAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ticketId: doc.id,
+        participantName: data.participantName || '',
+        participantEmail: data.participantEmail || '',
+        scannedAt: data.checkedInAt?.toDate?.()?.toISOString() || '',
+        scannedBy: data.scannedBy || '',
+      };
+    });
   } catch (error: any) {
     console.error('Error fetching scan history:', error);
     return [];
@@ -54,24 +80,20 @@ export const getEventScanHistory = async (
 
 export const getMyTickets = async () => {
   try {
-    const response = await api.get('/tickets/my-tickets');
-    return response.data.tickets || [];
+    const result = await getMyTicketsViaFunctions();
+    return result.tickets || [];
   } catch (error: any) {
     console.error('Error fetching my tickets:', error);
-    throw new Error(
-      error.response?.data?.message || 'Erreur lors du chargement des billets'
-    );
+    throw new Error(error.message || 'Erreur lors du chargement des billets');
   }
 };
 
 export const registerForEvent = async (eventId: string) => {
   try {
-    const response = await api.post(`/tickets/register/${eventId}`);
-    return response.data;
+    const result = await joinEventViaFunctions(eventId);
+    return result;
   } catch (error: any) {
     console.error('Error registering for event:', error);
-    throw new Error(
-      error.response?.data?.message || 'Erreur lors de l\'inscription à l\'événement'
-    );
+    throw new Error(error.message || 'Erreur lors de l\'inscription à l\'événement');
   }
 };

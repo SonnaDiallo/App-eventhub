@@ -3,7 +3,38 @@ import { View, Text, Image, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeContext';
+import { normalizeImageUrl } from '../config/constants';
 import type { EventData } from '../navigation/AuthNavigator';
+
+// Plusieurs images de placeholder variées : même catégorie = images différentes par événement
+const PLACEHOLDER_IMAGES = [
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
+  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800',
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
+  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800',
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800',
+  'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800',
+  'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800',
+  'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800',
+  'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
+];
+
+function hashString(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/** URL d’image : cover de l’événement ou placeholder varié par événement (pas la même image pour tous) */
+function getEventImageUri(event: EventData): string {
+  const url = normalizeImageUrl(event.coverImage);
+  if (url) return url;
+  const index = hashString(event.id || event.title || '') % PLACEHOLDER_IMAGES.length;
+  return PLACEHOLDER_IMAGES[index];
+}
 
 interface EventCardProps {
   event: EventData;
@@ -55,7 +86,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
           {/* Grande image */}
           <View style={{ position: 'relative' }}>
             <Image 
-              source={{ uri: event.coverImage }} 
+              source={{ uri: getEventImageUri(event) }} 
               style={{ width: '100%', height: 200 }} 
               resizeMode="cover"
             />
@@ -96,7 +127,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
                   Gratuit
                 </Text>
               </View>
-            ) : event.price && event.price > 0 && (
+            ) : (event.price ?? 0) > 0 && (
               <View
                 style={{
                   position: 'absolute',
@@ -183,7 +214,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
           <View style={{ position: 'relative' }}>
             {/* Image de fond */}
             <Image 
-              source={{ uri: event.coverImage }} 
+              source={{ uri: getEventImageUri(event) }} 
               style={{ width: '100%', height: 280 }} 
               resizeMode="cover"
             />
@@ -207,7 +238,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
             />
 
             {/* Badge prix avec gradient */}
-            {event.price && event.price > 0 && (
+            {(event.price ?? 0) > 0 && (
               <View
                 style={{
                   position: 'absolute',
@@ -364,7 +395,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
         {/* Image avec overlay gradient */}
         <View style={{ position: 'relative' }}>
           <Image 
-            source={{ uri: event.coverImage }} 
+            source={{ uri: getEventImageUri(event) }} 
             style={{ width: '100%', height: 160 }} 
             resizeMode="cover"
           />
@@ -380,7 +411,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
           />
           
           {/* Badge prix avec gradient */}
-          {event.price && event.price > 0 && (
+          {(event.price ?? 0) > 0 && (
             <View
               style={{
                 position: 'absolute',

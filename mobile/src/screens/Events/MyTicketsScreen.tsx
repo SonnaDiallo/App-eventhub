@@ -21,7 +21,6 @@ import * as Sharing from 'expo-sharing';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
 import { leaveEvent } from '../../services/eventsService';
-import { api } from '../../services/api';
 
 interface Ticket {
   id: string;
@@ -49,56 +48,12 @@ const MyTicketsScreen = () => {
   const user = auth.currentUser;
 
   const handleDownloadPDF = async (ticket: Ticket) => {
-    try {
-      setDownloadingPdf(true);
-      
-      // Récupérer le token d'authentification
-      const token = await user?.getIdToken();
-      if (!token) {
-        Alert.alert('Erreur', 'Vous devez être connecté pour télécharger le billet');
-        return;
-      }
-
-      // URL de l'API backend
-      const baseURL = api.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000';
-      const pdfUrl = `${baseURL}/api/ticket-pdf/download/${ticket.id}`;
-
-      // Télécharger le PDF
-      const fileUri = `${FileSystem.documentDirectory}billet-${ticket.id}.pdf`;
-      
-      const downloadResult = await FileSystem.downloadAsync(
-        pdfUrl,
-        fileUri,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (downloadResult.status === 200) {
-        // Vérifier si le partage est disponible
-        const isAvailable = await Sharing.isAvailableAsync();
-        
-        if (isAvailable) {
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: 'application/pdf',
-            dialogTitle: 'Télécharger le billet',
-            UTI: 'com.adobe.pdf',
-          });
-          Alert.alert('Succès', 'Billet téléchargé avec succès !');
-        } else {
-          Alert.alert('Succès', `Billet sauvegardé dans: ${fileUri}`);
-        }
-      } else {
-        Alert.alert('Erreur', 'Impossible de télécharger le billet');
-      }
-    } catch (error: any) {
-      console.error('Error downloading PDF:', error);
-      Alert.alert('Erreur', 'Impossible de télécharger le billet. Vérifiez votre connexion.');
-    } finally {
-      setDownloadingPdf(false);
-    }
+    // Fonctionnalité PDF désactivée - utiliser le partage du QR code intégré
+    Alert.alert(
+      'Billet numérique',
+      'Votre billet avec QR code est disponible directement dans l\'application. Vous pouvez faire une capture d\'écran pour le sauvegarder.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleCancelReservation = async (ticket: Ticket) => {

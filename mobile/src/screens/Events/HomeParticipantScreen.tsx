@@ -21,8 +21,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { LocationPickerModal } from '../../components/LocationPickerModal';
 
 import { filterEvents, sortEvents, type SortOption } from '../../utils/eventFilters';
-import { eventForNav } from '../../utils/eventHelpers';
+import { eventForNav, ensureUniqueImages } from '../../utils/eventHelpers';
 import { createStyles } from './HomeParticipantScreen.styles';
+import { normalizeImageUrl } from '../../config/constants';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'HomeParticipant'>;
 
@@ -48,7 +49,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const { events, loading } = useEvents({ 
     limit: selectedCategory ? undefined : 15, 
     category: selectedCategory || undefined,
-    includeExternal: true
+    includeExternal: true,
+    upcoming: true, // uniquement événements à venir (évite anciens événements type janvier en mars)
   });
 
   // Charger la ville de l'utilisateur depuis Firestore
@@ -115,7 +117,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
 
   const filtered = useMemo(() => {
     const filteredEvents = filterEvents(events, searchQuery, selectedCategory);
-    return sortEvents(filteredEvents, sortBy);
+    const sorted = sortEvents(filteredEvents, sortBy);
+    return ensureUniqueImages(sorted);
   }, [events, searchQuery, selectedCategory, sortBy]);
 
   const featuredEvent = filtered.length > 0 ? filtered[0] : null;
@@ -570,7 +573,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               {/* Image de fond */}
               {event.coverImage && (
                 <Image
-                  source={{ uri: event.coverImage }}
+                  source={{ uri: normalizeImageUrl(event.coverImage) }}
                   style={{
                     position: 'absolute',
                     width: '100%',
@@ -596,7 +599,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               />
               
-              {event.price && event.price > 0 && (
+              {(event.price ?? 0) > 0 && (
                 <View style={{
                   position: 'absolute',
                   top: 16,
@@ -809,7 +812,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Image */}
                   {event.coverImage ? (
                     <Image
-                      source={{ uri: event.coverImage }}
+                      source={{ uri: normalizeImageUrl(event.coverImage) }}
                       style={{ width: '100%', height: 140 }}
                       resizeMode="cover"
                     />

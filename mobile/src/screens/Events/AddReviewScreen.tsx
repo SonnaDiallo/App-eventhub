@@ -85,7 +85,7 @@ export const AddReviewScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -95,21 +95,21 @@ export const AddReviewScreen = () => {
             style={styles.backButton}
             disabled={isSubmitting}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Donner votre avis</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Donner votre avis</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <View style={[styles.eventInfo, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.eventTitle, { color: theme.colors.text }]}>{eventTitle}</Text>
+        <View style={[styles.eventInfo, { backgroundColor: theme.card }]}>
+          <Text style={[styles.eventTitle, { color: theme.text }]}>{eventTitle}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Note</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Note</Text>
           <View style={styles.starsContainer}>{renderStars()}</View>
           {rating > 0 && (
-            <Text style={[styles.ratingText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.ratingText, { color: theme.textSecondary }]}>
               {rating === 1 && 'Très décevant'}
               {rating === 2 && 'Décevant'}
               {rating === 3 && 'Correct'}
@@ -120,18 +120,18 @@ export const AddReviewScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Commentaire</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Commentaire</Text>
           <TextInput
             style={[
               styles.textInput,
               {
-                backgroundColor: theme.colors.card,
-                color: theme.colors.text,
-                borderColor: theme.colors.border,
+                backgroundColor: theme.card,
+                color: theme.text,
+                borderColor: theme.border,
               },
             ]}
             placeholder="Partagez votre expérience..."
-            placeholderTextColor={theme.colors.textSecondary}
+            placeholderTextColor={theme.textSecondary}
             multiline
             numberOfLines={6}
             maxLength={500}
@@ -139,7 +139,7 @@ export const AddReviewScreen = () => {
             onChangeText={setComment}
             editable={!isSubmitting}
           />
-          <Text style={[styles.characterCount, { color: theme.colors.textSecondary }]}>
+          <Text style={[styles.characterCount, { color: theme.textSecondary }]}>
             {comment.length}/500 caractères
           </Text>
         </View>
@@ -147,7 +147,7 @@ export const AddReviewScreen = () => {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            { backgroundColor: theme.colors.primary },
+            { backgroundColor: theme.primary },
             (isSubmitting || rating === 0 || comment.trim().length < 10) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}

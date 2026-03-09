@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { normalizeImageUrl } from '../../config/constants';
 import type { AuthStackParamList, EventData } from '../../navigation/AuthNavigator';
 
 const FavoritesScreen = () => {
@@ -108,7 +109,7 @@ const FavoritesScreen = () => {
           },
         ]}
       >
-        <Image source={{ uri: item.coverImage }} style={styles.eventImage} />
+        <Image source={{ uri: normalizeImageUrl(item.coverImage) }} style={styles.eventImage} />
         <View style={styles.eventContent}>
           <View style={styles.eventHeader}>
             <Text style={[styles.eventTitle, { color: theme.text }]}>{item.title}</Text>

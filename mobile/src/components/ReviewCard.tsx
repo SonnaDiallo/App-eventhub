@@ -39,32 +39,32 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, theme }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
+    <View style={[styles.container, { backgroundColor: theme.card }]}>
       <View style={styles.header}>
         <View style={styles.userInfo}>
           {review.userAvatar ? (
             <Image source={{ uri: review.userAvatar }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primary }]}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
               <Text style={styles.avatarText}>
                 {review.userName.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={[styles.userName, { color: theme.colors.text }]}>
+            <Text style={[styles.userName, { color: theme.text }]}>
               {review.userName}
             </Text>
             <View style={styles.ratingContainer}>
               {renderStars(review.rating)}
-              <Text style={[styles.date, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.date, { color: theme.textSecondary }]}>
                 {' • '}{formatDate(review.createdAt)}
               </Text>
             </View>
           </View>
         </View>
       </View>
-      <Text style={[styles.comment, { color: theme.colors.text }]}>
+      <Text style={[styles.comment, { color: theme.text }]}>
         {review.comment}
       </Text>
     </View>

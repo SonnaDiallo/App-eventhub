@@ -52,6 +52,15 @@ import { PaymentScreen } from '../screens/Payment/PaymentScreen';
 
 import TrendingEventsScreen from '../screens/Events/TrendingEventsScreen';
 
+import AdminHomeScreen from '../screens/Admin/AdminHomeScreen';
+
+import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
+
+import AdminUsersScreen from '../screens/Admin/AdminUsersScreen';
+
+import AdminEventsScreen from '../screens/Admin/AdminEventsScreen';
+import AdminReviewsScreen from '../screens/Admin/AdminReviewsScreen';
+
 
 
 export type EventData = {
@@ -147,6 +156,15 @@ export type AuthStackParamList = {
   Payment: { eventId: string; eventTitle: string; amount: number; ticketId: string };
 
   TrendingEvents: undefined;
+
+  AdminHome: undefined;
+
+  AdminDashboard: undefined;
+
+  AdminUsers: undefined;
+
+  AdminEvents: undefined;
+  AdminReviews: undefined;
 
 };
 
@@ -405,6 +423,56 @@ const AuthNavigator: React.FC = () => {
         component={TrendingEventsScreen}
 
         options={{ headerShown: false }}
+
+      />
+
+      <Stack.Screen
+
+        name="AdminHome"
+
+        component={AdminHomeScreen}
+
+        options={{ title: 'Espace admin' }}
+
+      />
+
+      <Stack.Screen
+
+        name="AdminDashboard"
+
+        component={AdminDashboardScreen}
+
+        options={{ title: 'Tableau de bord' }}
+
+      />
+
+      <Stack.Screen
+
+        name="AdminUsers"
+
+        component={AdminUsersScreen}
+
+        options={{ title: 'Utilisateurs' }}
+
+      />
+
+      <Stack.Screen
+
+        name="AdminEvents"
+
+        component={AdminEventsScreen}
+
+        options={{ title: 'Événements' }}
+
+      />
+
+      <Stack.Screen
+
+        name="AdminReviews"
+
+        component={AdminReviewsScreen}
+
+        options={{ title: 'Avis' }}
 
       />
 

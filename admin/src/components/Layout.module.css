@@ -1,0 +1,69 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+  padding: 0 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.nav a {
+  padding: 0.6rem 1.25rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav a:hover {
+  background: rgba(123, 92, 255, 0.1);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav a.active {
+  background: rgba(123, 92, 255, 0.2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.logout {
+  margin: 1rem 1.25rem 0;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.logout:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.main {
+  flex: 1;
+  padding: 2rem;
+  overflow: auto;
+}

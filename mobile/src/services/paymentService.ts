@@ -1,4 +1,8 @@
-import { api } from './api';
+import { 
+  createPaymentIntentViaFunctions, 
+  confirmPaymentViaFunctions, 
+  getMyPaymentsViaFunctions 
+} from './functionsService';
 
 export interface CreatePaymentIntentResponse {
   paymentIntentId: string;
@@ -41,12 +45,7 @@ export const createPaymentIntent = async (
   amount: number,
   currency: string = 'eur'
 ): Promise<CreatePaymentIntentResponse> => {
-  const response = await api.post('/payments/create-payment-intent', {
-    eventId,
-    amount,
-    currency,
-  });
-  return response.data;
+  return await createPaymentIntentViaFunctions(eventId, amount, currency);
 };
 
 /**
@@ -56,31 +55,40 @@ export const confirmPayment = async (
   paymentIntentId: string,
   ticketId: string
 ): Promise<{ message: string; ticketId: string; status: string }> => {
-  const response = await api.post('/payments/confirm', {
-    paymentIntentId,
-    ticketId,
-  });
-  return response.data;
+  return await confirmPaymentViaFunctions(paymentIntentId, ticketId);
 };
 
 /**
- * Récupérer le statut d'un paiement
+ * Récupérer le statut d'un paiement (simplifié - récupère depuis la liste)
  */
 export const getPaymentStatus = async (
   paymentIntentId: string
 ): Promise<PaymentStatusResponse> => {
-  const response = await api.get(`/payments/status/${paymentIntentId}`);
-  return response.data;
+  const { payments } = await getMyPaymentsViaFunctions();
+  const payment = payments.find((p: any) => p.paymentIntentId === paymentIntentId);
+  
+  if (!payment) {
+    throw new Error('Paiement non trouvé');
+  }
+
+  return {
+    paymentIntentId,
+    status: payment.status,
+    amount: payment.amount,
+    currency: payment.currency,
+    eventId: payment.eventId,
+    ticketId: payment.ticketId,
+  };
 };
 
 /**
  * Récupérer l'historique des paiements de l'utilisateur
  */
 export const getMyPayments = async (): Promise<Payment[]> => {
-  const response = await api.get('/payments/my-payments');
-  return response.data.payments.map((payment: any) => ({
+  const { payments } = await getMyPaymentsViaFunctions();
+  return payments.map((payment: any) => ({
     ...payment,
-    createdAt: new Date(payment.createdAt),
-    updatedAt: new Date(payment.updatedAt),
+    createdAt: payment.createdAt ? new Date(payment.createdAt) : new Date(),
+    updatedAt: payment.updatedAt ? new Date(payment.updatedAt) : new Date(),
   }));
 };

@@ -3,12 +3,12 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-export type UserRole = 'participant' | 'organizer' | null;
+export type UserRole = 'participant' | 'organizer' | 'admin' | null;
 
 /**
  * Hook pour récupérer le rôle de l'utilisateur actuel depuis Firestore
  * Écoute les changements d'authentification et de rôle en temps réel
- * @returns {UserRole} Le rôle de l'utilisateur ('participant', 'organizer') ou null si non connecté/non trouvé
+ * @returns {UserRole} Le rôle de l'utilisateur ('participant', 'organizer', 'admin') ou null si non connecté/non trouvé
  */
 export const useUserRole = (): UserRole => {
   const [role, setRole] = useState<UserRole>(null);
@@ -27,8 +27,9 @@ export const useUserRole = (): UserRole => {
           if (userDoc.exists()) {
             const userRole = userDoc.data()?.role;
             // Valider que le rôle est valide
-            if (userRole === 'participant' || userRole === 'organizer' || userRole === 'user') {
-              // Normaliser 'user' en 'participant' pour compatibilité
+            if (userRole === 'admin' || userRole === 'organizer') {
+              setRole(userRole);
+            } else if (userRole === 'participant' || userRole === 'user') {
               setRole(userRole === 'user' ? 'participant' : userRole);
             } else {
               setRole('participant'); // Par défaut
@@ -47,8 +48,9 @@ export const useUserRole = (): UserRole => {
             .then((userDoc) => {
               if (userDoc.exists()) {
                 const userRole = userDoc.data()?.role;
-                if (userRole === 'participant' || userRole === 'organizer' || userRole === 'user') {
-                  // Normaliser 'user' en 'participant' pour compatibilité
+                if (userRole === 'admin' || userRole === 'organizer') {
+                  setRole(userRole);
+                } else if (userRole === 'participant' || userRole === 'user') {
                   setRole(userRole === 'user' ? 'participant' : userRole);
                 } else {
                   setRole('participant');
@@ -81,4 +83,11 @@ export const useUserRole = (): UserRole => {
  */
 export const canCreateEvents = (role: UserRole): boolean => {
   return role === 'organizer';
+};
+
+/**
+ * Vérifie si l'utilisateur a accès à l'espace admin
+ */
+export const isAdmin = (role: UserRole): boolean => {
+  return role === 'admin';
 };

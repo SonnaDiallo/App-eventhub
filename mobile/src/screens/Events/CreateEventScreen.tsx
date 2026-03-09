@@ -18,9 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { auth } from '../../services/firebase';
+import { uploadEventImage } from '../../services/storageService';
+import { createEventViaFunctions } from '../../services/functionsService';
 import { getCategories, Category, MAX_IMAGE_SIZE, formatFileSize } from '../../services/categories';
-import { api } from '../../services/api';
-import { getToken } from '../../services/authStorage';
 import { useTheme } from '../../theme/ThemeContext';
 import { createStyles } from './CreateEventScreen.styles';
 
@@ -268,31 +268,19 @@ const CreateEventScreen = () => {
         return;
       }
 
-      const token = await getToken();
-      if (!token) {
-        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
-        return;
-      }
-
       let finalCoverImage: string | null = null;
       if (coverImageBase64) {
         if (!coverImageMimeType) {
           Alert.alert('Erreur', "Impossible de déterminer le format de l'image.");
           return;
         }
-        const uploadRes = await api.post(
-          '/uploads/event-image',
-          {
-            base64: coverImageBase64,
-            mimeType: coverImageMimeType,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        finalCoverImage = uploadRes.data?.url || null;
+        try {
+          finalCoverImage = await uploadEventImage(coverImageBase64, coverImageMimeType);
+        } catch (uploadError: any) {
+          console.error('Image upload error:', uploadError);
+          Alert.alert('Erreur', "Impossible d'uploader l'image. " + (uploadError?.message || ''));
+          return;
+        }
       }
 
       const payload = {
@@ -308,8 +296,8 @@ const CreateEventScreen = () => {
         category: eventData.category || selectedCategory?.id || 'other',
       };
 
-      const response = await api.post('/events', payload);
-      console.log('Create event success', response.data);
+      const response = await createEventViaFunctions(payload);
+      console.log('Create event success', response);
 
       Alert.alert('Succès ! 🎉', 'Votre événement a été créé avec succès.', [
         { text: 'OK', onPress: () => navigation.goBack() },

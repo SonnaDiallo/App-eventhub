@@ -19,6 +19,8 @@ import uploadRoutes from './routes/uploadRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import ticketPdfRoutes from './routes/ticketPdfRoutes';
+import userRoutes from './routes/userRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 dotenv.config();
 
@@ -44,7 +46,10 @@ app.use('/api/external-events', externalRegistrationRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/payments', paymentRoutes);
+
 app.use('/api/ticket-pdf', ticketPdfRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((_req, res) => res.status(404).json({ message: 'Not found', path: 'API route not found' }));
 app.use(errorHandler);

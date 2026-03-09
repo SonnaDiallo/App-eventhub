@@ -6,6 +6,7 @@ import { syncUserToMongoDB, getUserByFirebaseUid } from '../services/userService
 
 export const register = async (req: Request, res: Response) => {
   try {
+
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
@@ -14,9 +15,14 @@ export const register = async (req: Request, res: Response) => {
         .json({ message: 'Name, email and password are required' });
     }
 
-    const allowedRoles = new Set(['user', 'organizer']);
+    // Gestion admin automatique
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const isAdmin = adminEmails.includes(email.toLowerCase());
+
+    const allowedRoles = new Set(['user', 'organizer', 'admin']);
     const normalizedRole = typeof role === 'string' ? role : undefined;
-    const safeRole = normalizedRole && allowedRoles.has(normalizedRole) ? normalizedRole : 'user';
+    let safeRole = normalizedRole && allowedRoles.has(normalizedRole) ? normalizedRole : 'user';
+    if (isAdmin) safeRole = 'admin';
 
     // Vérifier si l'utilisateur existe déjà dans Firestore
     const usersSnapshot = await firebaseDb
@@ -92,9 +98,13 @@ export const login = async (req: Request, res: Response) => {
         .json({ message: 'Email and password are required' });
     }
 
+
     // Utiliser Firebase Auth REST API pour obtenir un ID token directement
     const firebaseWebApiKey = process.env.FIREBASE_WEB_API_KEY;
-    
+
+    // Gestion admin automatique à la connexion
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
     if (!firebaseWebApiKey) {
       // Fallback: vérifier les credentials et générer un token directement
       const usersSnapshot = await firebaseDb
@@ -108,8 +118,22 @@ export const login = async (req: Request, res: Response) => {
       }
 
       const userDoc = usersSnapshot.docs[0];
-      const userData = userDoc.data();
+      let userData = userDoc.data();
       const firebaseUid = userDoc.id;
+
+      // LOG: Affichage debug admin
+      console.log('[LOGIN] ADMIN_EMAILS:', adminEmails);
+      console.log('[LOGIN] Email utilisateur:', email.toLowerCase());
+      console.log('[LOGIN] Rôle actuel Firestore:', userData.role);
+
+      // Correction automatique du rôle admin si besoin
+      if (adminEmails.includes(email.toLowerCase()) && userData.role !== 'admin') {
+        console.log('[LOGIN] Correction du rôle admin pour', email.toLowerCase());
+        await firebaseDb.collection('users').doc(firebaseUid).update({ role: 'admin', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        userData = { ...userData, role: 'admin' };
+      } else {
+        console.log('[LOGIN] Pas de correction du rôle admin');
+      }
 
       // Vérifier le mot de passe en essayant de se connecter avec Firebase Admin
       try {
@@ -193,6 +217,15 @@ export const login = async (req: Request, res: Response) => {
 
     if (!userData) {
       return res.status(400).json({ message: 'User profile not found' });
+    }
+
+    // Correction automatique du rôle admin si besoin (toujours appliquée)
+    if (adminEmails.includes(email.toLowerCase()) && userData.role !== 'admin') {
+      console.log('[LOGIN] Correction du rôle admin (REST API) pour', email.toLowerCase());
+      await firebaseDb.collection('users').doc(firebaseUid).update({ role: 'admin', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      userData.role = 'admin';
+    } else {
+      console.log('[LOGIN] Pas de correction du rôle admin (REST API)');
     }
 
     return res.status(200).json({

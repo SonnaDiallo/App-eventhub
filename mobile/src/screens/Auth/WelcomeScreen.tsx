@@ -5,6 +5,10 @@ import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useTheme } from '../../theme/ThemeContext';
+import { auth } from '../../services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { saveToken } from '../../services/authStorage';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
@@ -72,6 +76,30 @@ const MovingBlob: React.FC = () => {
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || !user.emailVerified) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        await saveToken(token);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const role = userDoc.exists() ? userDoc.data()?.role : undefined;
+        if (cancelled) return;
+        if (role === 'admin') {
+          navigation.replace('AdminHome' as any);
+        } else {
+          navigation.replace('HomeParticipant' as any);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [navigation]);
+
   return (
     <View
       style={{

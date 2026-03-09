@@ -62,7 +62,8 @@ export const simpleHash = (str: string): number => {
 };
 
 export const getPlaceholderImageForEvent = (eventId: string, categoryId: string | null): string => {
-  const key = categoryId && CATEGORY_PLACEHOLDER_IMAGES[categoryId] ? categoryId : 'other';
+  const id = (categoryId || '').toLowerCase();
+  const key = id && CATEGORY_PLACEHOLDER_IMAGES[id] ? id : 'other';
   const urls = CATEGORY_PLACEHOLDER_IMAGES[key] ?? DEFAULT_PLACEHOLDER_IMAGES;
   const index = simpleHash(String(eventId)) % urls.length;
   return urls[index];
@@ -77,7 +78,8 @@ export const getUniquePlaceholderForEvent = (
     const s = (u || '').trim().split('?')[0].toLowerCase().slice(0, 300);
     return s || '';
   };
-  const key = categoryId && CATEGORY_PLACEHOLDER_IMAGES[categoryId] ? categoryId : 'other';
+  const id = (categoryId || '').toLowerCase();
+  const key = id && CATEGORY_PLACEHOLDER_IMAGES[id] ? id : 'other';
   const urls = CATEGORY_PLACEHOLDER_IMAGES[key] ?? DEFAULT_PLACEHOLDER_IMAGES;
   const start = simpleHash(String(eventId)) % urls.length;
   for (let i = 0; i < urls.length; i++) {
@@ -88,25 +90,47 @@ export const getUniquePlaceholderForEvent = (
   return `https://picsum.photos/seed/${encodeURIComponent(String(eventId))}/800/400`;
 };
 
+/**
+ * Normalise une URL pour la déduplication : même image = même clé.
+ * - Supprime protocole (http/https) et query string
+ * - Réduit sous-domaines CDN (s1.ticketm.net → ticketm.net)
+ * - Décode les % pour que des URLs équivalentes matchent
+ */
 export const normalizeImageUrlForDedup = (url: string): string => {
-  const u = (url || '').trim();
+  let u = (url || '').trim().toLowerCase();
   if (!u) return '';
   try {
-    return u.split('?')[0].toLowerCase().slice(0, 300);
+    u = u.split('?')[0];
+    try {
+      u = decodeURIComponent(u);
+    } catch {
+      // garder u si decode échoue
+    }
+    u = u.replace(/^https?:\/\//, '');
+    u = u.replace(/^[a-z0-9-]+\.(ticketm\.net|ticketmaster\.com|tmstatic\.com)/i, '$1');
+    u = u.replace(/^[a-z0-9-]+\.(images\.unsplash\.com)/i, '$1');
+    return u.slice(0, 500);
   } catch {
-    return u.toLowerCase().slice(0, 300);
+    return (url || '').toLowerCase().slice(0, 500);
   }
 };
+
+/** Clé spéciale pour les événements sans image (évite la même image vide partout) */
+const EMPTY_IMAGE_KEY = '__no_image__';
 
 export function ensureUniqueImages<T extends EventData & { _startDate?: Date; source?: string }>(events: T[]): T[] {
   const seenImageUrls = new Set<string>();
   return events.map((e) => {
-    const rawUrl = e.coverImage || '';
-    const url = normalizeImageUrlForDedup(rawUrl);
+    const rawUrl = (e.coverImage || '').trim();
+    const url = rawUrl ? normalizeImageUrlForDedup(rawUrl) : EMPTY_IMAGE_KEY;
     const id = (e.id ?? '').toString();
-    if (url && seenImageUrls.has(url)) {
+    const isDuplicate = url && seenImageUrls.has(url);
+    const isEmpty = !rawUrl;
+    if (isDuplicate || isEmpty) {
       const uniquePlaceholder = getUniquePlaceholderForEvent(id, e.category ?? null, seenImageUrls);
-      seenImageUrls.add(normalizeImageUrlForDedup(uniquePlaceholder));
+      const placeholderNorm = normalizeImageUrlForDedup(uniquePlaceholder);
+      seenImageUrls.add(placeholderNorm);
+      if (url && url !== EMPTY_IMAGE_KEY) seenImageUrls.add(url);
       return { ...e, coverImage: uniquePlaceholder };
     }
     if (url) seenImageUrls.add(url);

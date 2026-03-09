@@ -1,4 +1,10 @@
-import { api } from './api';
+import { 
+  sendFriendRequestViaFunctions,
+  getFriendRequestsViaFunctions,
+  acceptFriendRequestViaFunctions,
+  rejectFriendRequestViaFunctions,
+  getFriendsViaFunctions
+} from './functionsService';
 
 export interface FriendUser {
   id: string;
@@ -24,30 +30,36 @@ export interface FriendsResponse {
   friends: FriendUser[];
 }
 
-/** Envoyer une demande d'ami (toUserId = MongoDB ObjectId de l'utilisateur) */
+/** Envoyer une demande d'ami (toUserId = Firebase UID de l'utilisateur) */
 export const sendFriendRequest = async (toUserId: string): Promise<void> => {
-  await api.post('/friends/request', { toUserId });
+  await sendFriendRequestViaFunctions(toUserId);
 };
 
 /** Liste des demandes reçues (en attente) */
 export const getIncomingFriendRequests = async (): Promise<FriendRequestItem[]> => {
-  const res = await api.get<FriendRequestResponse>('/friends/requests');
-  return res.data.requests || [];
+  const result = await getFriendRequestsViaFunctions();
+  return (result.requests || []).map((r: any) => ({
+    id: r.id,
+    fromUser: r.fromUser || { id: '', name: 'Inconnu' },
+    status: 'pending',
+    createdAt: r.createdAt?.toISOString?.() || new Date().toISOString(),
+  }));
 };
 
 /** Accepter une demande (requestId = id de la FriendRequest) */
 export const acceptFriendRequest = async (requestId: string): Promise<FriendUser> => {
-  const res = await api.post<{ friend: FriendUser }>(`/friends/requests/${requestId}/accept`);
-  return res.data.friend;
+  await acceptFriendRequestViaFunctions(requestId);
+  // La fonction ne retourne pas les infos de l'ami, on retourne un objet minimal
+  return { id: requestId, name: 'Ami' };
 };
 
 /** Refuser une demande */
 export const rejectFriendRequest = async (requestId: string): Promise<void> => {
-  await api.post(`/friends/requests/${requestId}/reject`);
+  await rejectFriendRequestViaFunctions(requestId);
 };
 
 /** Liste de mes amis */
 export const getFriends = async (): Promise<FriendUser[]> => {
-  const res = await api.get<FriendsResponse>('/friends');
-  return res.data.friends || [];
+  const result = await getFriendsViaFunctions();
+  return result.friends || [];
 };

@@ -7,10 +7,11 @@ import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 import { useTheme } from '../../theme/ThemeContext';
 import { useEvents } from '../../hooks/useEvents';
+import { normalizeImageUrl } from '../../config/constants';
 import { EventCard } from '../../components/EventCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { EmptyState } from '../../components/EmptyState';
-import { eventForNav } from '../../utils/eventHelpers';
+import { eventForNav, ensureUniqueImages } from '../../utils/eventHelpers';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'TrendingEvents'>;
 
@@ -18,13 +19,14 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
   const { events, loading } = useEvents({ includeExternal: true });
 
-  // Trier les événements par nombre de participants (réservations)
+  // Trier par popularité puis garantir des images uniques (pas la même photo pour tous)
   const trendingEvents = useMemo(() => {
-    return [...events].sort((a, b) => {
+    const sorted = [...events].sort((a, b) => {
       const aParticipants = a.participantsCount || 0;
       const bParticipants = b.participantsCount || 0;
       return bParticipants - aParticipants;
     });
+    return ensureUniqueImages(sorted);
   }, [events]);
 
   if (loading) {
@@ -206,7 +208,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
               {/* Grande image */}
               <View style={{ position: 'relative' }}>
                 <Image 
-                  source={{ uri: event.coverImage }} 
+                  source={{ uri: normalizeImageUrl(event.coverImage) }} 
                   style={{ width: '100%', height: 220 }} 
                   resizeMode="cover"
                 />
@@ -259,7 +261,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
                       Gratuit
                     </Text>
                   </View>
-                ) : event.price && event.price > 0 && (
+                ) : (event.price ?? 0) > 0 && (
                   <View
                     style={{
                       position: 'absolute',
@@ -380,7 +382,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
                 />
                 
                 {/* Badge nombre de participants */}
-                {event.participantsCount && event.participantsCount > 0 && (
+                {(event.participantsCount ?? 0) > 0 && (
                   <View style={{
                     position: 'absolute',
                     top: 12,

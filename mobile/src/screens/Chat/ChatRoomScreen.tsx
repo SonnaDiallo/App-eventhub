@@ -16,8 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useTheme } from '../../theme/ThemeContext';
-import { getMessages, sendMessage, markMessageRead, type ChatMessage } from '../../services/chatService';
-import { api } from '../../services/api';
+import { getMessages, sendMessage, markMessageRead, deleteMessage, type ChatMessage } from '../../services/chatService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChatRoom'>;
 
@@ -81,7 +80,7 @@ const ChatRoomScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleDeleteMessage = async () => {
     if (!selectedMessage) return;
     try {
-      await api.delete(`/chat/messages/${selectedMessage.id}`);
+      await deleteMessage(selectedMessage.id);
       // Mettre à jour le message localement
       setMessages(prev => prev.map(m => 
         m.id === selectedMessage.id 
@@ -91,7 +90,7 @@ const ChatRoomScreen: React.FC<Props> = ({ route, navigation }) => {
       setShowDeleteModal(false);
       setSelectedMessage(null);
     } catch (err: any) {
-      Alert.alert('Erreur', err?.response?.data?.message || 'Impossible de supprimer le message');
+      Alert.alert('Erreur', err?.message || 'Impossible de supprimer le message');
     }
   };
 

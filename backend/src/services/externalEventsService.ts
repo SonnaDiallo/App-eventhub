@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { UnifiedEvent } from '../types/externalEvents';
 import { EventCategory } from '../types/categories';
-import { getTicketmasterSegmentId, getTicketmasterKeyword } from './ticketmasterCategoryMapping';
+import { getTicketmasterSegmentId, getTicketmasterKeyword, useKeywordOnly } from './ticketmasterCategoryMapping';
 
 /**
  * Récupère les événements depuis Ticketmaster API - VERSION AMÉLIORÉE
@@ -49,12 +49,16 @@ export async function fetchTicketmasterEvents(
       startDateTime: formatDateForTicketmaster(now), // Seulement les événements futurs (format correct)
     };
 
-    // Ajouter la catégorie si fournie (segment + mot-clé pour Miscellaneous)
+    // Ajouter la catégorie si fournie (segment ou keyword seul pour Food/Family/Other)
     if (category) {
-      const ourCategory = Object.values(EventCategory).find(c => c === category);
+      const cat = typeof category === 'string' ? category.trim().toLowerCase() : category;
+      const ourCategory = Object.values(EventCategory).find(c => c === cat);
       if (ourCategory) {
-        const segmentId = getTicketmasterSegmentId(ourCategory);
-        if (segmentId) params.segmentId = segmentId;
+        const keywordOnly = useKeywordOnly(ourCategory);
+        if (!keywordOnly) {
+          const segmentId = getTicketmasterSegmentId(ourCategory);
+          if (segmentId) params.segmentId = segmentId;
+        }
         const keyword = getTicketmasterKeyword(ourCategory);
         if (keyword) params.keyword = keyword;
       }
@@ -154,6 +158,7 @@ export async function fetchTicketmasterEvents(
       const minPrice = priceRanges[0]?.min;
       const isFree = minPrice === undefined || minPrice === 0 || minPrice === null;
       
+      const ourCat = typeof category === 'string' ? category.trim().toLowerCase() : category;
       return {
         id: event.id,
         title: event.name || 'Événement',
@@ -167,7 +172,7 @@ export async function fetchTicketmasterEvents(
         isFree,
         price: minPrice || 0,
         source: 'ticketmaster',
-        category: category as EventCategory | undefined,
+        category: (ourCat as EventCategory) || undefined,
       };
     });
     

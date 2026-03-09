@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
-import { api } from '../../services/api';
-import { getToken } from '../../services/authStorage';
 
 interface Event {
   id: string;
@@ -35,7 +34,7 @@ const OrganizerDashboardScreen = () => {
 
   const user = auth.currentUser;
 
-  // Charger les événements depuis le backend (MongoDB)
+  // Charger les événements depuis Firestore
   useEffect(() => {
     let isMounted = true;
 
@@ -48,32 +47,27 @@ const OrganizerDashboardScreen = () => {
           return;
         }
 
-        const token = await getToken();
-        if (!token) {
-          if (isMounted) setEvents([]);
-          return;
-        }
+        // Lister les événements de l'organisateur connecté depuis Firestore
+        const eventsRef = collection(db, 'events');
+        const q = query(
+          eventsRef,
+          where('organizerId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
 
-        // Lister les événements de l'organisateur connecté
-        const res = await api.get('/events/organizer/my', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          params: {
-            page: 1,
-            limit: 50,
-          },
+        const eventsList: Event[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            title: data.title || 'Sans titre',
+            capacity: data.capacity ?? 100,
+            price: data.price ?? 0,
+            isFree: !!data.isFree,
+            organizerId: data.organizerId || undefined,
+            isOwnEvent: true,
+          };
         });
-
-        const eventsList: Event[] = (res.data?.events || []).map((e: any) => ({
-          id: e.id,
-          title: e.title || 'Sans titre',
-          capacity: e.capacity ?? 100,
-          price: e.price ?? 0,
-          isFree: !!e.isFree,
-          organizerId: e.organizerId || undefined,
-          isOwnEvent: true,
-        }));
 
         if (!isMounted) return;
 
@@ -82,7 +76,7 @@ const OrganizerDashboardScreen = () => {
           setSelectedEventId(eventsList[0].id);
         }
       } catch (error: any) {
-        console.error('Error fetching organizer events:', error?.response?.data || error?.message);
+        console.error('Error fetching organizer events:', error?.message);
         if (isMounted) {
           setEvents([]);
           Alert.alert('Erreur', "Impossible de charger vos événements.");
