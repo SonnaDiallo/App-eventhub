@@ -1,3 +1,12 @@
+/**
+ * @file AddReviewScreen.tsx
+ * @description Écran permettant à un participant de laisser un avis sur un événement.
+ * L'utilisateur attribue une note de 1 à 5 étoiles et rédige un commentaire
+ * (minimum 10 caractères). L'avis est ensuite publié via le service reviewService.
+ * Accessible uniquement depuis l'écran de détails d'un événement pour lequel
+ * l'utilisateur possède déjà un billet.
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -28,6 +37,7 @@ export const AddReviewScreen = () => {
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /** Valide les champs puis soumet l'avis au backend. Gère les erreurs réseau et affiche un message de succès. */
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Note requise', 'Veuillez sélectionner une note entre 1 et 5 étoiles.');

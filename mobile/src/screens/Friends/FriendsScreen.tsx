@@ -1,3 +1,12 @@
+/**
+ * @file FriendsScreen — Écran de gestion des amis et des demandes d'amitié.
+ *
+ * Deux onglets : « Mes amis » et « Demandes ». Permet de rechercher parmi
+ * ses amis, d'accepter ou refuser les demandes entrantes, et de lancer
+ * une conversation directe avec un ami via ChatRoom.
+ * Les données sont rechargées à chaque focus de l'écran.
+ */
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,

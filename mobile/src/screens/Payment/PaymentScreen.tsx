@@ -1,3 +1,13 @@
+/**
+ * @file PaymentScreen — Écran de paiement natif via Stripe.
+ *
+ * Orchestre le flux complet de paiement : création d'un PaymentIntent côté
+ * backend, saisie des informations de carte via le composant Stripe CardField,
+ * puis confirmation du paiement côté Stripe et backend.
+ * En cas de succès, redirige l'utilisateur vers la liste de ses billets.
+ * Ce composant n'est utilisé que sur iOS/Android (la version web a un fallback).
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -63,6 +73,10 @@ export const PaymentScreen = () => {
     }
   };
 
+  /**
+   * Confirme le paiement auprès de Stripe puis notifie le backend
+   * pour associer le paiement au billet.
+   */
   const handlePayment = async () => {
     if (!clientSecret || !stripeConfirmPayment || !cardComplete) {
       Alert.alert('Erreur', 'Veuillez remplir toutes les informations de carte.');

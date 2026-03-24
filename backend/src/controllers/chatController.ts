@@ -1,3 +1,26 @@
+/**
+ * @module chatController
+ * @description Contrôleur de messagerie privée entre amis.
+ *
+ * Implémente un système de chat 1-à-1 restreint aux utilisateurs
+ * qui se sont mutuellement acceptés en amis (collection friendRequests).
+ * Les messages sont stockés dans la collection Firestore « messages »
+ * sans sous-collection, ce qui simplifie les requêtes croisées.
+ *
+ * Règles métier importantes :
+ * - Seuls les amis acceptés peuvent échanger des messages.
+ * - Un message ne peut être supprimé que par son expéditeur et
+ *   seulement dans les 2 heures suivant l'envoi (soft-delete :
+ *   le contenu est remplacé par « Message supprimé »).
+ * - Le marquage « lu » n'est possible que par le destinataire.
+ *
+ * Routes gérées :
+ * - GET    /chat/conversations                     → getConversations
+ * - GET    /chat/conversations/:userId/messages     → getMessages
+ * - POST   /chat/conversations/:userId/messages     → sendMessage
+ * - PATCH  /chat/messages/:id/read                  → markMessageRead
+ * - DELETE /chat/messages/:id                       → deleteMessage
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -10,6 +33,7 @@ const getUserId = (req: AuthRequest): string | null => (req as any).user?.userId
 const toDate = (v: admin.firestore.Timestamp | undefined): Date | undefined =>
   !v ? undefined : (v as admin.firestore.Timestamp).toDate?.();
 
+/** Vérifie si deux utilisateurs sont amis acceptés via la paire triée dans friendRequests. */
 async function areFriends(userA: string, userB: string): Promise<boolean> {
   const pair = [userA, userB].sort();
   const docId = `${pair[0]}_${pair[1]}`;
@@ -18,7 +42,14 @@ async function areFriends(userA: string, userB: string): Promise<boolean> {
 }
 
 /**
- * GET /chat/conversations - Liste des conversations (amis avec dernier message)
+ * GET /chat/conversations
+ * Retourne la liste des conversations de l'utilisateur connecté.
+ * Pour chaque ami accepté, récupère le dernier message échangé et
+ * le nombre de messages non lus. Le tri des messages se fait en
+ * mémoire car Firestore ne permet pas de combiner where + orderBy
+ * sur des champs différents sans index composite.
+ *
+ * @returns {Array} conversations - Liste triée par dernière activité
  */
 export const getConversations = async (req: Request, res: Response) => {
   try {
@@ -88,7 +119,14 @@ export const getConversations = async (req: Request, res: Response) => {
 };
 
 /**
- * GET /chat/conversations/:userId/messages - Messages avec un ami (pagination)
+ * GET /chat/conversations/:userId/messages
+ * Récupère l'historique des messages entre l'utilisateur connecté et
+ * un ami donné. Les deux sens (envoyés/reçus) sont fusionnés, triés
+ * chronologiquement, puis tronqués aux N derniers (défaut 50, max 100).
+ * Vérifie au préalable que les deux utilisateurs sont bien amis.
+ *
+ * @param {string} userId - Firebase UID de l'interlocuteur
+ * @query {number} [limit=50] - Nombre max de messages à retourner
  */
 export const getMessages = async (req: Request, res: Response) => {
   try {
@@ -131,7 +169,13 @@ export const getMessages = async (req: Request, res: Response) => {
 };
 
 /**
- * POST /chat/conversations/:userId/messages - Envoyer un message à un ami
+ * POST /chat/conversations/:userId/messages
+ * Envoie un nouveau message à un ami. Le contenu est limité à 5000
+ * caractères pour éviter les abus. Le message est créé avec readAt=null
+ * (non lu) et un timestamp serveur pour garantir l'ordre chronologique.
+ *
+ * @param {string} userId      - Firebase UID du destinataire
+ * @body  {string} content     - Texte du message (1-5000 caractères)
  */
 export const sendMessage = async (req: Request, res: Response) => {
   try {
@@ -177,7 +221,12 @@ export const sendMessage = async (req: Request, res: Response) => {
 };
 
 /**
- * PATCH /chat/messages/:id/read - Marquer un message comme lu
+ * PATCH /chat/messages/:id/read
+ * Marque un message comme lu en enregistrant un timestamp readAt.
+ * Seul le destinataire du message peut le marquer comme lu, et
+ * un message déjà lu ne peut pas être re-marqué (idempotence).
+ *
+ * @param {string} id - Identifiant Firestore du message
  */
 export const markMessageRead = async (req: Request, res: Response) => {
   try {
@@ -204,7 +253,14 @@ export const markMessageRead = async (req: Request, res: Response) => {
 };
 
 /**
- * DELETE /chat/messages/:id - Supprimer un message (seulement si envoyé il y a moins de 2h)
+ * DELETE /chat/messages/:id
+ * Soft-delete d'un message : le contenu est remplacé par
+ * « Message supprimé » plutôt que d'être physiquement supprimé,
+ * afin de préserver la cohérence de la conversation côté destinataire.
+ * Deux contraintes : seul l'expéditeur peut supprimer, et le message
+ * doit avoir été envoyé il y a moins de 2 heures.
+ *
+ * @param {string} id - Identifiant Firestore du message
  */
 export const deleteMessage = async (req: Request, res: Response) => {
   try {

@@ -1,3 +1,29 @@
+/**
+ * @module AdminReviewsScreen
+ * @description Écran de modération des avis utilisateurs.
+ *
+ * Fonctionnalités :
+ * - Affiche la liste paginée de tous les avis déposés sur la plateforme.
+ * - Chaque avis montre : note (étoiles), titre de l'événement, commentaire et auteur.
+ * - Recherche instantanée côté client par titre d'événement, nom d'auteur ou contenu.
+ * - Suppression d'un avis avec confirmation (Alert).
+ * - Pagination affichée en bas si plus d'une page disponible.
+ *
+ * Pattern de chargement identique aux autres écrans admin : Promise.all
+ * avec un délai minimum de 400 ms pour un loader fluide.
+ *
+ * @requires ../../services/adminService - getAdminReviews, deleteAdminReview
+ */
+/**
+ * @file AdminReviewsScreen.tsx
+ * @description Écran de modération des avis utilisateurs pour l'administrateur.
+ *
+ * Affiche la liste paginée de tous les avis laissés sur les événements,
+ * avec notation par étoiles, commentaire, nom de l'auteur et titre de l'événement.
+ * Permet la recherche locale (par événement, auteur ou contenu du commentaire)
+ * et la suppression d'un avis avec confirmation.
+ */
+
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -33,6 +59,10 @@ export default function AdminReviewsScreen() {
     );
   }, [reviews, searchQuery]);
 
+  /**
+   * Charge une page d'avis depuis l'API admin avec un délai minimum de 400 ms.
+   * @param page - Numéro de page à charger (défaut : 1)
+   */
   const load = useCallback((page = 1) => {
     setError('');
     setLoading(true);
@@ -50,6 +80,11 @@ export default function AdminReviewsScreen() {
     load();
   }, [load]);
 
+  /**
+   * Affiche une alerte de confirmation puis supprime l'avis via l'API admin.
+   * Recharge la page courante après suppression.
+   * @param reviewId - Identifiant de l'avis à supprimer
+   */
   const handleDelete = (reviewId: string) => {
     Alert.alert(
       'Confirmation',

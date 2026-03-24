@@ -1,3 +1,12 @@
+/**
+ * @file Service de notifications push et locales.
+ *
+ * Gère l'enregistrement du token Expo Push, la planification de
+ * notifications locales (rappels d'événements), et l'envoi de
+ * notifications immédiates. Le token est sauvegardé dans le profil
+ * Firestore de l'utilisateur pour permettre l'envoi côté serveur.
+ */
+
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';

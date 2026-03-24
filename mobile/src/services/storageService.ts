@@ -1,9 +1,18 @@
+/**
+ * @file Service d'upload d'images vers Firebase Storage.
+ *
+ * Gère la conversion base64 → Blob et l'envoi vers Firebase Storage
+ * pour les images d'événements et les photos de profil. Les chemins
+ * de stockage respectent les règles de sécurité Firebase
+ * (`profiles/{uid}/...` pour les profils utilisateur).
+ */
+
 import * as FileSystem from 'expo-file-system';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from './firebase';
 
 /**
- * Upload une image vers Firebase Storage
+ * Upload une image vers Firebase Storage.
  * @param base64 - Image en base64 (sans le préfixe data:image/...)
  * @param mimeType - Type MIME de l'image (image/jpeg, image/png, etc.)
  * @param folder - Dossier de destination (ex: 'events', 'profiles')

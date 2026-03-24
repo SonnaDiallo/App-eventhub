@@ -1,3 +1,11 @@
+/**
+ * @file Service de gestion des relations d'amitié.
+ *
+ * Couche d'abstraction au-dessus des Cloud Functions Firebase pour
+ * l'envoi, la réception, l'acceptation et le refus de demandes
+ * d'amis, ainsi que la récupération de la liste d'amis.
+ */
+
 import { 
   sendFriendRequestViaFunctions,
   getFriendRequestsViaFunctions,

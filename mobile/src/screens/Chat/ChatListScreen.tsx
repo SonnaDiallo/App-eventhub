@@ -1,3 +1,12 @@
+/**
+ * @file ChatListScreen — Écran de liste des conversations.
+ *
+ * Affiche toutes les conversations de l'utilisateur connecté avec recherche
+ * en temps réel, pull-to-refresh et badge de messages non lus.
+ * Chaque conversation montre le dernier message et l'horodatage formaté
+ * en français (aujourd'hui → heure, hier → "Hier", sinon → date courte).
+ */
+
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -20,6 +29,10 @@ import { getConversations, type ConversationItem } from '../../services/chatServ
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChatList'>;
 
+/**
+ * Formate un horodatage en texte relatif lisible (heure si aujourd'hui,
+ * "Hier" si la veille, sinon date courte JJ/MM).
+ */
 const formatTime = (dateStr: string) => {
   const d = new Date(dateStr);
   const now = new Date();

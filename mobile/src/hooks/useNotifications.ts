@@ -1,3 +1,15 @@
+/**
+ * useNotifications.ts - Hook pour les notifications push (plateformes natives).
+ * 
+ * Au montage :
+ * 1. Enregistre l'appareil pour recevoir des push notifications (via Expo)
+ * 2. Écoute les notifications reçues (app au premier plan)
+ * 3. Écoute les interactions utilisateur (clic sur une notification)
+ * 
+ * Retourne le token Expo Push et la dernière notification reçue.
+ * Note : sur web, le fichier .web.ts est utilisé (stub sans push).
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../services/notificationService';

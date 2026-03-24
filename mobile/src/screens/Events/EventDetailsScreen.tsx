@@ -1,4 +1,20 @@
-// mobile/src/screens/Events/EventDetailsScreen.tsx
+/**
+ * @file EventDetailsScreen.tsx
+ * @description Écran de détail d'un événement. Affiche l'image de couverture,
+ * les informations clés (date, lieu, organisateur, catégorie, prix), la liste
+ * des participants, les avis et un bouton de réservation.
+ *
+ * Fonctionnalités principales :
+ * - Ajout/suppression des favoris (Firestore sub-collection)
+ * - Partage natif (Share API)
+ * - Réservation de billet avec génération de QR code
+ * - Inscription/désinscription aux événements externes (Ticketmaster)
+ * - Envoi de demande de suivi à l'organisateur ou aux participants
+ * - Ouverture de l'adresse dans Google Maps
+ * - Ajout au calendrier Google
+ * - Suppression de l'événement (organisateur uniquement)
+ */
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -40,6 +56,7 @@ const { width } = Dimensions.get('window');
 
 type EventDetailsRouteProp = RouteProp<AuthStackParamList, 'EventDetails'>;
 
+/** Événement par défaut utilisé comme fallback si les paramètres de navigation sont absents (ex. deep link invalide). */
 const defaultEvent = {
   id: '000000000000000000000001',
   title: 'Festival de Musique Électronique',
@@ -54,7 +71,7 @@ const defaultEvent = {
   isFree: false,
 };
 
-// Génère un code unique pour le billet
+/** Génère un code alphanumérique aléatoire de 8 caractères (sans ambiguïté visuelle : pas de 0/O/1/I). */
 const generateTicketCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -64,7 +81,10 @@ const generateTicketCode = () => {
   return code;
 };
 
-// Parse la date de l'événement et retourne au format DD/MM/YYYY
+/**
+ * Parse une date d'événement (ISO, texte libre, etc.) et la normalise au format DD/MM/YYYY.
+ * En cas d'échec du parsing, retourne une date future à J+7 comme fallback.
+ */
 const parseEventDate = (dateStr: string): string => {
   try {
     // Si la date est déjà au format DD/MM/YYYY, la retourner telle quelle
@@ -130,7 +150,7 @@ const EventDetailsScreen = () => {
   const user = auth.currentUser;
   const isOwner = user?.uid === event.organizerId;
 
-  // Supprimer l'événement (organisateur uniquement)
+  /** Supprime l'événement de Firestore après confirmation. Réservé à l'organisateur propriétaire (vérifié par isOwner). */
   const handleDeleteEvent = () => {
     Alert.alert(
       'Supprimer l\'événement',
@@ -261,7 +281,7 @@ const EventDetailsScreen = () => {
     checkExistingTicket();
   }, [user, event.id]);
 
-  // Partager l'événement
+  /** Partage l'événement via la Share API native. Le message est formaté avec emojis pour un rendu attractif sur les réseaux sociaux. */
   const handleShare = async () => {
     try {
       const message = `🎉 ${event.title}\n\n📅 ${event.date}${event.time ? ` à ${event.time}` : ''}\n📍 ${event.location}\n\nDécouvrez cet événement sur EventHub !`;
@@ -274,7 +294,7 @@ const EventDetailsScreen = () => {
     }
   };
 
-  // S'inscrire/annuler l'inscription à un événement externe
+  /** Gère l'inscription/désinscription pour les événements externes (Ticketmaster). Toggle l'état et synchronise avec le backend. */
   const handleExternalRegistration = async () => {
     if (!user) {
       Alert.alert('Connexion requise', 'Connecte-toi pour t\'inscrire à cet événement.');
@@ -308,7 +328,7 @@ const EventDetailsScreen = () => {
     }
   };
 
-  // Ouvrir l'adresse dans Google Maps (URL unique fiable sur iOS et Android)
+  /** Ouvre l'adresse dans Google Maps via une URL web universelle (fonctionne sur iOS et Android sans distinction de schéma). */
   const openAddressInMaps = () => {
     const address = (event.location || event.address || '').trim();
     if (!address) {
@@ -330,7 +350,7 @@ const EventDetailsScreen = () => {
     }).catch(() => Linking.openURL(url));
   };
 
-  // Ajouter au calendrier
+  /** Ouvre Google Calendar avec les informations de l'événement pré-remplies (titre, date, lieu). */
   const handleAddToCalendar = () => {
     // Extraire la date de l'événement
     let startDate: Date | null = null;
@@ -397,7 +417,10 @@ const EventDetailsScreen = () => {
     });
   };
 
-  // Inscription à l'événement : API backend (billet créé côté serveur) ou Firestore pour événements externes
+  /**
+   * Gère la réservation d'un billet. Crée un document ticket dans Firestore avec
+   * un code unique et un QR code. Affiche une modale de confirmation avec le code.
+   */
   const handleGetTicket = async () => {
     if (!user) {
       Alert.alert('Connexion requise', 'Tu dois être connecté pour obtenir un billet.');
@@ -457,6 +480,7 @@ const EventDetailsScreen = () => {
   };
 
 
+  /** Retourne le nom d'icône Ionicons correspondant à la catégorie de l'événement, avec un fallback calendrier générique. */
   const getCategoryIcon = () => {
     const category = event.category?.toLowerCase() || '';
     if (category.includes('music') || category.includes('musique')) return 'musical-notes';

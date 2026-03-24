@@ -1,8 +1,11 @@
-import { registerRootComponent } from 'expo';
+/**
+ * index.ts - Point d'entrée Expo.
+ * 
+ * Enregistre le composant racine App via registerRootComponent,
+ * qui configure l'environnement pour Expo Go et les builds natifs.
+ */
 
+import { registerRootComponent } from 'expo';
 import App from './App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
 registerRootComponent(App);

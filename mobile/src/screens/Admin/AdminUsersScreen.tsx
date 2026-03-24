@@ -1,3 +1,29 @@
+/**
+ * @module AdminUsersScreen
+ * @description Écran de gestion des utilisateurs pour l'administrateur.
+ *
+ * Fonctionnalités :
+ * - Liste tous les utilisateurs de la plateforme (via `getUsers` du backend).
+ * - Recherche instantanée côté client par nom ou email (filtrage useMemo).
+ * - Modification du rôle d'un utilisateur via un Picker natif (user / organizer / admin).
+ * - Suppression d'un utilisateur avec confirmation (Alert).
+ * - L'admin connecté ne peut ni modifier son propre rôle ni se supprimer
+ *   (protection via `currentUserId`).
+ *
+ * @requires @react-native-picker/picker - Sélecteur natif pour le changement de rôle
+ * @requires ../../services/adminService - getUsers, updateUserRole, deleteUser
+ */
+/**
+ * @file AdminUsersScreen.tsx
+ * @description Écran de gestion des utilisateurs pour l'administrateur.
+ *
+ * Affiche la liste complète des membres de la plateforme avec recherche
+ * par nom ou email. Permet de modifier le rôle d'un utilisateur
+ * (user, organizer, admin) via un sélecteur, et de supprimer un compte
+ * avec confirmation. L'admin connecté ne peut ni changer son propre rôle
+ * ni se supprimer lui-même (protection côté UI).
+ */
+
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -22,6 +48,7 @@ import { useTheme } from '../../theme/ThemeContext';
 
 export default function AdminUsersScreen() {
   const { theme } = useTheme();
+  // Utilisé pour empêcher l'admin de modifier/supprimer son propre compte
   const currentUserId = auth.currentUser?.uid ?? '';
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +66,10 @@ export default function AdminUsersScreen() {
     );
   }, [users, searchQuery]);
 
+  /**
+   * Récupère la liste de tous les utilisateurs depuis l'API admin.
+   * Applique un délai minimum de 400 ms pour éviter le flash du loader.
+   */
   const fetchUsers = useCallback(async () => {
     setError('');
     setLoading(true);
@@ -56,6 +87,11 @@ export default function AdminUsersScreen() {
     fetchUsers();
   }, [fetchUsers]);
 
+  /**
+   * Met à jour le rôle d'un utilisateur via l'API admin puis rafraîchit la liste.
+   * @param userId - Identifiant de l'utilisateur cible
+   * @param newRole - Nouveau rôle à attribuer (user, organizer ou admin)
+   */
   const handleChangeRole = async (userId: string, newRole: AdminUser['role']) => {
     setUpdating(userId);
     try {
@@ -67,6 +103,10 @@ export default function AdminUsersScreen() {
     setUpdating(null);
   };
 
+  /**
+   * Affiche une alerte de confirmation puis supprime l'utilisateur via l'API admin.
+   * @param userId - Identifiant de l'utilisateur à supprimer
+   */
   const handleDelete = (userId: string) => {
     Alert.alert(
       'Confirmation',

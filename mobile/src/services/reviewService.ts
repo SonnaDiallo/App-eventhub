@@ -1,3 +1,12 @@
+/**
+ * @file Service de gestion des avis sur les événements.
+ *
+ * Permet de créer, lire, supprimer des avis et de calculer les
+ * statistiques (moyenne, distribution des notes). Combine les
+ * Cloud Functions pour l'écriture et Firestore en lecture directe
+ * pour vérifier si l'utilisateur a déjà laissé un avis.
+ */
+
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { 
@@ -30,6 +39,7 @@ export interface ReviewStats {
   };
 }
 
+/** Publie un nouvel avis pour un événement via Cloud Function. */
 export const createReview = async (eventId: string, rating: number, comment: string): Promise<Review> => {
   const result = await createReviewViaFunctions(eventId, rating, comment);
   // Retourner un objet Review minimal
@@ -45,6 +55,7 @@ export const createReview = async (eventId: string, rating: number, comment: str
   };
 };
 
+/** Récupère la liste paginée des avis pour un événement donné. */
 export const getEventReviews = async (eventId: string, page: number = 1, limitNum: number = 10): Promise<{ reviews: Review[]; pagination: any }> => {
   const result = await getEventReviewsViaFunctions(eventId, page, limitNum);
   return {
@@ -57,6 +68,7 @@ export const getEventReviews = async (eventId: string, page: number = 1, limitNu
   };
 };
 
+/** Calcule les statistiques d'avis (moyenne, distribution 1-5 étoiles). */
 export const getEventReviewStats = async (eventId: string): Promise<ReviewStats> => {
   // Récupérer les stats via la même fonction
   const result = await getEventReviewsViaFunctions(eventId, 1, 1000);
@@ -77,6 +89,7 @@ export const getEventReviewStats = async (eventId: string): Promise<ReviewStats>
   };
 };
 
+/** Vérifie si l'utilisateur courant a déjà laissé un avis sur l'événement. */
 export const getUserReview = async (eventId: string): Promise<Review | null> => {
   try {
     const userId = auth.currentUser?.uid;
@@ -119,6 +132,7 @@ export const updateReview = async (reviewId: string, rating?: number, comment?: 
   throw new Error('Update review not implemented - please delete and create a new review');
 };
 
+/** Supprime un avis par son identifiant via Cloud Function. */
 export const deleteReview = async (reviewId: string): Promise<void> => {
   await deleteReviewViaFunctions(reviewId);
 };

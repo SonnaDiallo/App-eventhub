@@ -1,3 +1,30 @@
+/**
+ * @module LoginScreen
+ * @description Écran de connexion de l'application EventHub.
+ *
+ * Permet à l'utilisateur de se connecter via :
+ * - Email / mot de passe (Firebase Auth)
+ * - Google Sign-In (OAuth via Expo AuthSession)
+ * - Apple Sign-In (iOS uniquement)
+ *
+ * Comportements notables :
+ * - Vérifie au montage si une session Firebase est déjà active (auto-login).
+ * - Bloque la connexion tant que l'email n'est pas vérifié, avec option de renvoi.
+ * - Redirige vers AdminHome ou HomeParticipant selon le rôle Firestore.
+ * - `navigation.reset` est utilisé après connexion pour empêcher le retour arrière.
+ *
+ * @requires firebase/auth - signInWithEmailAndPassword, sendEmailVerification
+ * @requires ../../services/socialAuth - Google & Apple OAuth helpers
+ */
+/**
+ * @file LoginScreen.tsx
+ * @description Écran de connexion principal de l'application EventHub.
+ *
+ * Permet à l'utilisateur de s'authentifier via email/mot de passe, Google ou Apple.
+ * Gère la vérification de l'email, la redirection automatique si l'utilisateur
+ * est déjà connecté, et l'aiguillage vers l'espace admin ou participant selon le rôle.
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -18,7 +45,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { saveToken } from '../../services/authStorage';
 import { useTheme } from '../../theme/ThemeContext';
-import { useGoogleAuth, signInWithGoogleToken, signInWithApple } from '../../services/socialAuth';
+import { useGoogleAuth, signInWithGoogleToken, signInWithApple, signInWithGooglePopup } from '../../services/socialAuth';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -33,7 +60,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const { request, response, promptAsync } = useGoogleAuth();
 
-  // Vérifier si l'utilisateur vient de vérifier son email (une seule fois au chargement)
+  // Auto-login : si l'utilisateur a déjà une session Firebase avec email vérifié,
+  // on le redirige immédiatement (exécuté une seule fois grâce au guard hasCheckedAuth)
   useEffect(() => {
     if (hasCheckedAuth) return;
     
@@ -68,6 +96,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [response]);
 
+  /**
+   * Authentifie l'utilisateur par email/mot de passe via Firebase Auth.
+   * Vérifie que l'email est confirmé avant d'autoriser l'accès, puis
+   * redirige vers l'espace approprié (admin ou participant) selon le rôle Firestore.
+   */
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Erreur', 'Email et mot de passe requis');
@@ -76,13 +109,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setLoading(true);
+      console.log('🔐 Tentative de connexion avec:', email.trim().toLowerCase());
       const credential = await signInWithEmailAndPassword(
         auth,
         email.trim().toLowerCase(),
         password
       );
 
-      // Vérifier si l'email est vérifié
+      // Sécurité : empêche la connexion si l'email n'a pas été confirmé.
+      // Propose un renvoi du mail de vérification via import dynamique pour
+      // éviter de charger sendEmailVerification au démarrage.
       if (!credential.user.emailVerified) {
         Alert.alert(
           'Email non vérifié',
@@ -131,27 +167,88 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
       }
     } catch (error: any) {
-      console.error('Login error', error?.message);
-      Alert.alert(
-        'Erreur',
-        error?.message || 'Impossible de se connecter'
-      );
+      console.error('Login error Firebase:', error?.code, error?.message);
+
+      let message = 'Impossible de se connecter. Vérifie ta connexion internet.';
+      switch (error?.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+          message = 'Email ou mot de passe incorrect. Si tu as réinitialisé ton mot de passe, vérifie que tu as bien cliqué sur le lien reçu par email (regarde aussi dans les spams).';
+          break;
+        case 'auth/invalid-email':
+          message = 'Adresse email invalide.';
+          break;
+        case 'auth/user-disabled':
+          message = 'Ce compte a été désactivé. Contacte le support.';
+          break;
+        case 'auth/too-many-requests':
+          message = 'Trop de tentatives. Réessaie dans quelques minutes.';
+          break;
+        case 'auth/network-request-failed':
+          message = 'Erreur réseau. Vérifie ta connexion internet.';
+          break;
+      }
+
+      Alert.alert('Erreur de connexion', message);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Lance le flux d'authentification Google via le prompt OAuth natif.
+   * Le résultat est traité dans le useEffect qui écoute `response`.
+   */
   const handleGoogleSignIn = async () => {
     try {
       setSocialLoading(true);
-      await promptAsync();
+      
+      // Utiliser Firebase popup pour le web, expo-auth-session pour mobile
+      if (Platform.OS === 'web') {
+        const result = await signInWithGooglePopup();
+        
+        if (!result.success) {
+          Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Google');
+          setSocialLoading(false);
+          return;
+        }
+        
+        if (result.user) {
+          const token = await result.user.user.getIdToken();
+          await saveToken(token);
+          
+          const uid = result.user.user.uid;
+          const profileSnap = await getDoc(doc(db, 'users', uid));
+          const role = profileSnap.exists() ? profileSnap.data()?.role : undefined;
+          const firstName = profileSnap.exists() ? profileSnap.data()?.firstName : undefined;
+          const lastName = profileSnap.exists() ? profileSnap.data()?.lastName : undefined;
+          const name = firstName && lastName ? `${firstName} ${lastName}` : result.user.user.displayName;
+          
+          Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+          
+          if (role === 'admin') {
+            navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+          } else {
+            navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+          }
+        }
+      } else {
+        await promptAsync();
+      }
     } catch (error: any) {
       console.error('Google Sign-In error:', error);
       Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+    } finally {
       setSocialLoading(false);
     }
   };
 
+  /**
+   * Finalise la connexion Google en échangeant le token OAuth contre
+   * une session Firebase, puis redirige selon le rôle utilisateur.
+   * @param idToken - Token d'identité Google reçu du flux OAuth
+   */
   const handleGoogleSignInWithToken = async (idToken: string) => {
     try {
       const result = await signInWithGoogleToken(idToken);
@@ -189,6 +286,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  /**
+   * Gère l'authentification via Apple Sign-In (iOS uniquement).
+   * Récupère le profil Firestore pour déterminer le rôle et rediriger en conséquence.
+   */
   const handleAppleSignIn = async () => {
     try {
       setSocialLoading(true);
@@ -285,6 +386,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             keyboardType="email-address"
             placeholder="votre@email.com"
             placeholderTextColor={theme.inputPlaceholder}
+            autoComplete="off"
             style={{
               flex: 1,
               fontSize: 16,
@@ -312,8 +414,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            placeholder="••••••••"
+            placeholder="Mot de passe"
             placeholderTextColor={theme.inputPlaceholder}
+            autoComplete="off"
             style={{
               flex: 1,
               fontSize: 16,

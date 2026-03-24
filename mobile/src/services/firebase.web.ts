@@ -1,21 +1,15 @@
 /**
- * @file Initialisation Firebase pour React Native (iOS / Android).
+ * @file Initialisation Firebase pour la plateforme Web.
  *
- * Configure l'application Firebase, l'authentification avec persistance
- * AsyncStorage (session conservée entre les redémarrages), Firestore
- * et Firebase Storage. Le fichier équivalent pour le web est
- * `firebase.web.ts` (sans persistance RN).
+ * Variante de `firebase.ts` adaptée au navigateur : utilise la
+ * persistance par défaut du SDK web (localStorage / indexedDB)
+ * au lieu de `getReactNativePersistence(AsyncStorage)`.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { initializeApp, getApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import {
-  initializeAuth,
-  getAuth,
-  getReactNativePersistence,
-} from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 type FirebaseConfig = {
@@ -38,12 +32,8 @@ if (!firebaseConfig?.apiKey || !firebaseConfig?.projectId || !firebaseConfig?.ap
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Ensure RN persistence for Firebase Auth (must use initializeAuth on first init)
-export const auth = getApps().length === 1
-  ? initializeAuth(firebaseApp, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    })
-  : getAuth(firebaseApp);
+// Sur le web : persistance navigateur par défaut (pas getReactNativePersistence)
+export const auth = getAuth(firebaseApp);
 
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);

@@ -1,6 +1,31 @@
+/**
+ * @module pdfService
+ * @description Service de génération de billets PDF pour les participants.
+ *
+ * Produit un document A4 professionnel contenant toutes les informations
+ * nécessaires à l'entrée de l'événement : détails de l'événement, informations
+ * du participant, QR code scannable et code alphanumérique lisible.
+ * Le PDF est généré entièrement en mémoire (Buffer) afin de pouvoir être
+ * renvoyé directement en réponse HTTP ou envoyé par email sans écriture disque.
+ *
+ * Le design suit la charte graphique EventHub (violet `#7B5CFF`) et inclut
+ * un en-tête coloré, des sections clairement délimitées et un pied de page
+ * horodaté.
+ *
+ * @datasource Aucune source de données externe ; reçoit un objet `TicketData` en entrée
+ * @dependencies pdfkit (génération PDF), qrcode (génération QR code en base64)
+ *
+ * @exports generateTicketPDF — génère le buffer PDF complet d'un billet
+ */
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 
+/**
+ * Données nécessaires à la génération d'un billet PDF.
+ * Toutes les informations affichées sur le billet sont regroupées ici
+ * afin de découpler la logique de génération de la source des données
+ * (Firestore, cache, etc.).
+ */
 interface TicketData {
   ticketId: string;
   code: string;
@@ -22,7 +47,22 @@ const TEXT_LIGHT = '#9ca3af';
 const SUCCESS_COLOR = '#10b981';
 
 /**
- * Génère un PDF de billet professionnel
+ * Génère un billet PDF professionnel au format A4 avec QR code intégré.
+ *
+ * Le document est construit séquentiellement section par section :
+ * 1. En-tête violet avec le logo EventHub
+ * 2. Détails de l'événement (titre, date, heure, lieu, type)
+ * 3. Informations du participant (nom, email)
+ * 4. Zone de validation : QR code + code alphanumérique côte à côte
+ * 5. Statut du billet (confirmé / en attente)
+ * 6. Mention légale et pied de page horodaté
+ *
+ * Le QR code encode le code du billet en majuscules avec un niveau de
+ * correction d'erreur élevé (`H`) pour rester lisible même imprimé en petit.
+ *
+ * @param {TicketData} ticketData — ensemble des données à afficher sur le billet
+ * @returns {Promise<Buffer>} Buffer PDF prêt à être envoyé en réponse HTTP ou par email
+ * @throws {Error} En cas d'échec de génération du QR code ou du document PDF
  */
 export const generateTicketPDF = async (ticketData: TicketData): Promise<Buffer> => {
   return new Promise(async (resolve, reject) => {

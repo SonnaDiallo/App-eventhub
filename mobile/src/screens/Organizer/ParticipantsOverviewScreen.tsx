@@ -1,3 +1,12 @@
+/**
+ * @file ParticipantsOverviewScreen — Vue d'ensemble des participants d'un événement.
+ *
+ * Affiche en temps réel (via Firestore onSnapshot) la liste des participants
+ * avec leur statut de check-in. Propose des filtres (tous / check-in / en attente)
+ * et une barre de recherche par nom, code de billet ou email.
+ * Les statistiques (total, check-in, taux) sont recalculées dynamiquement.
+ */
+
 import React, { useEffect, useState } from 'react';
 import {
   View,

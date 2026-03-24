@@ -1,9 +1,19 @@
+/**
+ * LoadingSpinner.tsx - Indicateur de chargement réutilisable.
+ * 
+ * Deux modes d'affichage :
+ * - fullScreen : occupe tout l'écran avec fond thémé (pour les pages entières)
+ * - inline : petit spinner avec message, pour les sections de page
+ */
+
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 
 interface LoadingSpinnerProps {
+  /** Message affiché sous le spinner (défaut: "Chargement...") */
   message?: string;
+  /** Si true, occupe tout l'écran avec le fond du thème */
   fullScreen?: boolean;
 }
 

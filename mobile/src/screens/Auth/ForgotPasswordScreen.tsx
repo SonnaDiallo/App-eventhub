@@ -1,3 +1,27 @@
+/**
+ * @module ForgotPasswordScreen
+ * @description Écran de réinitialisation du mot de passe.
+ *
+ * Permet à l'utilisateur d'entrer son adresse email pour recevoir un lien
+ * de réinitialisation via Firebase Auth (`sendPasswordResetEmail`).
+ *
+ * Gestion des erreurs Firebase :
+ * - `auth/user-not-found` → aucun compte associé
+ * - `auth/invalid-email` → format invalide
+ * - `auth/too-many-requests` → rate-limiting Firebase
+ *
+ * Après envoi réussi, l'utilisateur est automatiquement redirigé vers l'écran précédent.
+ */
+/**
+ * @file ForgotPasswordScreen.tsx
+ * @description Écran de réinitialisation du mot de passe.
+ *
+ * Permet à l'utilisateur d'entrer son adresse email pour recevoir un lien
+ * de réinitialisation via Firebase Auth. Gère les cas d'erreur courants
+ * (email introuvable, format invalide, trop de tentatives) avec des
+ * messages explicites en français.
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -23,6 +47,10 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Envoie un email de réinitialisation de mot de passe via Firebase Auth.
+   * En cas de succès, redirige l'utilisateur vers l'écran précédent (connexion).
+   */
   const handleResetPassword = async () => {
     if (!email) {
       Alert.alert('Erreur', 'Veuillez entrer votre adresse email');

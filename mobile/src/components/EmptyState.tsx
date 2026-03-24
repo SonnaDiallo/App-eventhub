@@ -1,13 +1,24 @@
+/**
+ * EmptyState.tsx - Composant d'état vide réutilisable.
+ * 
+ * Affiche un message centré avec icône quand une liste/section est vide.
+ * Supporte un bouton d'action optionnel (ex: "Créer un événement",
+ * "Rechercher", etc.) pour guider l'utilisateur.
+ */
+
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 
 interface EmptyStateProps {
+  /** Nom de l'icône Ionicons (défaut: 'search-outline') */
   icon?: string;
   title: string;
   message: string;
+  /** Texte du bouton d'action (optionnel) */
   actionLabel?: string;
+  /** Callback du bouton d'action */
   onAction?: () => void;
 }
 

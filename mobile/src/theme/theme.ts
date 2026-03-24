@@ -1,57 +1,57 @@
-// mobile/src/theme/theme.ts
+/**
+ * theme.ts - Définition des thèmes clair et sombre de l'application.
+ * 
+ * Chaque thème (ThemeColors) contient l'ensemble des tokens de couleur
+ * utilisés dans toute l'app : backgrounds, textes, bordures, couleurs
+ * primaires/accent, statuts, inputs, boutons et overlays.
+ * 
+ * La couleur primaire (#7B5CFF, violet) est partagée entre les deux thèmes.
+ */
 
 export type ThemeMode = 'light' | 'dark';
 
+/** Contrat de couleurs que chaque thème doit implémenter */
 export interface ThemeColors {
-  // Backgrounds
   background: string;
   surface: string;
   card: string;
   header: string;
   
-  // Text
   text: string;
   textSecondary: string;
   textMuted: string;
   
-  // Borders
   border: string;
   borderLight: string;
   
-  // Primary colors
   primary: string;
   primaryLight: string;
   primaryDark: string;
   
-  // Accent colors
   accent: string;
   accentLight: string;
   
-  // Status colors
   success: string;
   error: string;
   warning: string;
   info: string;
   
-  // Inputs
   inputBackground: string;
   inputBorder: string;
   inputText: string;
   inputPlaceholder: string;
   
-  // Buttons
   buttonPrimary: string;
   buttonPrimaryText: string;
   buttonSecondary: string;
   buttonSecondaryText: string;
   
-  // Overlay
   overlay: string;
   modalBackground: string;
 }
 
+/** Thème sombre : fond très foncé (#050016) avec accents néon */
 export const darkTheme: ThemeColors = {
-  // Backgrounds - Mode sombre actuel
   background: '#050016',
   surface: '#0F0F23',
   card: '#0b0620',
@@ -76,16 +76,16 @@ export const darkTheme: ThemeColors = {
   accentLight: '#20f0ff',
   
   // Status colors
-  success: '#00ff88',
+  success: '#8B7BFF',
   error: '#FF4F8B',
   warning: '#ffaa00',
   info: '#00e0ff',
   
   // Inputs
-  inputBackground: 'rgba(255, 255, 255, 0.03)',
-  inputBorder: 'rgba(123, 92, 255, 0.25)',
+  inputBackground: 'rgba(255, 255, 255, 0.05)',
+  inputBorder: 'rgba(123, 92, 255, 0.3)',
   inputText: '#FFFFFF',
-  inputPlaceholder: 'rgba(255, 255, 255, 0.35)',
+  inputPlaceholder: 'rgba(255, 255, 255, 0.4)',
   
   // Buttons
   buttonPrimary: '#7B5CFF',
@@ -98,8 +98,8 @@ export const darkTheme: ThemeColors = {
   modalBackground: '#0A0A1E',
 };
 
+/** Thème clair : fond blanc avec ombres subtiles */
 export const lightTheme: ThemeColors = {
-  // Backgrounds - Mode clair
   background: '#FFFFFF',
   surface: '#F5F5F7',
   card: '#FFFFFF',
@@ -146,6 +146,7 @@ export const lightTheme: ThemeColors = {
   modalBackground: '#FFFFFF',
 };
 
+/** Map des thèmes indexée par ThemeMode pour un accès dynamique */
 export const themes = {
   light: lightTheme,
   dark: darkTheme,

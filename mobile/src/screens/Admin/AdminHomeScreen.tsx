@@ -1,3 +1,28 @@
+/**
+ * @module AdminHomeScreen
+ * @description Page d'accueil de l'espace administrateur.
+ *
+ * Sert de hub de navigation vers les différentes sections d'administration :
+ * - Tableau de bord (statistiques globales)
+ * - Gestion des utilisateurs (rôles, suppression)
+ * - Gestion des événements (modération, suppression)
+ * - Gestion des avis (modération)
+ *
+ * Inclut un bouton de déconnexion avec confirmation (Alert) qui :
+ * 1. Supprime le token local (clearToken)
+ * 2. Déconnecte Firebase Auth (auth.signOut)
+ * 3. Réinitialise la pile de navigation vers l'écran Welcome
+ */
+/**
+ * @file AdminHomeScreen.tsx
+ * @description Écran d'accueil de l'espace administrateur (menu principal).
+ *
+ * Sert de hub de navigation vers les différentes sections d'administration :
+ * tableau de bord, gestion des utilisateurs, événements et avis.
+ * Inclut également la fonctionnalité de déconnexion qui efface le token
+ * local et réinitialise la pile de navigation vers l'écran d'accueil.
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +35,10 @@ export default function AdminHomeScreen() {
   const navigation = useNavigation();
   const { theme } = useTheme();
 
+  /**
+   * Propose une confirmation de déconnexion puis efface le token stocké,
+   * déconnecte Firebase Auth et redirige vers l'écran Welcome.
+   */
   const handleLogout = () => {
     Alert.alert(
       'Déconnexion',

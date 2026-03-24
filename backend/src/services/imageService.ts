@@ -1,7 +1,31 @@
+/**
+ * @module imageService
+ * @description Service de recherche et résolution d'images pour les événements.
+ *
+ * Lorsqu'un événement est créé ou importé sans image de couverture, ce service
+ * interroge l'API Unsplash pour trouver une photo libre de droits correspondant
+ * au thème de l'événement. La recherche est guidée par `getImageSearchQuery` qui
+ * traduit le titre de l'événement en termes de recherche anglais optimisés pour
+ * Unsplash (meilleur rappel qu'avec des mots français).
+ *
+ * @datasource Unsplash API — nécessite `UNSPLASH_ACCESS_KEY` en env
+ * @see categoryService — utilise `getImageSearchQuery` pour la détection de catégorie
+ *
+ * @exports getImageFromUnsplash  — récupère une photo Unsplash pour un terme donné
+ * @exports getImageSearchQuery   — convertit un titre d'événement en termes de recherche
+ */
 import axios from 'axios';
 
 /**
- * Récupère une image depuis Unsplash API basée sur une requête de recherche
+ * Interroge l'API Unsplash pour obtenir une image paysage correspondant à la requête.
+ *
+ * On ne demande qu'un seul résultat (`per_page=1`) en orientation paysage car les
+ * cartes d'événements sur le mobile utilisent un ratio large. En cas d'échec réseau
+ * ou de clé manquante, retourne `null` silencieusement pour ne pas bloquer le flux
+ * de création d'événement.
+ *
+ * @param {string} query — termes de recherche (en anglais de préférence pour un meilleur rappel)
+ * @returns {Promise<string | null>} URL de l'image au format `regular` (1080px), ou `null`
  */
 export async function getImageFromUnsplash(query: string): Promise<string | null> {
   try {
@@ -28,7 +52,16 @@ export async function getImageFromUnsplash(query: string): Promise<string | null
 }
 
 /**
- * Détermine la requête de recherche d'image basée sur le titre de l'événement
+ * Convertit le titre d'un événement en termes de recherche anglais pour Unsplash.
+ *
+ * L'algorithme détecte des mots-clés français et anglais dans le titre et retourne
+ * une expression de recherche thématique en anglais. L'ordre des conditions va du
+ * plus spécifique (yoga, théâtre) au plus général (tech, enfants) pour maximiser
+ * la pertinence de la première correspondance. Si aucun mot-clé n'est reconnu,
+ * le fallback "event gathering people" produit des résultats visuellement neutres.
+ *
+ * @param {string} title — titre de l'événement (insensible à la casse, FR ou EN)
+ * @returns {string} Termes de recherche anglais optimisés pour Unsplash
  */
 export function getImageSearchQuery(title: string): string {
   const titleLower = title.toLowerCase();

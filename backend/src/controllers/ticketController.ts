@@ -1,3 +1,24 @@
+/**
+ * @module ticketController
+ * @description Contrôleur de gestion des billets et du check-in événementiel.
+ *
+ * Couvre toute la chaîne du billet : consultation par le participant,
+ * recherche par code, validation (scan QR) par l'organisateur,
+ * et reporting pour le tableau de bord organisateur.
+ *
+ * Le système de vérification (verifyTicket) inclut un contrôle
+ * d'autorisation multi-niveaux : soit l'utilisateur est l'organisateur
+ * de l'événement, soit il a le rôle global organizer/admin ou le
+ * flag canScanTickets. Un historique de scan est enregistré à chaque
+ * validation pour traçabilité.
+ *
+ * Routes gérées :
+ * - GET  /tickets/my                          → getMyTickets
+ * - GET  /tickets/code/:code                  → getTicketByCode
+ * - POST /tickets/verify/:code                → verifyTicket
+ * - GET  /tickets/events/:eventId/stats       → getEventTicketStats
+ * - GET  /tickets/events/:eventId/scan-history→ getEventScanHistory
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -6,6 +27,18 @@ import { getUserByFirebaseUid } from '../services/userService';
 const toDate = (v: admin.firestore.Timestamp | Date | undefined): Date | undefined =>
   !v ? undefined : v instanceof Date ? v : (v as admin.firestore.Timestamp).toDate?.() ?? undefined;
 
+/**
+ * GET /tickets/my
+ * Retourne les billets de l'utilisateur connecté avec pagination.
+ * Chaque billet est enrichi des informations de l'événement associé
+ * (titre, image, dates, lieu) pour l'affichage dans « Mes billets ».
+ * Peut être filtré par eventId ou par statut checkedIn.
+ *
+ * @query {number}  [page=1]     - Numéro de page
+ * @query {number}  [limit=20]   - Éléments par page
+ * @query {string}  [eventId]    - Filtre par événement
+ * @query {string}  [checkedIn]  - « true » ou « false »
+ */
 export const getMyTickets = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
@@ -70,6 +103,15 @@ export const getMyTickets = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /tickets/code/:code
+ * Recherche un billet par son code unique (8 caractères hexadécimaux).
+ * Le code est normalisé en majuscules avant la recherche.
+ * Joint les informations de l'événement et de l'utilisateur pour
+ * afficher un résumé complet du billet.
+ *
+ * @param {string} code - Code unique du billet (insensible à la casse)
+ */
 export const getTicketByCode = async (req: Request, res: Response) => {
   try {
     const code = (req.params.code || '').toUpperCase();
@@ -107,6 +149,17 @@ export const getTicketByCode = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /tickets/verify/:code
+ * Valide un billet lors du check-in (scan QR). Contrôle d'autorisation
+ * multi-niveaux : organisateur de l'événement OU rôle global autorisé.
+ * Si eventId est fourni en query, vérifie que le billet correspond bien
+ * à cet événement. Refuse les billets déjà scannés (idempotence).
+ * Enregistre un historique de scan avec l'identité du scanner.
+ *
+ * @param {string} code       - Code du billet à valider
+ * @query {string} [eventId]  - Événement attendu (vérification croisée)
+ */
 export const verifyTicket = async (req: Request, res: Response) => {
   try {
     const code = (req.params.code || '').trim().toUpperCase();
@@ -183,6 +236,15 @@ export const verifyTicket = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /tickets/events/:eventId/stats
+ * Statistiques de billetterie pour un événement : total de billets,
+ * nombre de check-ins, billets en attente, taux de check-in,
+ * revenus totaux et ventilation par type de billet.
+ * Réservé à l'organisateur de l'événement.
+ *
+ * @param {string} eventId - Identifiant Firestore de l'événement
+ */
 export const getEventTicketStats = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.eventId;
@@ -225,6 +287,15 @@ export const getEventTicketStats = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /tickets/events/:eventId/scan-history
+ * Historique des scans de billets pour un événement, trié du plus
+ * récent au plus ancien. Inclut l'identité du scanner et du participant.
+ * Réservé à l'organisateur. Limité à 100 entrées max.
+ *
+ * @param {string} eventId     - Identifiant Firestore de l'événement
+ * @query {number} [limit=50]  - Nombre max d'entrées (max 100)
+ */
 export const getEventScanHistory = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.eventId;

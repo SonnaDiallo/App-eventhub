@@ -1,4 +1,12 @@
-// mobile/src/services/ticketService.ts
+/**
+ * @file Service de gestion des tickets / billets d'événements.
+ *
+ * Permet la vérification de tickets par QR code (scan organisateur),
+ * la consultation de l'historique des scans d'un événement, la
+ * récupération des billets de l'utilisateur connecté et l'inscription
+ * à un événement (génération d'un nouveau ticket).
+ */
+
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
@@ -30,6 +38,7 @@ export interface ScanHistoryItem {
   scannedBy: string;
 }
 
+/** Vérifie un ticket par son code et le marque comme utilisé (check-in). */
 export const verifyTicket = async (
   ticketCode: string,
   eventId?: string
@@ -47,6 +56,7 @@ export const verifyTicket = async (
   }
 };
 
+/** Récupère l'historique des tickets scannés pour un événement donné. */
 export const getEventScanHistory = async (
   eventId: string
 ): Promise<ScanHistoryItem[]> => {
@@ -78,6 +88,7 @@ export const getEventScanHistory = async (
   }
 };
 
+/** Récupère tous les billets de l'utilisateur connecté via Cloud Function. */
 export const getMyTickets = async () => {
   try {
     const result = await getMyTicketsViaFunctions();
@@ -88,6 +99,7 @@ export const getMyTickets = async () => {
   }
 };
 
+/** Inscrit l'utilisateur à un événement et génère son billet. */
 export const registerForEvent = async (eventId: string) => {
   try {
     const result = await joinEventViaFunctions(eventId);

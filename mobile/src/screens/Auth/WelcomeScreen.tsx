@@ -1,4 +1,19 @@
-// mobile/src/screens/Auth/WelcomeScreen.tsx
+/**
+ * @module WelcomeScreen
+ * @description Écran d'accueil (splash) de l'application EventHub.
+ *
+ * Fonctionnalités :
+ * - Affiche le logo de l'application avec un fond thématisé (mode clair/sombre).
+ * - Contient un composant `MovingBlob` : forme SVG animée en boucle infinie
+ *   (scale + translateY) pour donner un effet de « respiration » visuel.
+ * - Au montage, vérifie si un utilisateur Firebase est déjà connecté avec un email vérifié.
+ *   Si oui, redirige automatiquement vers l'écran approprié selon le rôle Firestore
+ *   (admin → AdminHome, sinon → HomeParticipant), sans afficher l'écran d'accueil.
+ * - Utilise un flag `cancelled` pour éviter les mises à jour de navigation
+ *   après le démontage du composant (race condition).
+ *
+ * @requires react-native-svg - Rendu du blob animé avec dégradé linéaire
+ */
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, Image } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
@@ -12,8 +27,14 @@ import { saveToken } from '../../services/authStorage';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
+// Wrapping SVG dans Animated pour pouvoir appliquer les transforms natifs (scale, translateY)
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
+/**
+ * Composant décoratif affichant un blob SVG avec un dégradé coloré
+ * et une animation de pulsation/flottement en boucle infinie.
+ * Utilisé comme élément visuel d'arrière-plan sur l'écran d'accueil.
+ */
 const MovingBlob: React.FC = () => {
   const scale = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -77,6 +98,9 @@ const MovingBlob: React.FC = () => {
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
 
+  // Auto-login silencieux : si une session Firebase valide existe,
+  // on by-pass l'écran d'accueil. Le flag `cancelled` protège contre
+  // les appels navigation après un éventuel démontage rapide du composant.
   useEffect(() => {
     const user = auth.currentUser;
     if (!user || !user.emailVerified) return;

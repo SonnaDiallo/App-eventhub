@@ -1,4 +1,12 @@
-// mobile/src/services/api.ts
+/**
+ * @file Client HTTP centralisé de l'application EventHub.
+ *
+ * Configure une instance Axios avec l'URL de base du backend, les
+ * intercepteurs d'authentification Firebase (injection automatique du
+ * token JWT, rafraîchissement transparent sur 401) et un throttle
+ * des avertissements réseau pour éviter le spam en console.
+ */
+
 import axios, { type AxiosError } from 'axios';
 import { Platform } from 'react-native';
 
@@ -124,7 +132,7 @@ export const getMe = async (): Promise<MeUser | null> => {
   }
 };
 
-// Test de connexion
+/** Teste la connectivité avec le backend en appelant l'endpoint `/health`. */
 export const testConnection = async () => {
   try {
     console.log('🔍 Testing backend connection...');

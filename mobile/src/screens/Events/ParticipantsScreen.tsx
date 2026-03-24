@@ -1,3 +1,17 @@
+/**
+ * @file ParticipantsScreen.tsx
+ * @description Écran listant les participants inscrits à un événement donné.
+ * Supporte à la fois les événements internes (API backend MongoDB) et les
+ * événements externes (Ticketmaster via le service externalRegistrationService).
+ *
+ * Fonctionnalités :
+ * - Recherche par nom ou email
+ * - Envoi de demande d'ami depuis la liste
+ * - Détection de l'utilisateur courant (badge « Vous »)
+ * - Bannière contextuelle si l'événement est terminé (incite à ajouter des amis)
+ * - Gestion des erreurs serveur (404, 500) avec messages explicites
+ */
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -43,6 +57,7 @@ const ParticipantsScreen: React.FC<Props> = ({ route }) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
+  /** Envoie une demande d'ami à un participant. Empêche les doublons via un Set de demandes déjà envoyées. */
   const handleAddFriend = useCallback(async (userId: string) => {
     if (sendingToId) return;
     setSendingToId(userId);
@@ -71,6 +86,8 @@ const ParticipantsScreen: React.FC<Props> = ({ route }) => {
   }, []);
 
   useEffect(() => {
+    // Le flag `cancelled` évite les mises à jour d'état sur un composant démonté
+    // (typique d'une navigation rapide avant la fin du chargement).
     let cancelled = false;
 
     const load = async () => {
@@ -212,6 +229,7 @@ const ParticipantsScreen: React.FC<Props> = ({ route }) => {
     return () => { cancelled = true; };
   }, [eventId]);
 
+  /** Filtre la liste des participants par nom ou email selon la saisie de l'utilisateur (recherche insensible à la casse). */
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return participants;
     const q = searchQuery.toLowerCase();
@@ -222,6 +240,7 @@ const ParticipantsScreen: React.FC<Props> = ({ route }) => {
     );
   }, [participants, searchQuery]);
 
+  /** Rendu d'un participant avec avatar initial, statut d'inscription et bouton « Ajouter en ami » (masqué pour l'utilisateur courant). */
   const renderParticipant = ({ item }: { item: Participant }) => {
     const sent = requestSentIds.has(item.id);
     const sending = sendingToId === item.id;

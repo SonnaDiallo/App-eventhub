@@ -1,9 +1,35 @@
+/**
+ * @module ticketPdfController
+ * @description Contrôleur de génération de billets PDF.
+ *
+ * Génère des fichiers PDF téléchargeables à partir des données de billet
+ * stockées dans Firestore. Le PDF contient le code du billet, les
+ * informations de l'événement (titre, date, lieu, prix) et les
+ * coordonnées du participant.
+ *
+ * Les informations de l'événement sont résolues en priorité depuis
+ * le document événement Firestore (plus à jour), avec fallback sur
+ * les champs dénormalisés du billet lui-même (utile si l'événement
+ * a été supprimé ou si c'est un événement externe).
+ *
+ * Routes gérées :
+ * - GET /tickets/:ticketId/pdf  → downloadTicketPDF
+ * - GET /tickets/pdf/all        → downloadAllTicketsPDF
+ */
 import { Request, Response } from 'express';
 import { firebaseDb } from '../config/firebaseAdmin';
 import { generateTicketPDF } from '../services/pdfService';
 
 /**
- * Télécharger un billet en PDF
+ * GET /tickets/:ticketId/pdf
+ * Génère et retourne un PDF pour un billet spécifique. Vérifie que
+ * le billet appartient à l'utilisateur connecté (protection contre
+ * le téléchargement de billets d'autrui). Résout les détails de
+ * l'événement depuis Firestore pour les événements internes, ou
+ * utilise les champs dénormalisés pour les événements externes.
+ *
+ * @param {string} ticketId - Identifiant Firestore du billet
+ * @returns {Buffer} Fichier PDF en pièce jointe (Content-Disposition: attachment)
  */
 export const downloadTicketPDF = async (req: Request, res: Response) => {
   try {
@@ -108,7 +134,11 @@ export const downloadTicketPDF = async (req: Request, res: Response) => {
 };
 
 /**
- * Télécharger tous les billets d'un utilisateur en PDF (zip)
+ * GET /tickets/pdf/all
+ * Télécharge tous les billets de l'utilisateur connecté en PDF.
+ * Pour l'instant, retourne uniquement le premier billet trouvé
+ * en réutilisant downloadTicketPDF. Un système de ZIP pour
+ * regrouper plusieurs billets est prévu (TODO).
  */
 export const downloadAllTicketsPDF = async (req: Request, res: Response) => {
   try {

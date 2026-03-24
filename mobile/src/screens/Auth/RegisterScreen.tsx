@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
 import { validateEmail, checkEmailExists } from '../../utils/emailValidator';
+import { useGoogleAuth, signInWithGoogleToken, signInWithApple, signInWithGooglePopup } from '../../services/socialAuth';
+import { saveToken } from '../../services/authStorage';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
@@ -36,6 +38,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  const { request, response, promptAsync } = useGoogleAuth();
 
   // Calculer la force du mot de passe (utilise le thème pour s'adapter au mode sombre)
   const getPasswordStrength = () => {
@@ -74,6 +79,158 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const timer = setTimeout(checkEmail, 500);
     return () => clearTimeout(timer);
   }, [email, emailTouched]);
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignInWithToken(id_token);
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setSocialLoading(true);
+      
+      // Utiliser Firebase popup pour le web, expo-auth-session pour mobile
+      if (Platform.OS === 'web') {
+        const result = await signInWithGooglePopup();
+        
+        if (!result.success) {
+          Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Google');
+          setSocialLoading(false);
+          return;
+        }
+        
+        if (result.user) {
+          const token = await result.user.user.getIdToken();
+          await saveToken(token);
+          
+          const uid = result.user.user.uid;
+          const profileSnap = await getDoc(doc(db, 'users', uid));
+          
+          if (!profileSnap.exists()) {
+            await setDoc(doc(db, 'users', uid), {
+              name: result.user.user.displayName || '',
+              email: result.user.user.email || '',
+              role,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          }
+          
+          const userRole = profileSnap.exists() ? profileSnap.data()?.role : role;
+          const name = result.user.user.displayName;
+          
+          Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+          
+          if (userRole === 'admin') {
+            navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+          } else {
+            navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+          }
+        }
+      } else {
+        await promptAsync();
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleGoogleSignInWithToken = async (idToken: string) => {
+    try {
+      const result = await signInWithGoogleToken(idToken);
+
+      if (!result.success) {
+        Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Google');
+        setSocialLoading(false);
+        return;
+      }
+
+      if (result.user) {
+        const token = await result.user.user.getIdToken();
+        await saveToken(token);
+
+        const uid = result.user.user.uid;
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+
+        if (!profileSnap.exists()) {
+          await setDoc(doc(db, 'users', uid), {
+            name: result.user.user.displayName || '',
+            email: result.user.user.email || '',
+            role,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        const userRole = profileSnap.exists() ? profileSnap.data()?.role : role;
+        const name = result.user.user.displayName;
+
+        Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+
+        if (userRole === 'admin') {
+          navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+        } else {
+          navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+        }
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In token error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      setSocialLoading(true);
+      const result = await signInWithApple();
+
+      if (!result.success) {
+        Alert.alert('Erreur', result.error || 'Impossible de se connecter avec Apple');
+        return;
+      }
+
+      if (result.user) {
+        const idToken = await result.user.user.getIdToken();
+        await saveToken(idToken);
+
+        const uid = result.user.user.uid;
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+
+        if (!profileSnap.exists()) {
+          await setDoc(doc(db, 'users', uid), {
+            name: result.user.user.displayName || '',
+            email: result.user.user.email || '',
+            role,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        const userRole = profileSnap.exists() ? profileSnap.data()?.role : role;
+        const name = result.user.user.displayName;
+
+        Alert.alert('Succès', `Bienvenue ${name || ''}`.trim());
+
+        if (userRole === 'admin') {
+          navigation.reset({ index: 0, routes: [{ name: 'AdminHome' }] });
+        } else {
+          navigation.reset({ index: 0, routes: [{ name: 'HomeParticipant' }] });
+        }
+      }
+    } catch (error: any) {
+      console.error('Apple Sign-In error:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Apple');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (!firstName || !lastName || !email || !password) {
@@ -520,6 +677,74 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             {loading ? 'Création...' : 'S\'inscrire'}
           </Text>
         </TouchableOpacity>
+
+        {/* Séparateur */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 24,
+          }}
+        >
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+          <Text style={{ marginHorizontal: 16, color: theme.textMuted, fontSize: 14 }}>ou</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+        </View>
+
+        {/* Boutons de connexion sociale */}
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginBottom: 32,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: theme.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: theme.border,
+              marginRight: 16,
+              opacity: socialLoading ? 0.5 : 1,
+            }}
+            onPress={handleGoogleSignIn}
+            disabled={socialLoading}
+          >
+            <Ionicons name="logo-google" size={24} color="#DB4437" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: theme.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: theme.border,
+              opacity: socialLoading ? 0.5 : 1,
+            }}
+            onPress={handleAppleSignIn}
+            disabled={socialLoading}
+          >
+            <Ionicons name="logo-apple" size={24} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Lien vers connexion */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
+          <Text style={{ color: theme.textMuted, fontSize: 14 }}>Déjà inscrit ? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '600' }}>
+              Se connecter
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Indicateur de page */}
         <View

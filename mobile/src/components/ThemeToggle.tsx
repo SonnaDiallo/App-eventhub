@@ -1,4 +1,11 @@
-// mobile/src/components/ThemeToggle.tsx
+/**
+ * ThemeToggle.tsx - Indicateur du mode de thème actuel.
+ * 
+ * Affiche le mode actuel (clair) avec une icône soleil.
+ * Utilisé dans les paramètres ou le header pour informer
+ * l'utilisateur du thème en cours.
+ */
+
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

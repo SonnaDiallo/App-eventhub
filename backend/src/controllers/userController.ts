@@ -1,7 +1,30 @@
+/**
+ * @module userController
+ * @description Contrôleur de gestion des utilisateurs (réservé aux administrateurs).
+ *
+ * Fournit les opérations CRUD sur les comptes utilisateurs depuis le
+ * panneau d'administration : lister tous les utilisateurs, modifier
+ * un rôle, ou supprimer un compte. Ces routes sont protégées par le
+ * middleware d'authentification et le middleware de vérification admin.
+ *
+ * La suppression d'un utilisateur ici ne supprime que le document
+ * Firestore ; le compte Firebase Auth reste actif (à nettoyer
+ * séparément si nécessaire, ou via un Cloud Function).
+ *
+ * Routes gérées :
+ * - GET    /users          → getAllUsers
+ * - PATCH  /users/:id/role → updateUserRole
+ * - DELETE /users/:id      → deleteUser
+ */
 import { Request, Response } from 'express';
 import { firebaseDb } from '../config/firebaseAdmin';
 
-// Lister tous les utilisateurs (admin seulement)
+/**
+ * GET /users
+ * Liste tous les utilisateurs de la plateforme. Retourne l'intégralité
+ * des profils Firestore sans pagination (acceptable tant que la base
+ * utilisateurs reste de taille modérée). Réservé aux administrateurs.
+ */
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const usersSnap = await firebaseDb.collection('users').get();
@@ -12,7 +35,15 @@ export const getAllUsers = async (req: Request, res: Response) => {
   }
 };
 
-// Modifier le rôle d'un utilisateur (admin seulement)
+/**
+ * PATCH /users/:id/role
+ * Modifie le rôle d'un utilisateur. Les rôles autorisés sont
+ * « user », « organizer » et « admin ». Permet de promouvoir un
+ * utilisateur en organisateur ou de rétrograder un admin.
+ *
+ * @param {string} id   - Firebase UID de l'utilisateur
+ * @body  {string} role - Nouveau rôle (user | organizer | admin)
+ */
 export const updateUserRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -27,7 +58,15 @@ export const updateUserRole = async (req: Request, res: Response) => {
   }
 };
 
-// Supprimer un utilisateur (admin seulement)
+/**
+ * DELETE /users/:id
+ * Supprime le document utilisateur de Firestore. Attention : ne supprime
+ * pas le compte Firebase Auth associé, ni les données liées (billets,
+ * avis, participations). Une purge complète nécessiterait un traitement
+ * en cascade à implémenter côté Cloud Functions.
+ *
+ * @param {string} id - Firebase UID de l'utilisateur à supprimer
+ */
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

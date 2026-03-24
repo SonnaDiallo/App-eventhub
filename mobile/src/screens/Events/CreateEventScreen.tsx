@@ -1,4 +1,13 @@
-// mobile/src/screens/Events/CreateEventScreen.tsx
+/**
+ * @file CreateEventScreen.tsx
+ * @description Formulaire complet de création d'événement destiné aux organisateurs.
+ * Couvre la saisie du titre, des dates (avec pickers natifs iOS/Android),
+ * du lieu (autocomplétion via Nominatim/OpenStreetMap), de la catégorie,
+ * de la description, de l'image de couverture (upload base64), ainsi que
+ * la tarification (gratuit/payant) et la capacité.
+ * L'événement est créé côté serveur via Cloud Functions.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -60,6 +69,7 @@ const CreateEventScreen = () => {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const locationTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** Recherche d'adresse via l'API Nominatim avec debounce (400 ms). Résultats limités à 5 suggestions en français. */
   const searchLocation = async (query: string) => {
     if (query.length < 3) {
       setLocationSuggestions([]);
@@ -82,6 +92,7 @@ const CreateEventScreen = () => {
     }
   };
 
+  /** Met à jour le champ lieu et déclenche une recherche Nominatim après un délai de 400 ms (debounce) pour éviter de spammer l'API. */
   const onLocationTextChange = (text: string) => {
     setLocationQuery(text);
     setEventData({...eventData, location: text});
@@ -130,6 +141,11 @@ const CreateEventScreen = () => {
   const [tempStartDate, setTempStartDate] = useState(new Date());
   const [tempEndDate, setTempEndDate] = useState(new Date(Date.now() + 3600000));
 
+  /**
+   * Sur Android, le picker natif ne permet qu'un seul mode à la fois (date OU heure).
+   * On enchaîne donc : d'abord le picker date, puis automatiquement le picker heure.
+   * Sur iOS, on met à jour une date temporaire affichée dans la modale, confirmée par l'utilisateur.
+   */
   const onStartDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowStartPicker(false);
@@ -192,6 +208,7 @@ const CreateEventScreen = () => {
     setShowEndPicker(false);
   };
 
+  /** Ouvre la galerie pour sélectionner une image de couverture. Recadrage 16:9 imposé pour uniformiser l'affichage des événements. Le base64 est utilisé car l'upload vers le backend se fait sans multipart. */
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -230,6 +247,7 @@ const CreateEventScreen = () => {
     }
   };
 
+  /** Valide l'ensemble des champs du formulaire avant soumission (titre, lieu, image, dates, prix). */
   const validateForm = () => {
     if (!eventData.title.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer un nom pour l\'événement');
@@ -260,6 +278,7 @@ const CreateEventScreen = () => {
     return true;
   };
 
+  /** Upload l'image puis crée l'événement via Cloud Functions. Gère les erreurs d'upload et de permissions (rôle organisateur). */
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -322,6 +341,7 @@ const CreateEventScreen = () => {
     }
   };
 
+  /** Sauvegarde locale du brouillon (fonctionnalité placeholder — pas encore persistée côté serveur). */
   const handleSaveDraft = () => {
     console.log('Saving as draft:', eventData);
     Alert.alert('Brouillon', 'Votre événement a été enregistré comme brouillon.');

@@ -1,6 +1,21 @@
 /**
- * Catégories d'événements (max 6)
+ * @module types/categories
+ * @description Définition des catégories d'événements et constantes associées.
+ *
+ * Ce module centralise :
+ * - L'enum des catégories utilisées côté backend ET mobile (source de vérité unique)
+ * - Le dictionnaire CATEGORIES avec les métadonnées (noms FR/EN, images par défaut)
+ * - Les constantes de validation d'images (taille max, formats acceptés)
+ * - La fonction utilitaire isValidCategory pour la validation côté contrôleur
+ *
+ * Limité à 6 catégories par choix UX pour garder la navigation mobile lisible.
+ *
+ * @exports EventCategory - Enum des catégories
+ * @exports CATEGORIES - Dictionnaire des métadonnées par catégorie
+ * @exports isValidCategory - Type guard pour valider une chaîne comme catégorie
  */
+
+/** Catégories d'événements — limitées à 6 pour la lisibilité de l'UI mobile */
 export enum EventCategory {
   MUSIC = 'music',
   SPORTS = 'sports',
@@ -66,6 +81,11 @@ export const CATEGORIES: Record<EventCategory, CategoryInfo> = {
 export const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 export const ALLOWED_IMAGE_FORMATS = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
+/**
+ * Type guard vérifiant qu'une chaîne correspond à une catégorie valide.
+ * Utilisé dans les contrôleurs pour valider les entrées utilisateur
+ * avant de les persister dans Firestore.
+ */
 export const isValidCategory = (category: string): category is EventCategory => {
   return Object.values(EventCategory).includes(category as EventCategory);
 };

@@ -1,3 +1,13 @@
+/**
+ * @file ScanTicketScreen — Scanner de billets QR pour le contrôle d'entrée.
+ *
+ * Utilise la caméra (expo-camera) pour lire les QR codes des billets et
+ * les valider via l'API backend. Inclut un mode de saisie manuelle du code,
+ * un sélecteur d'événement, et un historique des scans effectués.
+ * L'accès est restreint aux organisateurs ou aux utilisateurs disposant
+ * du privilège `canScanTickets` dans leur profil Firestore.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Text, TextInput, TouchableOpacity, View, ActivityIndicator, ScrollView, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -176,6 +186,10 @@ const ScanTicketScreen = () => {
     return () => { cancelled = true; };
   }, [hasAccess, selectedEventId]);
 
+  /**
+   * Valide un code de billet via l'API backend.
+   * @returns Un résultat de type success ou error selon la réponse.
+   */
   const validateTicket = async (ticketCode: string): Promise<ScanResult> => {
     try {
       if (!auth.currentUser) {

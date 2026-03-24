@@ -1,3 +1,12 @@
+/**
+ * @file CreateEventScreen.styles.ts
+ * @description Feuille de styles dynamique pour l'écran de création d'événement.
+ * Utilise une factory `createStyles` qui reçoit le thème courant afin de
+ * supporter le mode clair/sombre. Couvre le header, les champs de saisie,
+ * le sélecteur de date, l'upload d'image, le toggle gratuit/payant,
+ * les boutons de publication/brouillon et la modale de sélection de catégorie.
+ */
+
 import { StyleSheet, Platform } from 'react-native';
 import type { ThemeColors } from '../../theme/theme';
 

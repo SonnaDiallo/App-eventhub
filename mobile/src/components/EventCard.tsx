@@ -1,3 +1,16 @@
+/**
+ * EventCard.tsx - Carte d'événement réutilisable avec 3 variantes d'affichage.
+ * 
+ * Variantes :
+ * - 'featured' : Grande carte hero avec overlay gradient et badges glassmorphism
+ * - 'list'     : Carte horizontale pleine largeur avec image en haut
+ * - 'grid'     : Carte compacte pour affichage en grille (variante par défaut)
+ * 
+ * Chaque variante inclut une animation spring au toucher,
+ * un fallback vers des images Unsplash si l'image de couverture est manquante,
+ * et des badges pour le prix/catégorie.
+ */
+
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +19,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { normalizeImageUrl } from '../config/constants';
 import type { EventData } from '../navigation/AuthNavigator';
 
-// Plusieurs images de placeholder variées : même catégorie = images différentes par événement
+/** Images Unsplash variées utilisées comme fallback quand un événement n'a pas de couverture */
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
@@ -22,6 +35,7 @@ const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
 ];
 
+/** Génère un hash numérique déterministe à partir d'une string (algorithme DJB2) */
 function hashString(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;

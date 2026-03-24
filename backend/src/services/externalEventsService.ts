@@ -1,10 +1,45 @@
+/**
+ * @module externalEventsService
+ * @description Service d'intégration avec les API d'événements tierces (Ticketmaster).
+ *
+ * Permet d'enrichir le catalogue EventHub avec des événements réels provenant
+ * de sources externes. Chaque événement récupéré est normalisé au format
+ * `UnifiedEvent` afin que le reste de l'application puisse le traiter de
+ * manière identique aux événements créés en interne.
+ *
+ * Le filtrage par catégorie repose sur le mapping défini dans
+ * `ticketmasterCategoryMapping` : certaines catégories utilisent un `segmentId`
+ * Ticketmaster, d'autres uniquement un `keyword`, car le segment "Miscellaneous"
+ * renvoie très peu de résultats pour des villes comme Paris.
+ *
+ * @datasource Ticketmaster Discovery API v2 — nécessite `TICKETMASTER_API_KEY` en env
+ * @see ticketmasterCategoryMapping — correspondance catégories EventHub ↔ Ticketmaster
+ *
+ * @exports fetchTicketmasterEvents — récupération et normalisation des événements
+ * @exports testTicketmasterAPI     — diagnostic rapide de la connexion à l'API
+ */
 import axios from 'axios';
 import { UnifiedEvent } from '../types/externalEvents';
 import { EventCategory } from '../types/categories';
 import { getTicketmasterSegmentId, getTicketmasterKeyword, useKeywordOnly } from './ticketmasterCategoryMapping';
 
 /**
- * Récupère les événements depuis Ticketmaster API - VERSION AMÉLIORÉE
+ * Récupère et normalise les événements depuis l'API Ticketmaster Discovery v2.
+ *
+ * La fonction gère l'intégralité du flux :
+ * - Parsing de la localisation (ville + code pays)
+ * - Construction dynamique des paramètres selon la catégorie demandée
+ *   (segmentId et/ou keyword, cf. `ticketmasterCategoryMapping`)
+ * - Appel HTTP avec timeout de 10 s
+ * - Mapping de chaque événement brut vers le format `UnifiedEvent` :
+ *   extraction des dates, venue, images (préférence 16:9 HD), prix, promoteur
+ *
+ * On demande 200 résultats par requête car Ticketmaster pagine par défaut à 20,
+ * ce qui est insuffisant pour alimenter la page d'accueil mobile.
+ *
+ * @param {string} location — localisation au format "Ville, CODE_PAYS" (ex. "Paris, FR")
+ * @param {string | EventCategory} [category] — catégorie EventHub pour filtrer les résultats
+ * @returns {Promise<UnifiedEvent[]>} Événements normalisés, tableau vide en cas d'erreur
  */
 export async function fetchTicketmasterEvents(
   location: string,
@@ -196,7 +231,13 @@ export async function fetchTicketmasterEvents(
 }
 
 /**
- * Fonction de test simple pour vérifier l'API
+ * Diagnostic rapide de la connexion à l'API Ticketmaster.
+ *
+ * Effectue une requête minimale (10 événements à Paris) et affiche les résultats
+ * en console. Utile au démarrage du serveur ou lors du débogage pour vérifier
+ * que la clé API est valide et que le réseau autorise les appels sortants.
+ *
+ * @returns {Promise<void>} Ne retourne rien ; les résultats sont loggés en console
  */
 export async function testTicketmasterAPI(): Promise<void> {
   console.log('Test de l\'API Ticketmaster...');

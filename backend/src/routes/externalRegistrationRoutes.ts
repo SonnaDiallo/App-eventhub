@@ -1,3 +1,18 @@
+/**
+ * @fileoverview Routes d'inscription aux événements externes.
+ * @description Toutes les routes nécessitent une authentification.
+ * Permet aux utilisateurs de s'inscrire, se désinscrire et consulter
+ * leurs inscriptions aux événements provenant de sources externes
+ * (Ticketmaster, etc.).
+ *
+ * Endpoints enregistrés :
+ * - POST   /api/external-registrations/register                              → S'inscrire à un événement externe
+ * - DELETE /api/external-registrations/:externalEventId/register             → Annuler l'inscription
+ * - GET    /api/external-registrations/:externalEventId/participants         → Participants d'un événement externe
+ * - GET    /api/external-registrations/my-registrations                      → Mes inscriptions externes
+ * - GET    /api/external-registrations/:externalEventId/check-registration   → Vérifier mon inscription
+ * @module routes/externalRegistrationRoutes
+ */
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth';
 import {
@@ -10,22 +25,12 @@ import {
 
 const router = Router();
 
-// Toutes les routes nécessitent une authentification
 router.use(requireAuth);
 
-// S'inscrire à un événement externe
 router.post('/register', registerForExternalEvent);
-
-// Annuler l'inscription à un événement externe
 router.delete('/:externalEventId/register', cancelExternalEventRegistration);
-
-// Obtenir les participants d'un événement externe
 router.get('/:externalEventId/participants', getExternalEventParticipants);
-
-// Obtenir mes inscriptions aux événements externes
 router.get('/my-registrations', getMyExternalRegistrations);
-
-// Vérifier si je suis inscrit à un événement externe
 router.get('/:externalEventId/check-registration', checkExternalEventRegistration);
 
 export default router;

@@ -1,4 +1,11 @@
-// mobile/src/services/i18n.ts
+/**
+ * @file Système d'internationalisation (i18n) simplifié.
+ *
+ * Fournit les traductions statiques pour le français, l'anglais et
+ * l'espagnol. La langue choisie est persistée dans AsyncStorage et
+ * la fonction `t(key)` retourne la traduction correspondante.
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Language = 'fr' | 'en' | 'es';
@@ -107,11 +114,13 @@ const translations = {
 
 let currentLanguage: Language = 'fr';
 
+/** Persiste la langue choisie et met à jour la variable en mémoire. */
 export const setLanguage = async (lang: Language) => {
   currentLanguage = lang;
   await AsyncStorage.setItem('@eventhub_language', lang);
 };
 
+/** Charge la langue depuis AsyncStorage ; retourne `'fr'` par défaut. */
 export const getLanguage = async (): Promise<Language> => {
   try {
     const savedLang = await AsyncStorage.getItem('@eventhub_language');
@@ -125,12 +134,14 @@ export const getLanguage = async (): Promise<Language> => {
   return 'fr';
 };
 
+/** Retourne la traduction de `key` pour la langue courante (ou celle spécifiée). */
 export const t = (key: string, lang?: Language): string => {
   const langToUse = lang || currentLanguage;
   const translation = translations[langToUse];
   return (translation as any)[key] || key;
 };
 
+/** Retourne la langue active sans accès asynchrone au stockage. */
 export const getCurrentLanguage = (): Language => {
   return currentLanguage;
 };

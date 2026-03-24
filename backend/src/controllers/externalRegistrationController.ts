@@ -1,3 +1,22 @@
+/**
+ * @module externalRegistrationController
+ * @description Contrôleur d'inscription aux événements externes (Ticketmaster).
+ *
+ * Permet aux utilisateurs de manifester leur intérêt pour un événement
+ * externe sans créer de billet réel (la billetterie reste sur la
+ * plateforme tierce). Les inscriptions sont stockées dans la collection
+ * Firestore « externalRegistrations » et servent principalement à :
+ * - Afficher les événements externes dans « Mes inscriptions »
+ * - Montrer le nombre de participants de la communauté EventHub
+ * - Empêcher les doublons (une seule inscription active par utilisateur)
+ *
+ * Routes gérées :
+ * - POST   /external-registrations                           → registerForExternalEvent
+ * - DELETE /external-registrations/:externalEventId          → cancelExternalEventRegistration
+ * - GET    /external-registrations/:externalEventId/participants → getExternalEventParticipants
+ * - GET    /external-registrations/my                        → getMyExternalRegistrations
+ * - GET    /external-registrations/:externalEventId/check    → checkExternalEventRegistration
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -10,6 +29,17 @@ const getUserId = (req: AuthRequest): string | null => (req as any).user?.userId
 const toDate = (v: admin.firestore.Timestamp | undefined): Date | undefined =>
   !v ? undefined : (v as admin.firestore.Timestamp).toDate?.();
 
+/**
+ * POST /external-registrations
+ * Inscrit l'utilisateur connecté à un événement externe. Vérifie qu'il
+ * n'existe pas déjà une inscription active (status=registered) pour
+ * éviter les doublons. Retourne 409 Conflict si déjà inscrit.
+ *
+ * @body {string} externalEventId - Identifiant unique de l'événement externe
+ * @body {string} eventTitle      - Titre de l'événement (pour affichage)
+ * @body {string} eventDate       - Date de l'événement (pour affichage)
+ * @body {string} eventLocation   - Lieu de l'événement (pour affichage)
+ */
 export const registerForExternalEvent = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -58,6 +88,14 @@ export const registerForExternalEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * DELETE /external-registrations/:externalEventId
+ * Annule l'inscription de l'utilisateur à un événement externe.
+ * Ne supprime pas le document mais passe son statut à « cancelled »
+ * pour conserver l'historique d'inscription.
+ *
+ * @param {string} externalEventId - Identifiant de l'événement externe
+ */
 export const cancelExternalEventRegistration = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -85,6 +123,14 @@ export const cancelExternalEventRegistration = async (req: Request, res: Respons
   }
 };
 
+/**
+ * GET /external-registrations/:externalEventId/participants
+ * Liste les utilisateurs EventHub inscrits à un événement externe.
+ * Joint le profil utilisateur depuis la collection Firestore « users »
+ * pour afficher les noms et emails des participants.
+ *
+ * @param {string} externalEventId - Identifiant de l'événement externe
+ */
 export const getExternalEventParticipants = async (req: Request, res: Response) => {
   try {
     const { externalEventId } = req.params;
@@ -114,6 +160,12 @@ export const getExternalEventParticipants = async (req: Request, res: Response) 
   }
 };
 
+/**
+ * GET /external-registrations/my
+ * Retourne toutes les inscriptions actives de l'utilisateur connecté
+ * aux événements externes. Utilisé par l'écran « Mes billets » pour
+ * afficher à la fois les billets locaux et les inscriptions externes.
+ */
 export const getMyExternalRegistrations = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -136,6 +188,15 @@ export const getMyExternalRegistrations = async (req: Request, res: Response) =>
   }
 };
 
+/**
+ * GET /external-registrations/:externalEventId/check
+ * Vérifie si l'utilisateur connecté est déjà inscrit à un événement
+ * externe donné. Retourne un booléen isRegistered et éventuellement
+ * les détails de l'inscription. Permet au mobile d'afficher le bon
+ * bouton (« S'inscrire » vs « Se désinscrire »).
+ *
+ * @param {string} externalEventId - Identifiant de l'événement externe
+ */
 export const checkExternalEventRegistration = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);

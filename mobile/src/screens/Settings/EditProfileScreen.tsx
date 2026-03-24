@@ -1,4 +1,19 @@
-// mobile/src/screens/Settings/EditProfileScreen.tsx
+/**
+ * @file EditProfileScreen — Formulaire d'édition du profil utilisateur.
+ *
+ * Permet de modifier le nom, la ville, la bio et la photo de profil.
+ * L'email est affiché en lecture seule car lié à l'authentification Firebase.
+ * Les modifications sont persistées dans le document Firestore `users/{uid}`.
+ *
+ * Flux :
+ * 1. Chargement des données actuelles depuis Firestore au montage.
+ * 2. Sélection optionnelle d'une nouvelle photo via ImagePicker.
+ * 3. Sauvegarde de tous les champs modifiés en une seule écriture.
+ * 4. Retour automatique à l'écran précédent après confirmation.
+ *
+ * @requires ../../services/firebase - auth, db (Firestore)
+ * @requires ../../theme/ThemeContext - Thème clair / sombre
+ */
 import React, { useState, useEffect } from 'react';
 import {
   View,

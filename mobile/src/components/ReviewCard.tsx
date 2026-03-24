@@ -1,3 +1,13 @@
+/**
+ * ReviewCard.tsx - Carte d'avis utilisateur pour les événements.
+ * 
+ * Affiche un avis avec :
+ * - Avatar de l'utilisateur (image ou initiale colorée en fallback)
+ * - Nom de l'utilisateur et étoiles de notation (1-5)
+ * - Date relative ("Aujourd'hui", "Il y a 3 jours", etc.)
+ * - Commentaire textuel
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +19,7 @@ interface ReviewCardProps {
 }
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review, theme }) => {
+  /** Formate une date en texte relatif (ex: "Il y a 3 jours", "Hier") */
   const formatDate = (date: Date) => {
     const d = new Date(date);
     const now = new Date();

@@ -1,3 +1,21 @@
+/**
+ * @module adminController
+ * @description Contrôleur d'administration de la plateforme EventHub.
+ *
+ * Fournit les endpoints réservés aux administrateurs pour superviser
+ * l'ensemble de la plateforme : tableau de bord statistique, gestion
+ * des événements et modération des avis utilisateurs.
+ *
+ * Toutes les routes sont protégées par le middleware d'authentification
+ * et le middleware de vérification du rôle « admin ».
+ *
+ * Routes gérées :
+ * - GET    /admin/stats          → getDashboardStats
+ * - GET    /admin/events         → getAdminEvents
+ * - DELETE /admin/events/:id     → deleteAdminEvent
+ * - GET    /admin/reviews        → getAdminReviews
+ * - DELETE /admin/reviews/:id    → deleteAdminReview
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -5,7 +23,15 @@ import { firebaseDb } from '../config/firebaseAdmin';
 const toDate = (v: admin.firestore.Timestamp | Date | undefined): Date | undefined =>
   !v ? undefined : v instanceof Date ? v : (v as admin.firestore.Timestamp).toDate?.() ?? undefined;
 
-/** Statistiques dashboard admin (utilisateurs, événements, billets, etc.) */
+/**
+ * GET /admin/stats
+ * Agrège les statistiques globales pour le tableau de bord admin :
+ * nombre total d'utilisateurs (ventilé par rôle), d'événements,
+ * de billets et d'avis. Permet à l'administrateur d'avoir une
+ * vue d'ensemble rapide de l'activité de la plateforme.
+ *
+ * @returns {Object} Statistiques groupées (users, events, tickets, reviews)
+ */
 export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
     const [usersSnap, eventsSnap, ticketsSnap, reviewsSnap] = await Promise.all([
@@ -38,7 +64,16 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
   }
 };
 
-/** Liste tous les événements (admin) avec pagination */
+/**
+ * GET /admin/events
+ * Liste tous les événements de la plateforme avec pagination côté serveur.
+ * Enrichit chaque événement avec le nombre réel de participants
+ * (sous-collection Firestore) pour donner aux admins une vue
+ * consolidée sans avoir à ouvrir chaque événement individuellement.
+ *
+ * @query {number} page  - Numéro de page (défaut 1)
+ * @query {number} limit - Nombre d'éléments par page (défaut 20, max 50)
+ */
 export const getAdminEvents = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
@@ -104,7 +139,15 @@ export const getAdminEvents = async (req: Request, res: Response) => {
   }
 };
 
-/** Supprimer un événement (admin) + participants et billets associés */
+/**
+ * DELETE /admin/events/:id
+ * Supprime un événement et toutes ses données associées en cascade :
+ * d'abord les participants (sous-collection), puis le document événement,
+ * et enfin les billets liés. Le batch Firestore est découpé par tranches
+ * de 500 pour respecter la limite d'écriture atomique de Firestore.
+ *
+ * @param {string} id - Identifiant Firestore de l'événement à supprimer
+ */
 export const deleteAdminEvent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -138,7 +181,15 @@ export const deleteAdminEvent = async (req: Request, res: Response) => {
   }
 };
 
-/** Liste tous les avis (admin) avec pagination */
+/**
+ * GET /admin/reviews
+ * Liste tous les avis de la plateforme avec pagination.
+ * Joint le titre de l'événement concerné pour faciliter la
+ * modération sans navigation supplémentaire.
+ *
+ * @query {number} page  - Numéro de page (défaut 1)
+ * @query {number} limit - Nombre d'éléments par page (défaut 20, max 50)
+ */
 export const getAdminReviews = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
@@ -188,7 +239,14 @@ export const getAdminReviews = async (req: Request, res: Response) => {
   }
 };
 
-/** Supprimer un avis (admin) */
+/**
+ * DELETE /admin/reviews/:id
+ * Supprime un avis signalé ou inapproprié.
+ * Vérifie l'existence avant suppression afin de renvoyer
+ * une 404 explicite si l'avis a déjà été supprimé.
+ *
+ * @param {string} id - Identifiant Firestore de l'avis à supprimer
+ */
 export const deleteAdminReview = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

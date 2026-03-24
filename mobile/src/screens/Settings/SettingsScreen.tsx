@@ -1,4 +1,24 @@
-// mobile/src/screens/Settings/SettingsScreen.tsx
+/**
+ * @file SettingsScreen — Écran principal des paramètres de l'application.
+ *
+ * Regroupe toutes les préférences utilisateur : modification du profil,
+ * gestion des amis, changement de mot de passe, notifications push,
+ * mode sombre, confidentialité et support.
+ *
+ * Fonctionnalités notables :
+ * - Photo de profil uploadée via Firebase Storage (uploadProfileImageFromUri).
+ * - Récupération du rôle réel depuis l'API backend (getMe) pour afficher
+ *   conditionnellement la section « ADMIN ».
+ * - Section diagnostic « CONNEXION API » pour tester Firebase et afficher
+ *   l'URL du backend.
+ * - Fusion des données Firestore (profil) et backend (rôle) pour garantir
+ *   la cohérence.
+ *
+ * @requires ../../services/firebase - auth, db (Firestore)
+ * @requires ../../services/api - getMe (rôle backend)
+ * @requires ../../services/storageService - uploadProfileImageFromUri
+ * @requires ../../config/constants - getApiBaseUrl
+ */
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Image, Switch, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -11,6 +31,7 @@ import { db } from '../../services/firebase';
 import { getMe } from '../../services/api';
 import { getApiBaseUrl } from '../../config/constants';
 import { uploadProfileImageFromUri } from '../../services/storageService';
+import { clearToken } from '../../services/authStorage';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
@@ -102,29 +123,37 @@ const SettingsScreen = () => {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await auth.signOut();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Welcome' as never }],
-              });
-            } catch (error: any) {
-              Alert.alert('Erreur', 'Impossible de se déconnecter');
-            }
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Déconnexion',
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
+            [
+              { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Déconnexion', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmed) return;
+
+    try {
+      await clearToken();
+      await auth.signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' as never }],
+      });
+    } catch (error: any) {
+      const message = 'Impossible de se déconnecter';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Erreur', message);
+      }
+    }
   };
 
   const renderProfileSection = () => (
@@ -211,7 +240,27 @@ const SettingsScreen = () => {
       <View style={[styles.header, { backgroundColor: theme.surface }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            // Retour vers l'écran principal (l'historique peut être vide après connexion Google)
+            const user = auth.currentUser;
+            if (user) {
+              // Essayer de récupérer le rôle pour rediriger correctement
+              getDoc(doc(db, 'users', user.uid))
+                .then((userDoc) => {
+                  const role = userDoc.exists() ? userDoc.data()?.role : undefined;
+                  if (role === 'admin') {
+                    navigation.navigate('AdminHome' as never);
+                  } else {
+                    navigation.navigate('HomeParticipant' as never);
+                  }
+                })
+                .catch(() => {
+                  navigation.navigate('HomeParticipant' as never);
+                });
+            } else {
+              navigation.navigate('HomeParticipant' as never);
+            }
+          }}
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>

@@ -1,3 +1,11 @@
+/**
+ * @file Service de paiement Stripe pour les événements payants.
+ *
+ * Abstrait les appels Cloud Functions liés au paiement : création
+ * d'un PaymentIntent, confirmation après succès, consultation du
+ * statut et historique des paiements de l'utilisateur.
+ */
+
 import { 
   createPaymentIntentViaFunctions, 
   confirmPaymentViaFunctions, 

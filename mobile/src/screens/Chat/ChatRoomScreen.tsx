@@ -1,3 +1,12 @@
+/**
+ * @file ChatRoomScreen — Écran de conversation entre deux utilisateurs.
+ *
+ * Gère l'envoi, la réception et la suppression de messages en temps réel.
+ * Les messages reçus sont automatiquement marqués comme lus à l'ouverture
+ * de la conversation. La suppression est possible dans les 2 heures
+ * suivant l'envoi via un appui long sur la bulle de message.
+ */
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -36,6 +45,11 @@ const ChatRoomScreen: React.FC<Props> = ({ route, navigation }) => {
     navigation.setOptions({ title: userName || 'Chat' });
   }, [userName, navigation]);
 
+  /**
+   * Charge les messages et marque automatiquement comme lus
+   * tous les messages reçus non encore lus (via un Set de refs
+   * pour éviter les doublons de requêtes).
+   */
   const loadMessages = useCallback(async () => {
     try {
       const list = await getMessages(userId, { limit: 80 });
@@ -94,6 +108,7 @@ const ChatRoomScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  /** Vérifie que le message a été envoyé par l'utilisateur et date de moins de 2 heures. */
   const canDeleteMessage = (msg: ChatMessage): boolean => {
     if (!msg.fromMe) return false;
     const messageTime = new Date(msg.createdAt).getTime();

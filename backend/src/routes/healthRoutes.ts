@@ -1,4 +1,14 @@
-// backend/src/routes/healthRoutes.ts
+/**
+ * @fileoverview Route de vérification de l'état de santé du serveur (health check).
+ * @description Route publique qui teste la connectivité avec Firestore et retourne
+ * l'état du service. Utilisée pour le monitoring et les vérifications de disponibilité.
+ *
+ * Endpoints enregistrés :
+ * - GET /api/health → État du serveur et de la connexion Firestore
+ *   - HTTP 200 : Serveur opérationnel, Firestore connecté
+ *   - HTTP 500 : Erreur de connexion à Firestore
+ * @module routes/healthRoutes
+ */
 import { Router, Request, Response } from 'express';
 import { firebaseDb } from '../config/firebaseAdmin';
 

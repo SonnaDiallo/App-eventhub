@@ -1,4 +1,12 @@
-// mobile/src/services/eventsCache.ts
+/**
+ * @file Cache local des événements avec expiration automatique.
+ *
+ * Stocke la liste des événements dans AsyncStorage avec un TTL de
+ * 5 minutes pour réduire les appels réseau et offrir un affichage
+ * instantané au lancement de l'application. Le cache est invalidé
+ * automatiquement après expiration du timestamp.
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_KEY = '@eventhub_events_cache';
@@ -24,7 +32,13 @@ export interface CachedEvent {
   externalLink?: string;
 }
 
+/**
+ * Gestionnaire de cache pour les événements.
+ * Fournit des méthodes statiques pour sauvegarder, lire, invalider
+ * et vérifier la validité du cache.
+ */
 export class EventsCache {
+  /** Sauvegarde les événements et enregistre le timestamp actuel. */
   static async saveEvents(events: CachedEvent[]): Promise<void> {
     try {
       const timestamp = Date.now();
@@ -36,6 +50,7 @@ export class EventsCache {
     }
   }
 
+  /** Retourne les événements en cache s'ils sont encore valides, sinon `null`. */
   static async getEvents(): Promise<CachedEvent[] | null> {
     try {
       const timestampStr = await AsyncStorage.getItem(CACHE_TIMESTAMP_KEY);
@@ -69,6 +84,7 @@ export class EventsCache {
     }
   }
 
+  /** Supprime manuellement le cache et son timestamp. */
   static async clearCache(): Promise<void> {
     try {
       await AsyncStorage.removeItem(CACHE_KEY);
@@ -79,6 +95,7 @@ export class EventsCache {
     }
   }
 
+  /** Vérifie si le cache est encore valide (non expiré). */
   static async isCacheValid(): Promise<boolean> {
     try {
       const timestampStr = await AsyncStorage.getItem(CACHE_TIMESTAMP_KEY);

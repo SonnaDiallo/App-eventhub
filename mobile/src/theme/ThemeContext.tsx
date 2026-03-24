@@ -1,4 +1,18 @@
-// mobile/src/theme/ThemeContext.tsx
+/**
+ * ThemeContext.tsx - Contexte React pour la gestion du thème (clair/sombre).
+ * 
+ * Synchronise le thème entre :
+ * - AsyncStorage (cache local, disponible immédiatement)
+ * - Firestore (cloud, synchronisé en temps réel entre appareils)
+ * 
+ * Stratégie de chargement :
+ * 1. Si l'utilisateur est connecté → charge depuis Firestore, puis écoute les changements
+ * 2. Sinon → charge depuis AsyncStorage
+ * 3. Toute modification est sauvegardée aux deux endroits
+ * 
+ * Expose via useTheme() : theme, themeMode, isDarkMode, toggleTheme, setThemeMode
+ */
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -170,6 +184,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   );
 };
 
+/** Hook pour accéder au thème. Doit être utilisé dans un ThemeProvider. */
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (!context) {

@@ -1,3 +1,11 @@
+/**
+ * @file ScanTicketScreen.styles — Feuille de styles thématisée pour ScanTicketScreen.
+ *
+ * Fournit une factory `createStyles` qui génère les styles en fonction
+ * du thème actif (clair / sombre). Couvre le header, la caméra, les modales
+ * de résultat, la saisie manuelle, le sélecteur d'événement et l'historique.
+ */
+
 import { StyleSheet, Platform } from 'react-native';
 import type { ThemeColors } from '../../theme/theme';
 

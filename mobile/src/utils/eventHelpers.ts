@@ -1,3 +1,12 @@
+/**
+ * @file Utilitaires d'affichage et de formatage des événements.
+ *
+ * Gère l'attribution d'images de remplacement par catégorie lorsque
+ * l'événement n'a pas de cover, la déduplication d'images identiques
+ * entre événements, le formatage de dates/heures en français, et la
+ * sérialisation des objets Date pour la navigation React Navigation.
+ */
+
 import type { EventData } from '../navigation/AuthNavigator';
 
 export const CATEGORY_PLACEHOLDER_IMAGES: Record<string, string[]> = {
@@ -55,12 +64,14 @@ export const CATEGORY_PLACEHOLDER_IMAGES: Record<string, string[]> = {
 
 const DEFAULT_PLACEHOLDER_IMAGES = CATEGORY_PLACEHOLDER_IMAGES.other;
 
+/** Calcule un hash numérique simple pour distribuer les images placeholder de façon déterministe. */
 export const simpleHash = (str: string): number => {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   return Math.abs(h);
 };
 
+/** Retourne une image placeholder adaptée à la catégorie de l'événement. */
 export const getPlaceholderImageForEvent = (eventId: string, categoryId: string | null): string => {
   const id = (categoryId || '').toLowerCase();
   const key = id && CATEGORY_PLACEHOLDER_IMAGES[id] ? id : 'other';
@@ -69,6 +80,7 @@ export const getPlaceholderImageForEvent = (eventId: string, categoryId: string 
   return urls[index];
 };
 
+/** Retourne un placeholder unique en évitant les doublons déjà attribués (utilise `seenNormalizedUrls`). */
 export const getUniquePlaceholderForEvent = (
   eventId: string,
   categoryId: string | null,
@@ -118,6 +130,7 @@ export const normalizeImageUrlForDedup = (url: string): string => {
 /** Clé spéciale pour les événements sans image (évite la même image vide partout) */
 const EMPTY_IMAGE_KEY = '__no_image__';
 
+/** Parcourt la liste d'événements et remplace les images dupliquées ou manquantes par des placeholders uniques. */
 export function ensureUniqueImages<T extends EventData & { _startDate?: Date; source?: string }>(events: T[]): T[] {
   const seenImageUrls = new Set<string>();
   return events.map((e) => {
@@ -138,11 +151,13 @@ export function ensureUniqueImages<T extends EventData & { _startDate?: Date; so
   });
 }
 
+/** Formate une date en chaîne longue française (ex: « lundi 17 mars 2026 »). */
 export const formatDate = (dt?: Date): string => {
   if (!dt) return '';
   return dt.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 };
 
+/** Formate une plage horaire « HH:MM - HH:MM » à partir des dates de début et fin. */
 export const formatTime = (start?: Date, end?: Date): string => {
   if (!start) return '';
   const pad = (n: number) => String(n).padStart(2, '0');

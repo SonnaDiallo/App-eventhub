@@ -1,5 +1,11 @@
-// mobile/src/services/eventsService.ts
-// Service événements utilisant Firestore directement (sans backend)
+/**
+ * @file Service principal de gestion des événements.
+ *
+ * Interroge Firestore pour les événements locaux et le backend / Firebase
+ * Functions pour les événements externes (Ticketmaster). Gère la
+ * déduplication, le filtrage côté client, la pagination, l'inscription /
+ * désinscription aux événements et la récupération des participants.
+ */
 
 import {
   collection,
@@ -315,6 +321,7 @@ export interface EventParticipantsResponse {
   participants: EventParticipantFromAPI[];
 }
 
+/** Récupère la liste des participants d'un événement avec leurs infos utilisateur. */
 export const getEventParticipants = async (eventId: string): Promise<EventParticipantsResponse> => {
   try {
     const participantsRef = collection(db, 'events', eventId, 'participants');

@@ -1,3 +1,24 @@
+/**
+ * @module friendsController
+ * @description Contrôleur du système d'amitié entre utilisateurs.
+ *
+ * Gère les demandes d'ami, leur acceptation/refus, et la liste d'amis.
+ * Les relations d'amitié sont stockées dans la collection « friendRequests »
+ * avec un ID déterministe basé sur la paire triée des deux UIDs
+ * (ex: « uid1_uid2 »), ce qui garantit qu'il n'existe qu'un seul
+ * document par paire d'utilisateurs et simplifie les vérifications.
+ *
+ * Statuts possibles d'une demande : pending → accepted | rejected.
+ * Une demande rejetée peut être renvoyée uniquement par l'expéditeur
+ * original (le destinataire qui a refusé ne peut pas ré-initier).
+ *
+ * Routes gérées :
+ * - POST   /friends/request        → sendRequest
+ * - GET    /friends/requests        → getIncomingRequests
+ * - PATCH  /friends/requests/:id/accept → acceptRequest
+ * - PATCH  /friends/requests/:id/reject → rejectRequest
+ * - GET    /friends                 → getFriends
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -10,7 +31,15 @@ const getUserId = (req: AuthRequest): string | null => (req as any).user?.userId
 const toDate = (v: admin.firestore.Timestamp | undefined): Date | undefined =>
   !v ? undefined : (v as admin.firestore.Timestamp).toDate?.();
 
-/** toUserId dans le body = Firebase UID de l'ami */
+/**
+ * POST /friends/request
+ * Envoie une demande d'ami. L'ID du document est la paire triée
+ * des deux UIDs pour garantir l'unicité. Gère les cas limites :
+ * déjà amis, demande déjà envoyée, demande inverse en attente,
+ * et relance après un refus précédent.
+ *
+ * @body {string} toUserId - Firebase UID de l'utilisateur ciblé
+ */
 export const sendRequest = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -71,6 +100,12 @@ export const sendRequest = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /friends/requests
+ * Liste les demandes d'ami en attente reçues par l'utilisateur connecté.
+ * Joint le profil (nom, email, photo) de chaque expéditeur pour
+ * permettre à l'utilisateur de décider d'accepter ou refuser.
+ */
 export const getIncomingRequests = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -105,6 +140,14 @@ export const getIncomingRequests = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PATCH /friends/requests/:id/accept
+ * Accepte une demande d'ami en attente. Seul le destinataire (toUserId)
+ * peut accepter. Passe le statut à « accepted », ce qui débloque
+ * automatiquement la messagerie privée entre les deux utilisateurs.
+ *
+ * @param {string} id - Identifiant du document friendRequest (paire triée)
+ */
 export const acceptRequest = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -137,6 +180,15 @@ export const acceptRequest = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PATCH /friends/requests/:id/reject
+ * Refuse une demande d'ami. Seul le destinataire (toUserId) peut
+ * refuser. Le statut passe à « rejected ». L'expéditeur original
+ * pourra éventuellement renvoyer une demande, mais le destinataire
+ * qui a refusé ne peut pas en envoyer une.
+ *
+ * @param {string} id - Identifiant du document friendRequest
+ */
 export const rejectRequest = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);
@@ -161,6 +213,13 @@ export const rejectRequest = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /friends
+ * Retourne la liste d'amis acceptés de l'utilisateur connecté.
+ * Combine les deux sens (envoyées + reçues avec status=accepted)
+ * et déduplique les UIDs pour éviter les doublons, puis joint
+ * le profil de chaque ami.
+ */
 export const getFriends = async (req: Request, res: Response) => {
   try {
     const firebaseUid = getUserId(req as AuthRequest);

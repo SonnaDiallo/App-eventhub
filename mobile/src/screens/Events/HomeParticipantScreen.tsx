@@ -1,3 +1,17 @@
+/**
+ * @file HomeParticipantScreen.tsx
+ * @description Écran d'accueil principal pour les participants. Point d'entrée de
+ * l'application après connexion. Présente un header immersif avec image de fond,
+ * une barre de recherche, un filtre par catégorie, un carrousel d'événements « À la une »,
+ * une grille d'événements filtrés, et une liste « À venir ».
+ *
+ * Intègre également :
+ * - Un compteur de notifications (messages non lus + demandes d'amis)
+ * - Un sélecteur de ville (sauvegardé dans Firestore)
+ * - Un menu de tri (date, prix, titre)
+ * - Une barre de navigation inférieure (Explorer, Tickets, Chat, Favoris, Profil)
+ */
+
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Platform, Image, Animated, Modal, ImageBackground, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -116,6 +130,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     }, [])
   );
 
+  /** Pipeline de filtrage et tri : recherche textuelle → filtre catégorie → tri sélectionné → déduplication images. */
   const filtered = useMemo(() => {
     const filteredEvents = filterEvents(events, searchQuery, selectedCategory);
     const sorted = sortEvents(filteredEvents, sortBy);
@@ -503,6 +518,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   );
 
 
+  /** Affiche le carrousel horizontal des 3 événements vedettes avec image de fond, gradient et animation d'entrée. */
   const renderFeaturedEvents = () => {
     if (loading || filtered.length === 0) return null;
     const featuredEvents = filtered.slice(0, 3);
@@ -695,6 +711,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  /** Mappe chaque identifiant de catégorie vers un nom d'icône Ionicons pour l'affichage dans les filtres. */
   const getCategoryIcon = (categoryId: string | null): string => {
     if (!categoryId) return 'apps';
     const iconMap: Record<string, string> = {
@@ -711,6 +728,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     return iconMap[categoryId] || 'ellipse';
   };
 
+  /** Affiche les pilules de catégorie avec icônes. La sélection déclenche le filtrage côté client via le useMemo `filtered`. */
   const renderCategoryPills = () => {
     const mainCategories = [
       { id: null, label: 'Tout' },
@@ -769,6 +787,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  /** Affiche les événements en grille 2 colonnes quand une catégorie est sélectionnée (remplace le carrousel vedette). */
   const renderGridEvents = () => {
     if (!selectedCategory || loading) return null;
 
@@ -915,6 +934,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  /** Affiche la liste verticale des événements à venir (à partir du 4e) en format carte compacte. */
   const renderUpcomingEvents = () => {
     if (loading) {
       return <LoadingSpinner fullScreen message="Chargement des événements..." />;
@@ -1002,6 +1022,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
     return null;
   };
 
+  /** Met à jour la ville de l'utilisateur dans Firestore et l'état local. */
   const handleSelectCity = async (city: string) => {
     const user = auth.currentUser;
     if (!user) return;

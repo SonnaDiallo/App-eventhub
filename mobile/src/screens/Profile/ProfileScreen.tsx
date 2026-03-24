@@ -1,4 +1,21 @@
-// mobile/src/screens/Profile/ProfileScreen.tsx
+/**
+ * @file ProfileScreen — Écran de profil utilisateur (participant ou organisateur).
+ *
+ * Point d'entrée du profil : charge les données Firestore de l'utilisateur
+ * connecté et affiche soit le profil participant (photo, compte, préférences,
+ * confidentialité, support, déconnexion), soit le profil organisateur via
+ * `OrganizerProfileScreen` si le rôle est « organizer ».
+ *
+ * Fonctionnalités :
+ * - Changement de photo de profil via ImagePicker (stockée dans Firestore).
+ * - Toggles de notifications push, mode sombre et profil public.
+ * - Raccourcis vers la modification du profil, la sécurité et le support.
+ * - Rechargement automatique des données à chaque focus de l'écran.
+ *
+ * @requires ../../services/firebase - auth, db (Firestore)
+ * @requires ../../theme/ThemeContext - Thème clair / sombre
+ * @requires ./OrganizerProfileScreen - Profil dédié organisateur
+ */
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Image, Switch, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -8,6 +25,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { clearToken } from '../../services/authStorage';
 import OrganizerProfileScreen from './OrganizerProfileScreen';
 
 const ProfileScreen = () => {
@@ -95,29 +113,36 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await auth.signOut();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Welcome' as never }],
-              });
-            } catch (error: any) {
-              Alert.alert('Erreur', 'Impossible de se déconnecter');
-            }
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Déconnexion',
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
+            [
+              { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Déconnexion', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmed) return;
+
+    try {
+      await clearToken();
+      await auth.signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' as never }],
+      });
+    } catch (error: any) {
+      if (Platform.OS === 'web') {
+        window.alert('Impossible de se déconnecter');
+      } else {
+        Alert.alert('Erreur', 'Impossible de se déconnecter');
+      }
+    }
   };
 
   const renderProfileSection = () => (
@@ -206,6 +231,26 @@ const ProfileScreen = () => {
   // Sinon, afficher le profil participant
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Header avec bouton retour */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 60 : 20,
+        paddingBottom: 16,
+        backgroundColor: theme.surface,
+      }}>
+        <TouchableOpacity
+          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => navigation.navigate('HomeParticipant' as never)}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, textAlign: 'center', flex: 1 }}>Profil</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}

@@ -1,3 +1,24 @@
+/**
+ * @module externalEventsController
+ * @description Contrôleur d'intégration des événements externes (Ticketmaster).
+ *
+ * Permet de synchroniser (importer) des événements depuis l'API Ticketmaster
+ * vers Firestore, de les consulter en lecture seule, ou de les filtrer
+ * par catégorie. Les images manquantes sont complétées via l'API Unsplash.
+ *
+ * Les événements importés utilisent un ID stable « source_externalId »
+ * pour permettre la mise à jour incrémentale sans duplication.
+ *
+ * Inclut aussi une route de nettoyage pour supprimer les anciens
+ * événements Paris Open Data qui ne sont plus utilisés.
+ *
+ * Routes gérées :
+ * - POST   /events/sync/external                → syncExternalEvents
+ * - GET    /events/external                      → getExternalEvents
+ * - GET    /events/external/category/:category   → getTicketmasterEventsByCategory
+ * - GET    /events/debug                         → debugEvents
+ * - DELETE /events/external/paris-opendata       → deleteParisOpenDataEvents
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -7,7 +28,15 @@ import { UnifiedEvent } from '../types/externalEvents';
 import { EventCategory } from '../types/categories';
 
 /**
- * Synchronise les événements depuis Ticketmaster API
+ * POST /events/sync/external
+ * Importe les événements futurs depuis Ticketmaster dans Firestore.
+ * Chaque événement est sauvegardé avec un ID stable (source_externalId)
+ * pour permettre des re-synchronisations sans duplication (merge: true).
+ * Les images manquantes sont enrichies via Unsplash, et les descriptions
+ * HTML sont nettoyées avant stockage.
+ *
+ * @query {string} [location=Paris,France] - Localisation de recherche
+ * @query {string} [category]              - Filtre par catégorie
  */
 export const syncExternalEvents = async (req: Request, res: Response) => {
   try {
@@ -154,7 +183,11 @@ export const syncExternalEvents = async (req: Request, res: Response) => {
 };
 
 /**
- * Route de debug pour vérifier la configuration et les événements
+ * GET /events/debug
+ * Endpoint de diagnostic pour vérifier la configuration des API externes
+ * et l'état de la base d'événements (total, par source, événements futurs).
+ * Utile en développement pour identifier rapidement les problèmes de
+ * configuration (clé API manquante, aucune donnée importée, etc.).
  */
 export const debugEvents = async (req: Request, res: Response) => {
   try {
@@ -208,8 +241,18 @@ export const debugEvents = async (req: Request, res: Response) => {
 };
 
 /**
- * Récupère les événements externes depuis Ticketmaster (sans les sauvegarder)
- * Route publique pour récupérer les événements disponibles
+ * GET /events/external
+ * Récupère les événements Ticketmaster en lecture seule, sans les
+ * persister dans Firestore. Utile pour prévisualiser le catalogue
+ * externe avant synchronisation, ou pour afficher côté mobile des
+ * événements enrichis sans polluer la base locale.
+ * Supporte la pagination, le filtrage par catégorie et la recherche texte.
+ *
+ * @query {string} [location=Paris,France] - Localisation
+ * @query {string} [category]              - Filtre catégorie
+ * @query {string} [search]                - Recherche texte
+ * @query {number} [page=1]                - Page courante
+ * @query {number} [limit=20]              - Éléments par page
  */
 export const getExternalEvents = async (req: Request, res: Response) => {
   try {
@@ -318,8 +361,14 @@ export const getExternalEvents = async (req: Request, res: Response) => {
 };
 
 /**
- * Récupère les événements Ticketmaster par catégorie (sans les sauvegarder)
- * Utile pour prévisualiser les événements disponibles
+ * GET /events/external/category/:category
+ * Récupère les événements Ticketmaster filtrés par catégorie spécifique.
+ * Si aucun événement n'est trouvé pour la catégorie, tente une recherche
+ * sans filtre pour déterminer si le problème vient de la catégorie
+ * ou de la localisation, et retourne des informations de debug.
+ *
+ * @param {string} category - Catégorie EventHub (music, sport, tech…)
+ * @query {string} [location=Paris,France] - Localisation de recherche
  */
 export const getTicketmasterEventsByCategory = async (req: Request, res: Response) => {
   try {
@@ -402,7 +451,12 @@ export const getTicketmasterEventsByCategory = async (req: Request, res: Respons
 };
 
 /**
- * Supprime les anciens événements de Paris Open Data
+ * DELETE /events/external/paris-opendata
+ * Nettoie les événements issus de l'ancienne source Paris Open Data.
+ * Cette route existe car la plateforme a migré vers Ticketmaster comme
+ * source externe unique ; les données résiduelles de Paris Open Data
+ * doivent être purgées pour éviter des événements périmés dans le feed.
+ * Requiert l'authentification (seul un utilisateur connecté peut déclencher).
  */
 export const deleteParisOpenDataEvents = async (req: Request, res: Response) => {
   try {

@@ -1,3 +1,11 @@
+/**
+ * @file HomeParticipantScreen.styles.ts
+ * @description Feuille de styles dynamique pour l'écran d'accueil participant.
+ * Couvre le header avec section hero, la barre de recherche, les filtres
+ * de catégories, le carrousel d'événements vedettes, la grille d'événements,
+ * le menu de tri en modale, le FAB de création, et les états vides/chargement.
+ */
+
 import { StyleSheet, Platform } from 'react-native';
 import type { ThemeColors } from '../../theme/theme';
 

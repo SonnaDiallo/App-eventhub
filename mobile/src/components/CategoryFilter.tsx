@@ -1,3 +1,12 @@
+/**
+ * CategoryFilter.tsx - Barre de filtrage horizontal par catégorie.
+ * 
+ * Affiche une liste scrollable de boutons de catégorie avec :
+ * - Un bouton "Tous" par défaut
+ * - Un gradient coloré sur la catégorie sélectionnée
+ * - Une animation spring au press pour le retour haptique visuel
+ */
+
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +25,15 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   onSelectCategory,
   theme,
 }) => {
+  /**
+   * CategoryButton - Bouton individuel pour chaque catégorie.
+   * Utilise un gradient quand sélectionné, un style bordé sinon.
+   * Animation spring au press-in/press-out pour un effet de rebond.
+   */
   const CategoryButton = ({ id, name, icon, isSelected }: any) => {
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
+    /** Réduit légèrement la taille au toucher */
     const handlePressIn = () => {
       Animated.spring(scaleAnim, {
         toValue: 0.95,
@@ -26,6 +41,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
       }).start();
     };
 
+    /** Retourne à la taille normale avec un léger rebond */
     const handlePressOut = () => {
       Animated.spring(scaleAnim, {
         toValue: 1,

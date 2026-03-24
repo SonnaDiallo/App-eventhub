@@ -1,4 +1,13 @@
-// mobile/src/screens/Organizer/EventPrivilegesScreen.tsx
+/**
+ * @file EventPrivilegesScreen — Gestion des co-organisateurs d'un événement.
+ *
+ * Permet à l'organisateur principal d'accorder ou révoquer des privilèges
+ * (scanner les billets, gérer les participants, envoyer des annonces)
+ * à chaque participant inscrit. Les privilèges sont stockés dans Firestore
+ * sous la collection `eventPrivileges` avec la clé `{eventId}_{userId}`.
+ * Si un participant n'a plus aucun privilège, son document est supprimé.
+ */
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -125,6 +134,11 @@ const EventPrivilegesScreen = () => {
     }
   };
 
+  /**
+   * Bascule un privilège pour un participant donné.
+   * Supprime le document Firestore si plus aucun privilège n'est actif,
+   * sinon met à jour ou crée le document.
+   */
   const togglePrivilege = async (
     userId: string,
     privilegeType: keyof EventPrivileges

@@ -1,9 +1,45 @@
+/**
+ * @module authController
+ * @description Contrôleur d'authentification de la plateforme EventHub.
+ *
+ * Gère l'inscription, la connexion et la récupération du profil connecté.
+ * L'authentification repose sur Firebase Auth ; un profil miroir est
+ * maintenu dans Firestore et synchronisé vers MongoDB pour permettre
+ * des requêtes relationnelles plus complexes.
+ *
+ * Logique métier clé :
+ * - Attribution automatique du rôle « admin » si l'email figure dans
+ *   la variable d'environnement ADMIN_EMAILS (correction à l'inscription
+ *   ET à chaque connexion pour rattraper les promotions tardives).
+ * - Deux chemins de connexion : REST API Firebase (si FIREBASE_WEB_API_KEY
+ *   est configurée) ou fallback via Custom Token (utile en dev local).
+ * - Synchronisation MongoDB « lazy » : déclenchée au login et au getMe
+ *   pour éviter les incohérences après migration.
+ *
+ * Routes gérées :
+ * - POST /auth/register → register
+ * - POST /auth/login    → login
+ * - GET  /auth/me       → getMe
+ */
 import { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import axios from 'axios';
 import { firebaseAuth, firebaseDb } from '../config/firebaseAdmin';
 import { syncUserToMongoDB, getUserByFirebaseUid } from '../services/userService';
 
+/**
+ * POST /auth/register
+ * Crée un nouvel utilisateur dans Firebase Auth et Firestore.
+ * Attribue automatiquement le rôle « admin » si l'email est dans
+ * la liste ADMIN_EMAILS, sinon utilise le rôle demandé ou « user »
+ * par défaut. Synchronise ensuite le profil vers MongoDB pour
+ * garder les deux sources de données cohérentes.
+ *
+ * @body {string} name     - Nom affiché de l'utilisateur
+ * @body {string} email    - Adresse email (unique, convertie en lowercase)
+ * @body {string} password - Mot de passe (délégué à Firebase Auth)
+ * @body {string} [role]   - Rôle souhaité (user | organizer | admin)
+ */
 export const register = async (req: Request, res: Response) => {
   try {
 
@@ -88,6 +124,21 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /auth/login
+ * Authentifie un utilisateur existant. Deux stratégies :
+ * 1. Si FIREBASE_WEB_API_KEY est définie → appel REST Firebase pour obtenir
+ *    un vrai ID token (préféré en production).
+ * 2. Sinon → génération d'un Custom Token via Firebase Admin (mode dev).
+ *
+ * À chaque connexion, le rôle « admin » est corrigé si l'email figure
+ * dans ADMIN_EMAILS, et les données MongoDB sont lues en priorité
+ * (fallback Firestore + sync si nécessaire).
+ *
+ * @body {string} email    - Adresse email
+ * @body {string} password - Mot de passe
+ * @returns {Object} token + profil utilisateur
+ */
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;

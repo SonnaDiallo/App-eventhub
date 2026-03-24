@@ -1,3 +1,20 @@
+/**
+ * @module server
+ * @description Point d'entrée principal du serveur Express pour l'API EventHub.
+ *
+ * Ce fichier orchestre toute la configuration du serveur :
+ * - Chargement des variables d'environnement (dotenv)
+ * - Initialisation de Firebase Admin SDK (import side-effect)
+ * - Configuration des middlewares globaux (CORS, JSON, rate limiting)
+ * - Montage de l'ensemble des routes API (auth, events, payments, chat, etc.)
+ * - Détection automatique de l'IP locale pour faciliter le développement mobile
+ *
+ * @requires express
+ * @requires dotenv
+ * @requires cors
+ * @requires ./config/firebaseAdmin - Importé pour son side-effect d'initialisation
+ * @requires ./config/validateEnv
+ */
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -27,7 +44,8 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-// IMPORTANT: Le webhook Stripe doit recevoir le body brut, donc on configure express.json après
+// Le webhook Stripe nécessite le body brut pour vérifier la signature HMAC.
+// Ce middleware doit être déclaré AVANT express.json() sinon le body sera déjà parsé.
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(apiLimiter);
@@ -57,7 +75,13 @@ app.use(errorHandler);
 validateEnv();
 const PORT = Number(process.env.PORT) || 5000;
 
-/** Affiche les URLs d'accès et la ligne à mettre dans mobile/.env (plus besoin de toucher au code) */
+/**
+ * Affiche les URLs d'accès réseau au démarrage du serveur.
+ * Parcourt les interfaces réseau pour trouver les adresses IPv4 non-internes,
+ * puis privilégie les plages privées courantes (192.168.x, 172.20.x, 10.x)
+ * afin de suggérer automatiquement la bonne URL pour mobile/.env.
+ * Cela évite aux développeurs de chercher manuellement leur IP locale.
+ */
 function printLocalUrls() {
   const ifaces = os.networkInterfaces();
   const all: string[] = [];

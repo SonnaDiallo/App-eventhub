@@ -1,3 +1,12 @@
+/**
+ * @file Gestion des inscriptions aux événements externes (Ticketmaster).
+ *
+ * Permet aux utilisateurs de s'inscrire, annuler, et consulter leurs
+ * inscriptions à des événements provenant de sources externes. Les
+ * données d'inscription sont stockées dans la collection Firestore
+ * `externalRegistrations`, indépendamment des événements locaux.
+ */
+
 import { 
   collection, 
   query, 

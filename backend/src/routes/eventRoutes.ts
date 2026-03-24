@@ -1,3 +1,28 @@
+/**
+ * @fileoverview Routes de gestion des événements.
+ * @description Module principal des routes événementielles. Comprend des routes
+ * publiques (consultation) et des routes protégées (création, modification,
+ * suppression, participation). Intègre également la synchronisation avec des
+ * sources externes (Ticketmaster, Paris Open Data).
+ *
+ * Endpoints enregistrés :
+ * - GET    /api/events                          → Lister les événements (pagination, filtres)
+ * - GET    /api/events/external                 → Lister les événements externes (Ticketmaster)
+ * - GET    /api/events/organizer/my             → Mes événements (organisateur/admin, auth requise)
+ * - GET    /api/events/:id                      → Détails d'un événement
+ * - GET    /api/events/:id/participants         → Participants d'un événement
+ * - POST   /api/events                          → Créer un événement (organisateur/admin)
+ * - PUT    /api/events/:id                      → Modifier un événement (organisateur/admin)
+ * - DELETE /api/events/:id                      → Supprimer un événement (organisateur/admin)
+ * - POST   /api/events/:id/join                 → Rejoindre un événement (auth requise)
+ * - POST   /api/events/:id/leave                → Quitter un événement (auth requise)
+ * - GET    /api/events/verify-token             → Vérifier le token JWT (auth requise)
+ * - GET    /api/events/debug                    → Debug des événements en base
+ * - POST   /api/events/sync/external            → Synchroniser les événements externes (organisateur)
+ * - DELETE /api/events/cleanup/paris-opendata   → Supprimer les événements Paris Open Data
+ * - GET    /api/events/ticketmaster/:category   → Événements Ticketmaster par catégorie
+ * @module routes/eventRoutes
+ */
 import { Router } from 'express';
 import {
   createEvent,

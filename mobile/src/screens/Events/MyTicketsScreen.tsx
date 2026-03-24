@@ -1,3 +1,16 @@
+/**
+ * @file MyTicketsScreen.tsx
+ * @description Écran « Mes Billets » affichant tous les billets de l'utilisateur
+ * connecté. Les billets sont synchronisés en temps réel via un listener Firestore
+ * `onSnapshot` et triés par date de création (plus récent en premier).
+ *
+ * Fonctionnalités :
+ * - Onglets « À venir » / « Passés » avec séparation automatique par date
+ * - Affichage de chaque billet avec QR code, code alphanumérique et statut (valide/utilisé)
+ * - Modale de détail avec QR code agrandi et option de téléchargement
+ * - Annulation de réservation (suppression du ticket Firestore + appel API leaveEvent)
+ */
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -47,6 +60,7 @@ const MyTicketsScreen = () => {
 
   const user = auth.currentUser;
 
+  /** Téléchargement PDF désactivé — la génération côté client est trop lourde. L'utilisateur peut faire une capture d'écran du QR code. */
   const handleDownloadPDF = async (ticket: Ticket) => {
     // Fonctionnalité PDF désactivée - utiliser le partage du QR code intégré
     Alert.alert(
@@ -56,6 +70,7 @@ const MyTicketsScreen = () => {
     );
   };
 
+  /** Annule une réservation : supprime le ticket Firestore et appelle l'API backend pour les événements internes. */
   const handleCancelReservation = async (ticket: Ticket) => {
     Alert.alert(
       'Annuler la réservation',
@@ -97,11 +112,12 @@ const MyTicketsScreen = () => {
       return;
     }
 
+    // orderBy retiré du query Firestore pour éviter la création d'un index composite.
+    // Le tri par date de création est fait côté client après réception du snapshot.
     const ticketsRef = collection(db, 'tickets');
     const q = query(
       ticketsRef,
       where('userId', '==', user.uid)
-      // On enlève orderBy pour éviter l'erreur d'index, on triera côté client
     );
 
     const unsubscribe = onSnapshot(
@@ -141,6 +157,7 @@ const MyTicketsScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
+  /** Rendu d'un billet sous forme de carte verticale : header gradient, QR code, ligne pointillée de séparation et infos événement. */
   const renderTicket = ({ item }: { item: Ticket }) => {
     return (
       <TouchableOpacity
@@ -331,6 +348,7 @@ const MyTicketsScreen = () => {
     );
   };
 
+  /** Sépare les billets en « à venir » et « passés » selon la date/heure de l'événement (format DD/MM/YYYY supporté). */
   const upcomingTickets = tickets.filter(ticket => {
     if (!ticket.eventDate) return true;
     try {

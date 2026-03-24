@@ -1,3 +1,21 @@
+/**
+ * @file ChangePasswordScreen — Écran de modification du mot de passe.
+ *
+ * L'utilisateur doit saisir son mot de passe actuel pour prouver son
+ * identité (ré-authentification Firebase) avant de pouvoir en définir
+ * un nouveau. La validation côté client vérifie la longueur minimale
+ * (6 caractères), la concordance des deux saisies et la différence
+ * avec l'ancien mot de passe.
+ *
+ * Les comptes connectés via Google sont détectés (providerData) et un
+ * message adapté est affiché car le changement de mot de passe ne
+ * s'applique qu'aux comptes email/mot de passe.
+ *
+ * @requires firebase/auth - updatePassword, reauthenticateWithCredential
+ * @requires ../../services/firebase - auth
+ * @requires ../../theme/ThemeContext - Thème clair / sombre
+ */
+
 import React, { useState } from 'react';
 import {
   View,

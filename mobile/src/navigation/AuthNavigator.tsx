@@ -1,4 +1,18 @@
-// mobile/src/navigation/AuthNavigator.tsx
+/**
+ * AuthNavigator.tsx - Navigateur principal de l'application (Stack Navigator).
+ * 
+ * Contient TOUTES les routes de l'app dans un seul stack :
+ * - Auth : Welcome, Login, Register, ForgotPassword
+ * - Participant : HomeParticipant, MyTickets, Favorites, TrendingEvents
+ * - Événements : EventDetails, CreateEvent, Participants, AddReview, Payment
+ * - Organisateur : OrganizerDashboard, ScanTicket, ParticipantsOverview
+ * - Social : Friends, ChatList, ChatRoom
+ * - Profil : Profile, OrganizerProfile, Settings, EditProfile, ChangePassword
+ * - Admin : AdminHome, AdminDashboard, AdminUsers, AdminEvents, AdminReviews
+ * 
+ * Exporte aussi les types EventData et AuthStackParamList pour le typage
+ * de la navigation dans toute l'app.
+ */
 
 import React from 'react';
 
@@ -64,6 +78,7 @@ import AdminReviewsScreen from '../screens/Admin/AdminReviewsScreen';
 
 
 
+/** Structure des données d'un événement partagée dans toute l'app via la navigation */
 export type EventData = {
 
   id: string;
@@ -114,6 +129,7 @@ export type EventData = {
 
 
 
+/** Typage de toutes les routes et leurs paramètres pour React Navigation */
 export type AuthStackParamList = {
 
   Welcome: undefined;

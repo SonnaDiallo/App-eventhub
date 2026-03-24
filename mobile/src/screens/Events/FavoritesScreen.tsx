@@ -1,4 +1,12 @@
-// mobile/src/screens/Events/FavoritesScreen.tsx
+/**
+ * @file FavoritesScreen.tsx
+ * @description Écran affichant la liste des événements favoris de l'utilisateur.
+ * Écoute en temps réel la sous-collection Firestore `users/{uid}/favorites`
+ * pour synchroniser automatiquement l'ajout/suppression de favoris.
+ * Chaque événement est récupéré individuellement depuis la collection `events`
+ * et affiché sous forme de carte cliquable menant vers les détails.
+ */
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -51,6 +59,7 @@ const FavoritesScreen = () => {
     return () => unsubscribeFavorites();
   }, [user]);
 
+  /** Charge les documents d'événements depuis Firestore à partir des IDs favoris. Les événements supprimés sont silencieusement ignorés. */
   const loadFavoriteEvents = async (eventIds: string[]) => {
     if (eventIds.length === 0) {
       setEvents([]);
@@ -90,11 +99,13 @@ const FavoritesScreen = () => {
     }
   };
 
+  /** Prépare l'objet événement pour la navigation en supprimant _startDate (non sérialisable par React Navigation). */
   const eventForNav = (e: EventData & { _startDate?: Date }) => {
     const { _startDate, ...rest } = e;
     return rest;
   };
 
+  /** Rendu d'une carte événement favori avec image, prix, date et lieu. Le tap navigue vers l'écran de détails. */
   const renderEvent = ({ item }: { item: EventData }) => {
     const priceLabel = item.isFree ? 'Gratuit' : `${(item.price || 0).toFixed(2)} €`;
     

@@ -1,4 +1,18 @@
-// mobile/src/screens/Profile/OrganizerProfileScreen.tsx
+/**
+ * @file OrganizerProfileScreen — Écran de profil spécifique aux organisateurs.
+ *
+ * Variante du profil utilisateur enrichie d'une section « ORGANISATEUR »
+ * donnant accès au tableau de bord, à la création d'événement et au scan
+ * de billets. Partage la même structure de sections (Compte, Préférences,
+ * Confidentialité, Support) que le profil participant mais avec un badge
+ * « Organisateur » et un placeholder de photo différent.
+ *
+ * Les données sont rechargées à chaque focus via `useFocusEffect` afin
+ * de refléter immédiatement les modifications faites dans EditProfileScreen.
+ *
+ * @requires ../../services/firebase - auth, db (Firestore)
+ * @requires ../../theme/ThemeContext - Thème clair / sombre
+ */
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Switch, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';

@@ -1,9 +1,22 @@
+/**
+ * useEvents.ts - Hook personnalisé pour charger et gérer la liste des événements.
+ * 
+ * Stratégie de chargement avec cache offline-first :
+ * 1. Vérifie d'abord le cache AsyncStorage (si pas de filtre catégorie/upcoming)
+ * 2. Sinon, appelle l'API backend
+ * 3. En cas d'erreur réseau, se rabat sur le cache
+ * 
+ * Les événements sont dédupliqués par ID, normalisés (images, dates),
+ * et filtrés pour garantir qu'ils ont une image de couverture.
+ */
+
 import { useState, useEffect, useRef } from 'react';
 import { getEvents } from '../services/eventsService';
 import { EventsCache } from '../services/eventsCache';
 import { normalizeImageUrl } from '../config/constants';
 import { ensureUniqueImages } from '../utils/eventHelpers';
 
+/** Structure d'un événement côté client */
 export interface Event {
   id: string;
   title: string;
@@ -39,8 +52,13 @@ export const useEvents = (options?: UseEventsOptions) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Compteur pour ignorer les réponses de requêtes obsolètes (race condition) */
   const requestIdRef = useRef(0);
 
+  /**
+   * Charge les événements depuis le cache ou l'API.
+   * @param forceRefresh - Si true, ignore le cache et appelle l'API directement
+   */
   const loadEvents = async (forceRefresh: boolean = false) => {
     const currentId = ++requestIdRef.current;
     try {

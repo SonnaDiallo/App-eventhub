@@ -1,3 +1,29 @@
+/**
+ * @module AdminDashboardScreen
+ * @description Tableau de bord de l'espace administrateur.
+ *
+ * Affiche les statistiques globales de la plateforme sous forme de cartes :
+ * - Nombre total d'utilisateurs (avec ventilation par rôle : user / organizer / admin)
+ * - Nombre d'événements
+ * - Nombre de billets vendus
+ * - Nombre d'avis déposés
+ *
+ * Les données proviennent de `getDashboardStats()` (appel API backend).
+ * Un délai minimum de 400 ms est imposé au chargement pour éviter un flash
+ * du skeleton/spinner trop rapide sur les connexions performantes.
+ * En cas d'erreur réseau, un écran dédié propose un bouton « Réessayer ».
+ */
+/**
+ * @file AdminDashboardScreen.tsx
+ * @description Tableau de bord de l'espace administrateur.
+ *
+ * Affiche les statistiques globales de la plateforme EventHub sous forme
+ * de cartes : nombre d'utilisateurs (ventilé par rôle), d'événements,
+ * de billets et d'avis. Les données sont récupérées depuis le backend
+ * via le service adminService avec un délai minimum d'affichage de 400 ms
+ * pour éviter un flash de chargement trop rapide.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { getDashboardStats } from '../../services/adminService';
@@ -10,6 +36,12 @@ export default function AdminDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Le Promise.all avec un timer de 400 ms garantit une durée de chargement
+  // minimale pour éviter un scintillement du spinner sur les réponses rapides.
+  /**
+   * Charge les statistiques du tableau de bord depuis l'API admin.
+   * Utilise un délai minimum de 400 ms pour garantir une transition fluide.
+   */
   const load = () => {
     setError('');
     setLoading(true);

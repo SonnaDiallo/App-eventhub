@@ -1,4 +1,12 @@
-// mobile/src/services/favoritesService.ts
+/**
+ * @file Service de gestion des événements favoris.
+ *
+ * Permet à chaque utilisateur d'ajouter, retirer et vérifier ses
+ * événements favoris. Les favoris sont stockés dans une sous-collection
+ * Firestore `users/{uid}/favorites` pour un accès rapide et isolé
+ * par utilisateur.
+ */
+
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { auth } from './firebase';

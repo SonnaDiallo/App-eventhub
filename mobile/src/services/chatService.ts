@@ -1,3 +1,12 @@
+/**
+ * @file Service de messagerie instantanée entre amis.
+ *
+ * Gère les conversations 1-à-1 via Firestore : envoi et réception
+ * de messages, écoute en temps réel (onSnapshot), comptage des
+ * messages non lus et suppression logique. Chaque conversation est
+ * identifiée par la concaténation triée des deux UID.
+ */
+
 import { 
   collection, 
   query, 

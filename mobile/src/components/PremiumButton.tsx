@@ -1,3 +1,15 @@
+/**
+ * PremiumButton.tsx - Bouton stylisé avec 3 variantes visuelles.
+ * 
+ * Variantes :
+ * - 'primary'   : Gradient violet (#6366F1 → #8B5CF6) avec ombre colorée
+ * - 'outline'   : Bordure violette sur fond transparent
+ * - 'secondary' : Fond gris clair pour les actions secondaires
+ * 
+ * Inclut une animation spring au toucher, un état de chargement
+ * avec spinner, et un support d'icône Ionicons.
+ */
+
 import React from 'react';
 import { TouchableOpacity, Text, Animated, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,10 +18,14 @@ import { Ionicons } from '@expo/vector-icons';
 interface PremiumButtonProps {
   title: string;
   onPress: () => void;
+  /** Style visuel du bouton */
   variant?: 'primary' | 'secondary' | 'outline';
+  /** Nom de l'icône Ionicons affichée à gauche du texte */
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Affiche un spinner à la place du contenu */
   loading?: boolean;
   disabled?: boolean;
+  /** Si true, le bouton occupe toute la largeur du parent */
   fullWidth?: boolean;
   size?: 'small' | 'medium' | 'large';
 }

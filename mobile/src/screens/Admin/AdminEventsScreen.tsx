@@ -1,3 +1,19 @@
+/**
+ * @module AdminEventsScreen
+ * @description Écran d'administration des événements de la plateforme.
+ *
+ * Fonctionnalités :
+ * - Affiche la liste paginée des événements (titre, catégorie, lieu, date, participants).
+ * - Recherche instantanée côté client par titre, lieu, catégorie ou nom de l'organisateur.
+ * - Suppression d'un événement avec confirmation (Alert).
+ * - Chaque événement affiche sa cover image ou un placeholder icône.
+ * - Pagination affichée en bas si plus d'une page disponible.
+ *
+ * Les données proviennent de `getAdminEvents()` avec un délai minimum
+ * de 400 ms pour éviter le scintillement du loader.
+ *
+ * @requires ../../services/adminService - getAdminEvents, deleteAdminEvent
+ */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -18,6 +34,7 @@ import {
 } from '../../services/adminService';
 import { useTheme } from '../../theme/ThemeContext';
 
+/** Formate une date ISO en format lisible français (ex: « 17 mars 2026, 14:30 ») */
 function formatDate(d?: string) {
   if (!d) return '—';
   try {
@@ -54,6 +71,11 @@ export default function AdminEventsScreen() {
     );
   }, [events, searchQuery]);
 
+  /**
+   * Charge une page d'événements depuis l'API admin.
+   * Le délai minimum de 400 ms évite un flash de chargement trop bref.
+   * @param page - Numéro de page à charger (défaut : 1)
+   */
   const load = useCallback((page = 1) => {
     setError('');
     setLoading(true);
@@ -74,6 +96,11 @@ export default function AdminEventsScreen() {
     load();
   }, [load]);
 
+  /**
+   * Affiche une alerte de confirmation puis supprime l'événement via l'API admin.
+   * Recharge la page courante après suppression réussie.
+   * @param eventId - Identifiant de l'événement à supprimer
+   */
   const handleDelete = (eventId: string) => {
     Alert.alert(
       'Confirmation',

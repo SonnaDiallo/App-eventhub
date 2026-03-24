@@ -1,3 +1,16 @@
+/**
+ * useUserRole.ts - Hook pour récupérer le rôle de l'utilisateur en temps réel.
+ * 
+ * Écoute deux niveaux :
+ * 1. onAuthStateChanged : détecte connexion/déconnexion Firebase Auth
+ * 2. onSnapshot : écoute le document users/{uid} dans Firestore pour les changements de rôle
+ * 
+ * Rôles possibles : 'participant' (défaut), 'organizer', 'admin', null (déconnecté).
+ * Le rôle 'user' hérité est automatiquement converti en 'participant'.
+ * 
+ * En cas d'erreur Firestore (permissions), fait un fallback vers getDoc() unique.
+ */
+
 import { useState, useEffect } from 'react';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
@@ -5,11 +18,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 export type UserRole = 'participant' | 'organizer' | 'admin' | null;
 
-/**
- * Hook pour récupérer le rôle de l'utilisateur actuel depuis Firestore
- * Écoute les changements d'authentification et de rôle en temps réel
- * @returns {UserRole} Le rôle de l'utilisateur ('participant', 'organizer', 'admin') ou null si non connecté/non trouvé
- */
 export const useUserRole = (): UserRole => {
   const [role, setRole] = useState<UserRole>(null);
 

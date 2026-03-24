@@ -1,9 +1,26 @@
+/**
+ * @module uploadController
+ * @description Contrôleur d'upload d'images pour les événements.
+ *
+ * Reçoit une image encodée en base64, la valide (format autorisé,
+ * taille maximale), la décode et la sauvegarde sur le système de
+ * fichiers local dans public/images/events/. Retourne l'URL publique
+ * de l'image pour stockage dans le document événement.
+ *
+ * Ce choix de stockage local (vs cloud storage) est volontaire pour
+ * simplifier le déploiement en développement. En production, il
+ * faudrait migrer vers un bucket S3/GCS avec CDN.
+ *
+ * Routes gérées :
+ * - POST /upload/event-image → uploadEventImage
+ */
 import type { Request, Response } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
 import crypto from 'crypto';
 import { MAX_IMAGE_SIZE, ALLOWED_IMAGE_FORMATS } from '../types/categories';
 
+/** Correspondance MIME → extension de fichier pour le nommage sur disque. */
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
@@ -11,6 +28,17 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+/**
+ * POST /upload/event-image
+ * Upload d'une image d'événement en base64. Valide le format MIME
+ * (jpeg, png, webp uniquement), la taille (MAX_IMAGE_SIZE), puis
+ * sauvegarde le fichier avec un nom unique (timestamp + UUID) dans
+ * le répertoire public. Retourne l'URL absolue de l'image.
+ *
+ * @body {string} base64   - Image encodée en base64
+ * @body {string} mimeType - Type MIME de l'image (image/jpeg, image/png, image/webp)
+ * @returns {Object} url   - URL publique de l'image uploadée
+ */
 export const uploadEventImage = async (req: Request, res: Response) => {
   try {
     const { base64, mimeType } = req.body as { base64?: string; mimeType?: string };

@@ -1,3 +1,12 @@
+/**
+ * @file EventDetailsScreen.styles.ts
+ * @description Feuille de styles dynamique pour l'écran de détail d'un événement.
+ * Définit les styles du header avec image de couverture et overlay,
+ * la mise en page du contenu (infos, organisateur, description, carte),
+ * le footer fixe avec prix et bouton de réservation, ainsi que les
+ * composants auxiliaires (badge catégorie, calendrier, carte de lieu).
+ */
+
 import { StyleSheet, Platform } from 'react-native';
 import type { ThemeColors } from '../../theme/theme';
 

@@ -1,3 +1,32 @@
+/**
+ * @module eventController
+ * @description Contrôleur principal des événements de la plateforme EventHub.
+ *
+ * Gère le cycle de vie complet d'un événement local : création,
+ * consultation (liste paginée, détail, mes événements), modification,
+ * suppression, inscription/désinscription de participants, et
+ * vérification de token.
+ *
+ * La liste publique peut fusionner les événements locaux avec ceux
+ * provenant de Ticketmaster (si includeExternal=true), offrant ainsi
+ * un catalogue enrichi sans duplication dans la base de données.
+ *
+ * Lors de l'inscription (joinEvent), un billet avec code unique est
+ * automatiquement généré. Le code est garanti unique par jusqu'à 10
+ * tentatives aléatoires + fallback horodaté.
+ *
+ * Routes gérées :
+ * - POST   /events                  → createEvent
+ * - GET    /events                  → getEvents
+ * - GET    /events/my               → getMyEvents
+ * - GET    /events/:id              → getEventById
+ * - PUT    /events/:id              → updateEvent
+ * - DELETE /events/:id              → deleteEvent
+ * - POST   /events/:id/join         → joinEvent
+ * - DELETE /events/:id/leave        → leaveEvent
+ * - GET    /events/:id/participants → getParticipants
+ * - GET    /events/verify-token     → verifyToken
+ */
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import admin from 'firebase-admin';
@@ -23,7 +52,11 @@ async function ensureUniqueTicketCode(): Promise<string> {
 const toDate = (v: admin.firestore.Timestamp | Date | undefined): Date | undefined =>
   !v ? undefined : v instanceof Date ? v : (v as admin.firestore.Timestamp).toDate?.() ?? undefined;
 
-/** Construire l'objet événement pour la réponse API à partir d'un doc Firestore */
+/**
+ * Transforme un document Firestore brut en objet événement normalisé pour l'API.
+ * Résout le nom de l'organisateur en privilégiant le vrai nom depuis la collection
+ * users plutôt que la valeur par défaut « Organisateur » stockée dans le document.
+ */
 function eventDocToResponse(
   id: string,
   data: admin.firestore.DocumentData,
@@ -62,6 +95,23 @@ function eventDocToResponse(
   };
 }
 
+/**
+ * POST /events
+ * Crée un nouvel événement. La catégorie est soit fournie explicitement,
+ * soit détectée automatiquement à partir du titre. L'image de couverture
+ * est celle fournie ou une image par défaut selon la catégorie.
+ * Le nom de l'organisateur est résolu depuis le profil MongoDB de l'utilisateur
+ * pour éviter les valeurs génériques.
+ *
+ * @body {string} title       - Titre de l'événement (obligatoire)
+ * @body {string} [category]  - Catégorie (auto-détectée si absente)
+ * @body {string} [coverImage]- URL de l'image de couverture
+ * @body {string} [startDate] - Date de début ISO
+ * @body {string} [endDate]   - Date de fin ISO
+ * @body {boolean} [isFree]   - Événement gratuit (défaut true)
+ * @body {number} [price]     - Prix en euros
+ * @body {number} [capacity]  - Nombre max de participants
+ */
 export const createEvent = async (req: Request, res: Response) => {
   try {
     const {
@@ -144,6 +194,17 @@ export const createEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /events/:id/join
+ * Inscrit l'utilisateur connecté à un événement. Si l'événement est
+ * gratuit, le statut est directement « confirmed » ; sinon il est
+ * « pending_payment » en attendant le règlement via Stripe.
+ * Génère automatiquement un billet avec un code unique de 8 caractères
+ * hexadécimaux, et pré-remplit les informations de l'événement sur
+ * le billet pour faciliter l'affichage offline.
+ *
+ * @param {string} id - Identifiant Firestore de l'événement
+ */
 export const joinEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -207,6 +268,14 @@ export const joinEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * DELETE /events/:id/leave
+ * Désinscrit l'utilisateur connecté d'un événement. Supprime le
+ * document participant ET tous les billets associés à cette
+ * participation pour éviter les billets orphelins.
+ *
+ * @param {string} id - Identifiant Firestore de l'événement
+ */
 export const leaveEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -231,6 +300,16 @@ export const leaveEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /events/:id/participants
+ * Liste les participants d'un événement avec leur profil utilisateur.
+ * Peut être filtré par statut (confirmed / pending_payment).
+ * Retourne aussi les compteurs agrégés pour l'affichage du tableau
+ * de bord organisateur.
+ *
+ * @param {string} id       - Identifiant Firestore de l'événement
+ * @query {string} [status] - Filtre sur le statut de participation
+ */
 export const getParticipants = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -292,6 +371,24 @@ export const getParticipants = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /events
+ * Liste les événements avec filtres multiples, pagination et
+ * intégration optionnelle des événements Ticketmaster.
+ * Les filtres (catégorie, gratuité, localisation, recherche texte,
+ * upcoming) sont combinables. Les événements externes sont dédupliqués
+ * par clé composite source+id.
+ *
+ * @query {string}  [category]        - Filtre par catégorie
+ * @query {string}  [isFree]          - « true » ou « false »
+ * @query {string}  [location]        - Recherche partielle sur le lieu
+ * @query {string}  [search]          - Recherche texte (titre, description, lieu)
+ * @query {string}  [organizerId]     - Filtre par organisateur
+ * @query {string}  [upcoming]        - « true » pour les événements futurs uniquement
+ * @query {string}  [includeExternal] - « true » pour inclure Ticketmaster
+ * @query {number}  [page=1]          - Numéro de page
+ * @query {number}  [limit=20]        - Éléments par page
+ */
 export const getEvents = async (req: Request, res: Response) => {
   try {
     const { page = '1', limit = '20', category, isFree, location, search, organizerId, upcoming } = req.query;
@@ -424,6 +521,14 @@ export const getEvents = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /events/:id
+ * Retourne le détail complet d'un événement, enrichi du nombre de
+ * participants confirmés et du profil de l'organisateur. Utilisé
+ * par l'écran de détail sur le mobile.
+ *
+ * @param {string} id - Identifiant Firestore de l'événement
+ */
 export const getEventById = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -457,6 +562,14 @@ export const getEventById = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PUT /events/:id
+ * Met à jour un événement existant. Seul l'organisateur qui a créé
+ * l'événement peut le modifier (vérification organizerId).
+ * Seuls les champs fournis dans le body sont mis à jour (merge partiel).
+ *
+ * @param {string} id - Identifiant Firestore de l'événement
+ */
 export const updateEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -508,6 +621,15 @@ export const updateEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * DELETE /events/:id
+ * Supprime un événement et ses données associées (participants, billets).
+ * Seul l'organisateur créateur peut supprimer. La suppression est
+ * en cascade : participants d'abord (batch), puis le document événement,
+ * puis les billets liés.
+ *
+ * @param {string} id - Identifiant Firestore de l'événement
+ */
 export const deleteEvent = async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
@@ -539,6 +661,15 @@ export const deleteEvent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /events/my
+ * Retourne les événements créés par l'organisateur connecté,
+ * avec le nombre de participants confirmés pour chaque événement.
+ * Paginé et trié par date de création décroissante.
+ *
+ * @query {number} [page=1]  - Numéro de page
+ * @query {number} [limit=20]- Éléments par page
+ */
 export const getMyEvents = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
@@ -596,6 +727,13 @@ export const getMyEvents = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /events/verify-token
+ * Vérifie la validité du token JWT et retourne le profil utilisateur
+ * ainsi que ses permissions (création d'événements, sync, etc.).
+ * Utilisé par le mobile au lancement pour déterminer si la session
+ * est encore valide sans ré-authentification.
+ */
 export const verifyToken = async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { user?: { userId?: string } }).user?.userId;

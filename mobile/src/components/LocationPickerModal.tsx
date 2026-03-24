@@ -1,3 +1,14 @@
+/**
+ * LocationPickerModal.tsx - Modal de sélection de ville.
+ * 
+ * Permet à l'utilisateur de :
+ * - Utiliser sa position GPS actuelle (géocodage inverse via expo-location)
+ * - Rechercher parmi une liste de villes françaises populaires
+ * - Filtrer les villes en tapant dans la barre de recherche
+ * 
+ * S'affiche en bottom sheet animée avec fond semi-transparent.
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -20,6 +31,7 @@ interface LocationPickerModalProps {
   theme: any;
 }
 
+/** Liste des villes françaises populaires pré-remplies */
 const POPULAR_CITIES = [
   { name: 'Paris, FR', country: 'France' },
   { name: 'Lyon, FR', country: 'France' },
@@ -43,10 +55,16 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingLocation, setLoadingLocation] = useState(false);
 
+  /** Filtre les villes selon la recherche de l'utilisateur (insensible à la casse) */
   const filteredCities = POPULAR_CITIES.filter((city) =>
     city.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  /**
+   * Détecte la ville actuelle via le GPS du téléphone.
+   * Demande la permission de localisation, puis effectue un géocodage inverse
+   * pour convertir les coordonnées en nom de ville.
+   */
   const handleUseCurrentLocation = async () => {
     setLoadingLocation(true);
     try {

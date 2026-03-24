@@ -1,3 +1,14 @@
+/**
+ * @file OrganizerDashboardScreen — Tableau de bord de l'organisateur.
+ *
+ * Affiche les statistiques clés (revenus, billets vendus, taux de check-in)
+ * pour chaque événement créé par l'organisateur connecté. Inclut un graphique
+ * sparkline des ventes sur 7 jours et des raccourcis rapides vers le scan
+ * de billets, la gestion des participants et des co-organisateurs.
+ * Les événements sont récupérés depuis Firestore et le sélecteur permet
+ * de naviguer entre eux.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -102,7 +113,10 @@ const OrganizerDashboardScreen = () => {
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
-  // Calculer les stats à partir des vraies données
+  /**
+   * Calcule les statistiques dérivées (revenus, taux de check-in, ventes hebdo)
+   * à partir des tickets et de l'événement sélectionné.
+   */
   const stats = useMemo(() => {
     const ticketsSold = tickets.length;
     const capacity = selectedEvent?.capacity || 100;

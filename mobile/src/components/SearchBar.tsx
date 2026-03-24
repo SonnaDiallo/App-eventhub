@@ -1,3 +1,14 @@
+/**
+ * SearchBar.tsx - Barre de recherche avec boutons de localisation et filtre.
+ * 
+ * Composants intégrés :
+ * - Champ de recherche avec icône, placeholder et bouton clear
+ * - Bouton de localisation (ouvre le modal de sélection de ville)
+ * - Bouton filtre avec gradient (ouvre les options de filtrage)
+ * 
+ * Utilise un effet glassmorphism avec bordure colorée au focus.
+ */
+
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +19,9 @@ interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  /** Callback pour ouvrir les filtres avancés */
   onFilterPress?: () => void;
+  /** Callback pour ouvrir la sélection de ville */
   onLocationPress?: () => void;
   userCity?: string;
 }

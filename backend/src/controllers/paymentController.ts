@@ -1,3 +1,23 @@
+/**
+ * @module paymentController
+ * @description Contrôleur de paiement via Stripe pour les événements payants.
+ *
+ * Orchestre le flux de paiement complet :
+ * 1. Création d'un PaymentIntent Stripe avec les métadonnées événement/utilisateur
+ * 2. Confirmation côté serveur après succès du paiement côté client
+ * 3. Mise à jour automatique via webhooks Stripe (succeeded, failed, canceled)
+ * 4. Consultation du statut et de l'historique des paiements
+ *
+ * Les montants sont stockés en euros dans Firestore et convertis en centimes
+ * pour Stripe (convention Stripe : 10€ = 1000 centimes).
+ *
+ * Routes gérées :
+ * - POST /payments/create-intent           → createPaymentIntent
+ * - POST /payments/confirm                 → confirmPayment
+ * - GET  /payments/status/:paymentIntentId → getPaymentStatus
+ * - POST /payments/webhook                 → handleStripeWebhook
+ * - GET  /payments/my                      → getMyPayments
+ */
 import { Request, Response } from 'express';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '../config/stripe';
 import { firebaseDb } from '../config/firebaseAdmin';
@@ -5,7 +25,15 @@ import { getUserByFirebaseUid } from '../services/userService';
 import Stripe from 'stripe';
 
 /**
- * Créer un PaymentIntent Stripe pour un événement
+ * POST /payments/create-intent
+ * Crée un PaymentIntent Stripe pour un événement payant. Vérifie que
+ * l'événement existe, qu'il n'est pas gratuit, et que le montant est positif.
+ * Le PaymentIntent est aussi persisté dans Firestore pour suivi interne.
+ * Retourne le clientSecret nécessaire au SDK Stripe côté mobile.
+ *
+ * @body {string} eventId        - Identifiant de l'événement
+ * @body {number} amount         - Montant en euros (sera converti en centimes)
+ * @body {string} [currency=eur] - Devise ISO (défaut EUR)
  */
 export const createPaymentIntent = async (req: Request, res: Response) => {
   try {
@@ -86,7 +114,15 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
 };
 
 /**
- * Confirmer un paiement et mettre à jour le statut du billet
+ * POST /payments/confirm
+ * Confirme un paiement réussi côté serveur. Vérifie le statut « succeeded »
+ * sur Stripe, que le paiement appartient bien à l'utilisateur, puis
+ * met à jour le billet associé en « confirmed » et le paiement en « succeeded ».
+ * Double vérification d'appartenance (paymentIntent.metadata + ticket.userId)
+ * pour éviter toute fraude.
+ *
+ * @body {string} paymentIntentId - Identifiant du PaymentIntent Stripe
+ * @body {string} ticketId        - Identifiant du billet à confirmer
  */
 export const confirmPayment = async (req: Request, res: Response) => {
   try {
@@ -157,7 +193,12 @@ export const confirmPayment = async (req: Request, res: Response) => {
 };
 
 /**
- * Récupérer le statut d'un paiement
+ * GET /payments/status/:paymentIntentId
+ * Récupère le statut actuel d'un paiement depuis Stripe et synchronise
+ * Firestore si le statut a changé. Permet au mobile de vérifier
+ * l'état du paiement en cas de doute (retour à l'app après background).
+ *
+ * @param {string} paymentIntentId - Identifiant du PaymentIntent Stripe
  */
 export const getPaymentStatus = async (req: Request, res: Response) => {
   try {
@@ -213,7 +254,17 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
 };
 
 /**
- * Webhook Stripe pour gérer les événements de paiement
+ * POST /payments/webhook
+ * Endpoint webhook Stripe pour recevoir les notifications asynchrones.
+ * Vérifie la signature pour garantir l'authenticité, puis met à jour
+ * le statut du paiement dans Firestore selon le type d'événement :
+ * - payment_intent.succeeded → « succeeded »
+ * - payment_intent.payment_failed → « failed »
+ * - payment_intent.canceled → « canceled »
+ *
+ * Le body brut est nécessaire (pas de JSON parse) pour la vérification
+ * de signature Stripe ; le middleware express.raw() doit être configuré
+ * sur cette route.
  */
 export const handleStripeWebhook = async (req: Request, res: Response) => {
   try {
@@ -291,7 +342,10 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
 };
 
 /**
- * Récupérer l'historique des paiements d'un utilisateur
+ * GET /payments/my
+ * Retourne l'historique des 50 derniers paiements de l'utilisateur
+ * connecté, triés du plus récent au plus ancien. Utilisé par l'écran
+ * « Mes paiements » sur le mobile.
  */
 export const getMyPayments = async (req: Request, res: Response) => {
   try {

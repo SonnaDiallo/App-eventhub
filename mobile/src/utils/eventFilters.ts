@@ -1,3 +1,11 @@
+/**
+ * @file Fonctions de filtrage et de tri des événements.
+ *
+ * Applique des filtres côté client (catégorie, recherche textuelle)
+ * et propose plusieurs options de tri (date, prix, titre) sur la
+ * liste d'événements déjà chargée en mémoire.
+ */
+
 import type { EventData } from '../navigation/AuthNavigator';
 
 export type SortOption = 'date' | 'price-asc' | 'price-desc' | 'title';
@@ -9,6 +17,7 @@ function categoryMatches(eventCategory: string | undefined, selectedCategory: st
   return a === b;
 }
 
+/** Filtre les événements par catégorie et/ou recherche textuelle (titre, lieu, organisateur). */
 export const filterEvents = (
   events: EventData[],
   searchQuery: string,
@@ -33,6 +42,7 @@ export const filterEvents = (
   return result;
 };
 
+/** Trie les événements selon le critère choisi (date, prix croissant/décroissant, titre). */
 export const sortEvents = (events: EventData[], sortBy: SortOption): EventData[] => {
   const sorted = [...events];
   

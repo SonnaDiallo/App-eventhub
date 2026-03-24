@@ -1,3 +1,13 @@
+/**
+ * @file TrendingEventsScreen.tsx
+ * @description Écran des événements populaires / tendance. Les événements sont
+ * triés par nombre de participants (décroissant) pour mettre en avant les plus
+ * réservés. Le top 3 bénéficie d'un affichage premium avec badges podium
+ * (or, argent, bronze) et grandes cartes visuelles. Les suivants sont affichés
+ * en format compact avec un badge indiquant le nombre de participants.
+ * Inclut les événements internes et externes (Ticketmaster).
+ */
+
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +30,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
   const { events, loading } = useEvents({ includeExternal: true });
 
-  // Trier par popularité puis garantir des images uniques (pas la même photo pour tous)
+  /** Trie les événements par popularité (nombre de participants décroissant) et déduplique les images de couverture. */
   const trendingEvents = useMemo(() => {
     const sorted = [...events].sort((a, b) => {
       const aParticipants = a.participantsCount || 0;
@@ -147,7 +157,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
           paddingBottom: 100,
         }}
       >
-        {/* Top 3 en grand format */}
+        {/* Top 3 : affichage premium avec grandes cartes, badges podium (or/argent/bronze) et bordure colorée */}
         {trendingEvents.slice(0, 3).map((event, index) => (
           <AnimatedFadeIn key={event.id} delay={index * 100} duration={400}>
           <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
@@ -352,7 +362,7 @@ const TrendingEventsScreen: React.FC<Props> = ({ navigation }) => {
           </AnimatedFadeIn>
         ))}
 
-        {/* Autres événements en format compact */}
+        {/* Au-delà du top 3 : format compact (EventCard list) avec badge indiquant le nombre de participants */}
         {trendingEvents.length > 3 && (
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
             <View style={{
