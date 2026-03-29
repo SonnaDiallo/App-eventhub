@@ -899,3 +899,77 @@ export const getExternalEvents = functions.https.onCall(async (data: any, contex
     return { events: [], pagination: { page, limit, total: 0, pages: 0 } };
   }
 });
+
+// ==================== LISTE D'ATTENTE ====================
+
+/**
+ * Déclenché quand un ticket est supprimé.
+ * Notifie le premier utilisateur de la liste d'attente si une place se libère.
+ */
+export const onTicketDeleted = functions.firestore
+  .document('tickets/{ticketId}')
+  .onDelete(async (snap) => {
+    const ticket = snap.data();
+    if (!ticket) return;
+
+    const { eventId, eventTitle } = ticket;
+    if (!eventId) return;
+
+    // Vérifier si c'était un ticket confirmé
+    if (ticket.status !== 'confirmed') return;
+
+    // Chercher le premier de la liste d'attente pour cet événement
+    const waitlistSnap = await db
+      .collection('waitlist')
+      .where('eventId', '==', eventId)
+      .where('status', '==', 'waiting')
+      .orderBy('position', 'asc')
+      .limit(1)
+      .get();
+
+    if (waitlistSnap.empty) return;
+
+    const waitlistDoc = waitlistSnap.docs[0];
+    if (!waitlistDoc) return;
+    const waitlistEntry = waitlistDoc.data();
+    const { userId, userName } = waitlistEntry;
+
+    // Marquer comme notifié
+    await waitlistDoc.ref.update({ status: 'notified', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+    // Créer une notification in-app
+    await db.collection('notifications').add({
+      userId,
+      type: 'waitlist_available',
+      title: 'Une place est disponible ! 🎉',
+      body: `Une place s'est libérée pour "${eventTitle || 'un événement'}". Réserve vite !`,
+      eventId,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Envoyer une notification push si l'utilisateur a un token
+    try {
+      const userSnap = await db.collection('users').doc(userId).get();
+      const pushToken = userSnap.data()?.pushToken;
+      if (pushToken && typeof pushToken === 'string' && pushToken.startsWith('ExponentPushToken')) {
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: pushToken,
+            sound: 'default',
+            title: '🎉 Une place est disponible !',
+            body: `Une place s'est libérée pour "${eventTitle || 'un événement'}". Réserve vite !`,
+            data: { eventId, type: 'waitlist_available' },
+          }),
+        });
+      }
+    } catch (e) {
+      console.error('Waitlist push notification error:', e);
+    }
+  });

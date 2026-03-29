@@ -17,12 +17,14 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { CardField, useStripe } from '@stripe/stripe-react-native';
+import { CardField, useStripe, usePlatformPay, PlatformPayButton, PlatformPay } from '@stripe/stripe-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { createPaymentIntent, confirmPayment } from '../../services/paymentService';
+import { scheduleEventReminder } from '../../services/notificationService';
 
 type PaymentScreenRouteProp = RouteProp<
   {
@@ -31,6 +33,8 @@ type PaymentScreenRouteProp = RouteProp<
       eventTitle: string;
       amount: number;
       ticketId: string;
+      eventDate?: string;
+      eventTime?: string;
     };
   },
   'Payment'
@@ -42,17 +46,28 @@ export const PaymentScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<PaymentScreenRouteProp>();
   
-  const { eventId, eventTitle, amount, ticketId } = route.params;
+  const { eventId, eventTitle, amount, ticketId, eventDate, eventTime } = route.params;
   
   const { confirmPayment: stripeConfirmPayment } = useStripe();
-  
+  const { isPlatformPaySupported, confirmPlatformPayPayment } = usePlatformPay();
+
   const [loading, setLoading] = useState(false);
   const [cardComplete, setCardComplete] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [platformPayReady, setPlatformPayReady] = useState(false);
 
   useEffect(() => {
     initializePayment();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const supported = await isPlatformPaySupported(
+        Platform.OS === 'android' ? { googlePay: { testEnv: true } } : undefined
+      );
+      setPlatformPayReady(supported);
+    })();
   }, []);
 
   const initializePayment = async () => {
@@ -72,6 +87,64 @@ export const PaymentScreen = () => {
       setLoading(false);
     }
   };
+
+  const onPaymentSuccess = async (piId: string) => {
+    await confirmPayment(piId, ticketId);
+
+    if (Platform.OS !== 'web' && eventDate) {
+      try {
+        const eventDateObj = new Date(eventDate);
+        if (!isNaN(eventDateObj.getTime())) {
+          if (eventTime) {
+            const tm = eventTime.match(/(\d{2}):(\d{2})/);
+            if (tm) eventDateObj.setHours(parseInt(tm[1] ?? '0'), parseInt(tm[2] ?? '0'), 0);
+          }
+          await scheduleEventReminder(eventId, eventTitle, eventDateObj, 1440);
+        }
+      } catch (_) {}
+    }
+
+    Alert.alert(
+      'Paiement réussi ! 🎉',
+      'Votre billet a été confirmé. Vous pouvez le retrouver dans "Mes billets".',
+      [{ text: 'Voir mes billets', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'MyTickets' }] }) }]
+    );
+  };
+
+  const handlePlatformPay = async () => {
+    if (!clientSecret || !paymentIntentId) return;
+    setLoading(true);
+    try {
+      const params = Platform.OS === 'ios'
+        ? {
+            applePay: {
+              cartItems: [{ label: 'EventHub', amount: amount.toFixed(2), paymentType: PlatformPay.PaymentType.Immediate }],
+              merchantCountryCode: 'FR',
+              currencyCode: 'EUR',
+            },
+          }
+        : {
+            googlePay: {
+              testEnv: true,
+              merchantName: 'EventHub',
+              merchantCountryCode: 'FR',
+              currencyCode: 'EUR',
+            },
+          };
+
+      const { error } = await confirmPlatformPayPayment(clientSecret, params as any);
+      if (error) {
+        if (error.code !== 'Canceled') Alert.alert('Paiement échoué', error.message || '');
+        return;
+      }
+      await onPaymentSuccess(paymentIntentId);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Erreur de paiement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   /**
    * Confirme le paiement auprès de Stripe puis notifie le backend
@@ -98,24 +171,7 @@ export const PaymentScreen = () => {
       }
 
       if (paymentIntent?.status === 'Succeeded') {
-        // Confirmer le paiement côté backend
-        await confirmPayment(paymentIntent.id, ticketId);
-
-        Alert.alert(
-          'Paiement réussi ! 🎉',
-          'Votre billet a été confirmé. Vous pouvez le retrouver dans "Mes billets".',
-          [
-            {
-              text: 'Voir mes billets',
-              onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MyTickets' }],
-                });
-              },
-            },
-          ]
-        );
+        await onPaymentSuccess(paymentIntent.id);
       } else {
         Alert.alert('Erreur', 'Le paiement n\'a pas pu être confirmé.');
       }
@@ -157,6 +213,24 @@ export const PaymentScreen = () => {
             <Text style={styles.summaryValueBold}>{amount.toFixed(2)} €</Text>
           </View>
         </View>
+
+        {/* Apple Pay / Google Pay */}
+        {platformPayReady && clientSecret && (
+          <>
+            <PlatformPayButton
+              onPress={handlePlatformPay}
+              type={PlatformPay.ButtonType.Pay}
+              appearance={PlatformPay.ButtonStyle.Black}
+              borderRadius={12}
+              style={{ width: '100%', height: 50, marginBottom: 12 }}
+            />
+            <View style={styles.separator}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>ou payez par carte</Text>
+              <View style={styles.separatorLine} />
+            </View>
+          </>
+        )}
 
         {/* Informations de paiement */}
         <View style={styles.paymentCard}>
@@ -405,5 +479,33 @@ const createStyles = (theme: any) =>
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
+    },
+    expressButton: {
+      borderRadius: 12,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    expressButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    separator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 8,
+      marginBottom: 16,
+    },
+    separatorLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.border,
+    },
+    separatorText: {
+      marginHorizontal: 12,
+      fontSize: 13,
+      color: theme.textSecondary,
     },
   });

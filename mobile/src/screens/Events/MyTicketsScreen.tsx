@@ -35,6 +35,7 @@ import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { leaveEvent } from '../../services/eventsService';
+import { getMyWaitlistEntries, leaveWaitlist, WaitlistEntry } from '../../services/waitlistService';
 
 interface Ticket {
   id: string;
@@ -59,6 +60,8 @@ const MyTicketsScreen = () => {
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
+  const [leavingWaitlist, setLeavingWaitlist] = useState<string | null>(null);
 
   const user = auth.currentUser;
 
@@ -245,6 +248,36 @@ const MyTicketsScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    getMyWaitlistEntries().then(setWaitlistEntries).catch(() => {});
+  }, [user]);
+
+  const handleLeaveWaitlist = async (entry: WaitlistEntry) => {
+    Alert.alert(
+      'Quitter la liste d\'attente',
+      `Veux-tu quitter la liste d'attente pour "${entry.eventTitle}" ?`,
+      [
+        { text: 'Non', style: 'cancel' },
+        {
+          text: 'Quitter',
+          style: 'destructive',
+          onPress: async () => {
+            setLeavingWaitlist(entry.id);
+            try {
+              await leaveWaitlist(entry.eventId);
+              setWaitlistEntries(prev => prev.filter(e => e.id !== entry.id));
+            } catch (e) {
+              Alert.alert('Erreur', 'Impossible de quitter la liste d\'attente.');
+            } finally {
+              setLeavingWaitlist(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   /** Rendu d'un billet sous forme de carte verticale : header gradient, QR code, ligne pointillée de séparation et infos événement. */
   const renderTicket = ({ item }: { item: Ticket }) => {
     return (
@@ -416,7 +449,7 @@ const MyTicketsScreen = () => {
               </LinearGradient>
             </View>
             <View style={{
-              backgroundColor: `${theme.primary}10`,
+              backgroundColor: `${theme.primary ?? '#7B5CFF'}10`,
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: 8,
@@ -589,6 +622,52 @@ const MyTicketsScreen = () => {
           renderItem={renderTicket}
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         />
+      )}
+
+      {/* Section liste d'attente */}
+      {waitlistEntries.length > 0 && (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text, marginBottom: 12 }}>
+            Liste d’attente ({waitlistEntries.length})
+          </Text>
+          {waitlistEntries.map(entry => (
+            <View
+              key={entry.id}
+              style={{
+                backgroundColor: theme.card,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: '#F59E0B40',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#F59E0B' }}>{entry.position}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: '700', color: theme.text, fontSize: 14 }} numberOfLines={1}>
+                  {entry.eventTitle}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  Position {entry.position} — En attente d’une place
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleLeaveWaitlist(entry)}
+                disabled={leavingWaitlist === entry.id}
+                style={{ padding: 8 }}
+              >
+                {leavingWaitlist === entry.id
+                  ? <ActivityIndicator size="small" color={theme.textMuted} />
+                  : <Ionicons name="close-circle" size={22} color={theme.textMuted} />}
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
       )}
 
       {/* Modal détail du billet */}

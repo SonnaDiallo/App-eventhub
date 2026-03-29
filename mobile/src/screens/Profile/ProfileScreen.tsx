@@ -26,6 +26,7 @@ import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { clearToken } from '../../services/authStorage';
+import { uploadProfileImageFromUri } from '../../services/storageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Language } from '../../services/i18n';
@@ -117,17 +118,18 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      const imageUri = result.assets[0].uri;
-      setProfileImage(imageUri);
+      const localUri = result.assets[0].uri;
+      setProfileImage(localUri);
       
       try {
         const user = auth.currentUser;
         if (user) {
+          const downloadUrl = await uploadProfileImageFromUri(localUri);
           await updateDoc(doc(db, 'users', user.uid), {
-            profileImage: imageUri,
+            profileImage: downloadUrl,
           });
+          setProfileImage(downloadUrl);
           Alert.alert('Succès', 'Photo de profil mise à jour !');
-          // Recharger les données
           await loadUserData();
         }
       } catch (error) {
@@ -273,7 +275,7 @@ const ProfileScreen = () => {
       }}>
         <TouchableOpacity
           style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-          onPress={() => navigation.navigate('HomeParticipant' as never)}
+          onPress={() => { if (navigation.canGoBack()) { navigation.goBack(); } else { navigation.navigate('HomeParticipant' as never); } }}
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>

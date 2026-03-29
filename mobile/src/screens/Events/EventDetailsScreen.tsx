@@ -34,7 +34,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
 import type { AuthStackParamList, EventData } from '../../navigation/AuthNavigator';
@@ -52,6 +52,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { createStyles } from './EventDetailsScreen.styles';
 import { getEventReviews, getEventReviewStats, Review, ReviewStats } from '../../services/reviewService';
 import { ReviewCard } from '../../components/ReviewCard';
+import { scheduleEventReminder } from '../../services/notificationService';
+import { getMyWaitlistEntry, joinWaitlist, leaveWaitlist, WaitlistEntry } from '../../services/waitlistService';
 
 const { width } = Dimensions.get('window');
 
@@ -145,9 +147,24 @@ const EventDetailsScreen = () => {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [followRequestSent, setFollowRequestSent] = useState(false);
   const [sendingFollowRequest, setSendingFollowRequest] = useState(false);
+  const [eventFull, setEventFull] = useState(false);
+  const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [loadedEventData, setLoadedEventData] = useState<Partial<EventData> | null>(null);
 
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
-  const event = route.params?.event || defaultEvent;
+  const eventParams = route.params?.event || defaultEvent;
+  const event: EventData = { ...eventParams, ...loadedEventData } as EventData;
+
+  // Charger les données complètes depuis Firestore si coverImage est absent
+  useEffect(() => {
+    if (eventParams.coverImage || !eventParams.id) return;
+    getDoc(doc(db, 'events', eventParams.id)).then(snap => {
+      if (snap.exists()) setLoadedEventData(snap.data() as Partial<EventData>);
+    }).catch(() => {});
+  }, [eventParams.id]);
+
   const organizerDisplayName =
     event.organizerName ||
     event.organizer ||
@@ -207,6 +224,11 @@ const EventDetailsScreen = () => {
         }));
         
         setParticipants(participantsList);
+
+        if (event.capacity && event.capacity > 0) {
+          const confirmed = participantsList.filter((p: any) => p.status === 'confirmed').length;
+          setEventFull(confirmed >= event.capacity);
+        }
       } catch (error) {
         console.error('Error loading participants:', error);
       } finally {
@@ -215,6 +237,11 @@ const EventDetailsScreen = () => {
     };
     loadParticipants();
   }, [event.id]);
+
+  useEffect(() => {
+    if (!user || !event.id) return;
+    getMyWaitlistEntry(event.id).then(setWaitlistEntry).catch(() => {});
+  }, [user, event.id]);
 
   // Charger les avis
   useEffect(() => {
@@ -392,7 +419,7 @@ const EventDetailsScreen = () => {
       if (event.time) {
         const timeMatch = event.time.match(/(\d{2}):(\d{2})/);
         if (timeMatch) {
-          startDate.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0);
+          startDate.setHours(parseInt(timeMatch[1] ?? '0'), parseInt(timeMatch[2] ?? '0'), 0);
           endDate = new Date(startDate);
           endDate.setHours(endDate.getHours() + 2); // Durée par défaut de 2h
         }
@@ -438,10 +465,32 @@ const EventDetailsScreen = () => {
    * Gère la réservation d'un billet. Crée un document ticket dans Firestore avec
    * un code unique et un QR code. Affiche une modale de confirmation avec le code.
    */
+  const handleJoinWaitlist = async () => {
+    if (!user) {
+      Alert.alert('Connexion requise', 'Connecte-toi pour rejoindre la liste d\'attente.');
+      return;
+    }
+    setJoiningWaitlist(true);
+    try {
+      if (waitlistEntry) {
+        await leaveWaitlist(event.id);
+        setWaitlistEntry(null);
+        Alert.alert('Retiré', 'Tu as quitté la liste d\'attente.');
+      } else {
+        const entry = await joinWaitlist(event.id, event.title);
+        setWaitlistEntry(entry);
+        Alert.alert('Liste d\'attente', `Tu es en position ${entry.position}. Tu seras notifié(e) si une place se libère !`);
+      }
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || 'Impossible de rejoindre la liste d\'attente.');
+    } finally {
+      setJoiningWaitlist(false);
+    }
+  };
+
   const doRegister = async () => {
     setIsRegistering(true);
     try {
-      // Créer directement le ticket dans Firestore pour tous les événements
       const ticketCode = generateTicketCode();
       const formattedDate = parseEventDate(event.date || '');
       
@@ -455,8 +504,9 @@ const EventDetailsScreen = () => {
         userId: user!.uid,
         participantName: user!.displayName || 'Participant',
         participantEmail: user!.email || '',
-        ticketType: event.isFree ? 'Gratuit' : 'Standard',
-        price: event.price ?? 0,
+        ticketType: 'Gratuit',
+        price: 0,
+        status: 'confirmed',
         checkedIn: false,
         checkedInAt: null,
         purchasedAt: serverTimestamp(),
@@ -464,10 +514,93 @@ const EventDetailsScreen = () => {
         updatedAt: serverTimestamp(),
       });
       
+      for (let i = 1; i < quantity; i++) {
+        const extraCode = generateTicketCode();
+        await addDoc(collection(db, 'tickets'), {
+          code: extraCode,
+          eventId: event.id || '',
+          eventTitle: event.title || '',
+          eventDate: formattedDate,
+          eventTime: event.time || '',
+          eventLocation: event.location || '',
+          userId: user!.uid,
+          participantName: user!.displayName || 'Participant',
+          participantEmail: user!.email || '',
+          ticketType: 'Gratuit',
+          price: 0,
+          status: 'confirmed',
+          checkedIn: false,
+          checkedInAt: null,
+          purchasedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
       setHasTicket(true);
       setTicketCodeModal(ticketCode);
+
+      if (Platform.OS !== 'web') {
+        try {
+          const dateStr = event.date || '';
+          const eventDateObj = new Date(dateStr);
+          if (!isNaN(eventDateObj.getTime())) {
+            if (event.time) {
+              const tm = event.time.match(/(\d{2}):(\d{2})/);
+              if (tm) eventDateObj.setHours(parseInt(tm[1] ?? '0'), parseInt(tm[2] ?? '0'), 0);
+            }
+            await scheduleEventReminder(event.id || '', event.title || '', eventDateObj, 1440);
+          }
+        } catch (_) {}
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Impossible de réserver. Réessaie.');
+      } else {
+        Alert.alert('Erreur', 'Impossible de réserver. Réessaie.');
+      }
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const doRegisterPaid = async () => {
+    setIsRegistering(true);
+    try {
+      const ticketCode = generateTicketCode();
+      const formattedDate = parseEventDate(event.date || '');
+
+      const ticketRef = await addDoc(collection(db, 'tickets'), {
+        code: ticketCode,
+        eventId: event.id || '',
+        eventTitle: event.title || '',
+        eventDate: formattedDate,
+        eventTime: event.time || '',
+        eventLocation: event.location || '',
+        userId: user!.uid,
+        participantName: user!.displayName || 'Participant',
+        participantEmail: user!.email || '',
+        ticketType: 'Standard',
+        price: event.price ?? 0,
+        status: 'pending_payment',
+        checkedIn: false,
+        checkedInAt: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      navigation.navigate('Payment', {
+        eventId: event.id || '',
+        eventTitle: event.title || '',
+        amount: (event.price || 0) * quantity,
+        ticketId: ticketRef.id,
+        eventDate: event.date || '',
+        eventTime: event.time || '',
+        quantity,
+      });
+    } catch (error: any) {
+      console.error('Paid registration error:', error);
       if (Platform.OS === 'web') {
         window.alert('Impossible de réserver. Réessaie.');
       } else {
@@ -497,11 +630,25 @@ const EventDetailsScreen = () => {
       return;
     }
 
+    const isPaid = !event.isFree && event.price && event.price > 0;
+
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm(`Veux-tu t'inscrire à "${event.title}" ?`);
+      const msg = isPaid
+        ? `Confirmes-tu la réservation de "${event.title}" pour ${event.price?.toFixed(2)} € ?`
+        : `Veux-tu t'inscrire à "${event.title}" ?`;
+      const confirmed = window.confirm(msg);
       if (confirmed) {
-        await doRegister();
+        isPaid ? await doRegisterPaid() : await doRegister();
       }
+    } else if (isPaid) {
+      Alert.alert(
+        'Confirmer la réservation',
+        `Confirmes-tu la réservation de "${event.title}" pour ${event.price?.toFixed(2)} € ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: `Payer ${event.price?.toFixed(2)} €`, onPress: doRegisterPaid },
+        ]
+      );
     } else {
       Alert.alert(
         'Confirmer l\'inscription',
@@ -1255,22 +1402,35 @@ const EventDetailsScreen = () => {
         elevation: 8,
       }}>
         <View>
-          <Text style={{
-            fontSize: 11,
-            color: theme.textSecondary,
-            marginBottom: 6,
-            fontWeight: '600',
-            letterSpacing: 1,
-          }}>
-            PRIX
+          <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 6, fontWeight: '600', letterSpacing: 1 }}>PRIX</Text>
+          <Text style={{ fontSize: 28, fontWeight: '900', color: theme.text }}>
+            {event.isFree ? 'Gratuit' : `${((event.price || 0) * quantity).toFixed(2)} €`}
           </Text>
-          <Text style={{
-            fontSize: 28,
-            fontWeight: '900',
-            color: theme.text,
-          }}>
-            {event.isFree ? 'Gratuit' : `${(event.price || 0).toFixed(2)} €`}
-          </Text>
+          {!event.isFree && quantity > 1 && (
+            <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+              {quantity} × {(event.price || 0).toFixed(2)} €
+            </Text>
+          )}
+          {!hasTicket && !eventFull && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.border, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 18, color: theme.text, lineHeight: 22 }}>-</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text, minWidth: 20, textAlign: 'center' }}>{quantity}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const maxQty = event.capacity ? Math.max(1, event.capacity - participants.filter((p: any) => p.status === 'confirmed').length) : 10;
+                  setQuantity(q => Math.min(maxQty, q + 1));
+                }}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 18, color: '#fff', lineHeight: 22 }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         
         <View
@@ -1284,35 +1444,71 @@ const EventDetailsScreen = () => {
             elevation: 6,
           }}
         >
-          <TouchableOpacity
-            onPress={handleGetTicket}
-            disabled={isRegistering || checkingTicket || hasTicket}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={hasTicket ? ['#9CA3AF', '#9CA3AF'] : ['#7B5CFF', '#9B7FFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                paddingHorizontal: 32,
-                paddingVertical: 16,
-                minWidth: 180,
-                alignItems: 'center',
-              }}
+          {eventFull && !hasTicket ? (
+            <TouchableOpacity
+              onPress={handleJoinWaitlist}
+              disabled={joiningWaitlist}
+              activeOpacity={0.9}
             >
-              {isRegistering || checkingTicket ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '700',
-                  color: '#FFFFFF',
-                }}>
-                  {hasTicket ? t('alreadyRegistered') : t('bookMySpot')}
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={waitlistEntry ? ['#F59E0B', '#FBBF24'] : ['#6B7280', '#9CA3AF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  paddingHorizontal: 32,
+                  paddingVertical: 16,
+                  minWidth: 180,
+                  alignItems: 'center',
+                  borderRadius: 0,
+                }}
+              >
+                {joiningWaitlist ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                      {waitlistEntry ? `Liste d'attente — pos. ${waitlistEntry.position}` : 'Rejoindre la liste d\'attente'}
+                    </Text>
+                    {waitlistEntry && (
+                      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                        Appuie pour quitter la liste
+                      </Text>
+                    )}
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleGetTicket}
+              disabled={isRegistering || checkingTicket || hasTicket}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={hasTicket ? ['#9CA3AF', '#9CA3AF'] : ['#7B5CFF', '#9B7FFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  paddingHorizontal: 32,
+                  paddingVertical: 16,
+                  minWidth: 180,
+                  alignItems: 'center',
+                }}
+              >
+                {isRegistering || checkingTicket ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                    {hasTicket
+                      ? t('alreadyRegistered')
+                      : (!event.isFree && event.price && event.price > 0)
+                        ? `Payer ${event.price.toFixed(2)} €`
+                        : t('bookMySpot')}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

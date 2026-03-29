@@ -276,6 +276,18 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => navigation.navigate('Map')}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                  borderRadius: 999,
+                  padding: 8,
+                  marginRight: 8,
+                }}
+              >
+                <Ionicons name="compass-outline" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => setShowNotificationMenu(true)}
                 style={{
                   position: 'relative',
@@ -1199,7 +1211,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             justifyContent: 'flex-start',
             paddingTop: Platform.OS === 'ios' ? 110 : 70,
             paddingHorizontal: 16,
-            alignItems: 'flex-end',
+            alignItems: 'center',
           }}
         >
           <TouchableOpacity
@@ -1208,8 +1220,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             style={{
               backgroundColor: theme.surface || '#FFFFFF',
               borderRadius: 16,
-              width: 320,
-              maxWidth: '100%',
+              width: '100%',
+              maxWidth: 420,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: 0.28,

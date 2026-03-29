@@ -75,6 +75,7 @@ import AdminUsersScreen from '../screens/Admin/AdminUsersScreen';
 
 import AdminEventsScreen from '../screens/Admin/AdminEventsScreen';
 import AdminReviewsScreen from '../screens/Admin/AdminReviewsScreen';
+import MapScreen from '../screens/Events/MapScreen';
 
 
 
@@ -186,6 +187,8 @@ export type AuthStackParamList = {
 
   AdminEvents: undefined;
   AdminReviews: undefined;
+
+  Map: undefined;
 
 };
 
@@ -504,6 +507,16 @@ const AuthNavigator: React.FC = () => {
         component={AdminReviewsScreen}
 
         options={{ title: 'Avis' }}
+
+      />
+
+      <Stack.Screen
+
+        name="Map"
+
+        component={MapScreen}
+
+        options={{ headerShown: false }}
 
       />
 

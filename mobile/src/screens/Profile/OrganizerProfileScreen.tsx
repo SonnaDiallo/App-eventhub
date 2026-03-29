@@ -23,6 +23,7 @@ import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { clearToken } from '../../services/authStorage';
+import { uploadProfileImageFromUri } from '../../services/storageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Language } from '../../services/i18n';
@@ -140,15 +141,17 @@ const OrganizerProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      const imageUri = result.assets[0].uri;
-      setProfileImage(imageUri);
+      const localUri = result.assets[0].uri;
+      setProfileImage(localUri);
       
       try {
         const user = auth.currentUser;
         if (user) {
+          const downloadUrl = await uploadProfileImageFromUri(localUri);
           await updateDoc(doc(db, 'users', user.uid), {
-            profileImage: imageUri,
+            profileImage: downloadUrl,
           });
+          setProfileImage(downloadUrl);
           Alert.alert('Succès', 'Photo de profil mise à jour !');
           await loadUserData();
         }
@@ -211,7 +214,7 @@ const OrganizerProfileScreen = () => {
         ) : (
           <View style={[styles.profileImagePlaceholder, { backgroundColor: '#7B5CFF' }]}>
             <Text style={styles.profileImageText}>
-              {userData?.name?.charAt(0)?.toUpperCase() || 'O'}
+              {(userData?.name || auth.currentUser?.displayName || 'O').charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
@@ -282,6 +285,24 @@ const OrganizerProfileScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 60 : 20,
+        paddingBottom: 16,
+        backgroundColor: theme.surface,
+      }}>
+        <TouchableOpacity
+          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => { if (navigation.canGoBack()) { navigation.goBack(); } else { navigation.navigate('HomeParticipant' as never); } }}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, textAlign: 'center', flex: 1 }}>{t('profile')}</Text>
+        <View style={{ width: 40 }} />
+      </View>
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}

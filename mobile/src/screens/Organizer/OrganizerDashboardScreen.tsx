@@ -160,10 +160,23 @@ const OrganizerDashboardScreen = () => {
     const checkInRate = ticketsSold > 0 ? Math.round((checkedInCount / ticketsSold) * 100) : 0;
     const revenue = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
-    // Billets des 7 derniers jours
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const weeklyTickets = tickets.filter((t) => t.createdAt >= oneWeekAgo).length;
+    // Données des 7 derniers jours (tickets + revenus par jour)
+    const dailyTickets: number[] = [];
+    const dailyRevenue: number[] = [];
+    const dayLabels: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date();
+      day.setDate(day.getDate() - i);
+      day.setHours(0, 0, 0, 0);
+      const nextDay = new Date(day);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const dayTickets = tickets.filter(t => t.createdAt >= day && t.createdAt < nextDay);
+      dailyTickets.push(dayTickets.length);
+      dailyRevenue.push(dayTickets.reduce((s, t) => s + (t.price || 0), 0));
+      dayLabels.push(day.toLocaleDateString('fr-FR', { weekday: 'short' }));
+    }
+    const weeklyTickets = dailyTickets.reduce((a, b) => a + b, 0);
+    const weeklyRevenue = dailyRevenue.reduce((a, b) => a + b, 0);
 
     return {
       revenue,
@@ -173,30 +186,31 @@ const OrganizerDashboardScreen = () => {
       checkedInCount,
       checkInRate,
       weeklyTickets,
+      weeklyRevenue,
+      dailyTickets,
+      dailyRevenue,
+      dayLabels,
     };
   }, [tickets, selectedEvent]);
 
-  const Chart = () => {
-    // Mini “sparkline” en pur View (pas de lib) — couleur accent (pas de vert)
-    const bars = [18, 10, 16, 9, 20, 8, 17];
-    const max = Math.max(...bars);
-
+  const BarChart = ({ data, color }: { data: number[]; color: string }) => {
+    const max = Math.max(...data, 1);
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}>
-        {bars.map((v, idx) => {
-          const h = Math.max(12, Math.round((v / max) * 80));
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, height: 80 }}>
+        {data.map((v, idx) => {
+          const h = Math.max(4, Math.round((v / max) * 72));
+          const isToday = idx === data.length - 1;
           return (
-            <View key={idx} style={{ alignItems: 'center', flex: 1, marginRight: idx < bars.length - 1 ? 8 : 0 }}>
-              <View
-                style={{
-                  width: '100%',
-                  height: h,
-                  borderRadius: 999,
-                  backgroundColor: `${theme.primary}2E`,
-                  borderWidth: 1,
-                  borderColor: `${theme.primary}47`,
-                }}
-              />
+            <View key={idx} style={{ alignItems: 'center', flex: 1, marginRight: idx < data.length - 1 ? 5 : 0 }}>
+              {v > 0 && (
+                <Text style={{ color: color, fontSize: 9, fontWeight: '700', marginBottom: 3 }}>{v}</Text>
+              )}
+              <View style={{
+                width: '100%',
+                height: h,
+                borderRadius: 6,
+                backgroundColor: isToday ? color : `${color}55`,
+              }} />
             </View>
           );
         })}
@@ -226,23 +240,7 @@ const OrganizerDashboardScreen = () => {
           borderColor: theme.border,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <View
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 12,
-              backgroundColor: `${theme.primary}26`,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <Ionicons name={icon} size={18} color={theme.primary} style={{ marginRight: 8 }} />
-          </View>
-          <Text style={{ color: theme.textSecondary, fontWeight: '600', fontSize: 12 }}>{label}</Text>
-        </View>
+        <Text style={{ color: theme.textSecondary, fontWeight: '600', fontSize: 12, marginBottom: 10 }}>{label}</Text>
         <Text style={{ color: theme.text, fontWeight: '800', fontSize: 20 }}>{value}</Text>
         {!!sub && <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>{sub}</Text>}
       </View>
@@ -533,20 +531,28 @@ const OrganizerDashboardScreen = () => {
           <Text style={{ color: theme.text, fontWeight: '900', fontSize: 26, marginTop: 8 }}>
             {stats.weeklyTickets} billets
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>Cette semaine</Text>
-          </View>
-
-          <Chart />
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-            {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((d) => (
-              <Text key={d} style={{ color: theme.textMuted, fontSize: 11 }}>
-                {d}
-              </Text>
+          <BarChart data={stats.dailyTickets} color={theme.primary ?? '#7B5CFF'} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            {stats.dayLabels.map((d, i) => (
+              <Text key={i} style={{ color: theme.textMuted, fontSize: 10, flex: 1, textAlign: 'center' }}>{d}</Text>
             ))}
           </View>
         </View>
+
+        {!selectedEvent?.isFree && (
+          <View style={{ backgroundColor: theme.card, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: theme.border, marginBottom: 16 }}>
+            <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>Revenus — 7 derniers jours</Text>
+            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 26, marginTop: 8 }}>
+              {stats.weeklyRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </Text>
+            <BarChart data={stats.dailyRevenue} color='#10B981' />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+              {stats.dayLabels.map((d, i) => (
+                <Text key={i} style={{ color: theme.textMuted, fontSize: 10, flex: 1, textAlign: 'center' }}>{d}</Text>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View
           style={{
@@ -555,7 +561,7 @@ const OrganizerDashboardScreen = () => {
             padding: 16,
             borderWidth: 1,
             borderColor: theme.border,
-            marginBottom: 20,
+            marginBottom: 16,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

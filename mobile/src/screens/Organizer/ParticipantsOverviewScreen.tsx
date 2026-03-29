@@ -16,7 +16,11 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
+  Share,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
@@ -115,6 +119,43 @@ const ParticipantsOverviewScreen = () => {
 
     setFilteredParticipants(filtered);
   }, [participants, searchQuery, filterStatus]);
+
+  const exportCSV = async () => {
+    try {
+      const header = 'Nom,Email,Code billet,Type,Check-in,Heure check-in,Inscription';
+      const rows = participants.map(p => [
+        `"${p.participantName}"`,
+        `"${p.participantEmail || ''}"`,
+        p.ticketCode,
+        p.ticketType,
+        p.checkedIn ? 'Oui' : 'Non',
+        p.checkedInAt ? p.checkedInAt.toLocaleString('fr-FR') : '',
+        p.createdAt.toLocaleString('fr-FR'),
+      ].join(','));
+      const csv = [header, ...rows].join('\n');
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `participants-${eventTitle}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        const path = `${FileSystem.cacheDirectory}participants-${eventId}.csv`;
+        await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Exporter participants' });
+        } else {
+          await Share.share({ message: csv, title: `Participants - ${eventTitle}` });
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Erreur', 'Impossible d\'exporter les participants.');
+    }
+  };
 
   const stats = {
     total: participants.length,
@@ -223,7 +264,9 @@ const ParticipantsOverviewScreen = () => {
             <Ionicons name="arrow-back" size={22} color={theme.text} />
           </TouchableOpacity>
           <Text style={{ color: theme.text, fontWeight: '800', fontSize: 16 }}>Participants</Text>
-          <View style={{ width: 38 }} />
+          <TouchableOpacity onPress={exportCSV} style={{ padding: 8 }} disabled={participants.length === 0}>
+            <Ionicons name="download-outline" size={22} color={participants.length === 0 ? theme.textMuted : theme.primary} />
+          </TouchableOpacity>
         </View>
         <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 12 }}>{eventTitle}</Text>
       </View>
