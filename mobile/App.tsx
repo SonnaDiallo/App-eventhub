@@ -17,9 +17,13 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import { useNotifications } from './src/hooks/useNotifications';
 import { auth } from './src/services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import Constants from 'expo-constants';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/** Clé publique Stripe (mode test) pour initialiser le SDK côté client */
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T4zoMFkn70cTqmSy4r88qMNWzOgyBgHUktVqBQoT4gqMDBmobSz7o0XCbCROiw3K1mRXCmcb9GyTysVxMVGe0j300XCSYytpI';
+/** Récupère la clé Stripe publishable depuis la configuration Expo */
+const STRIPE_PUBLISHABLE_KEY = (Constants.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY as string) || 
+  'pk_test_51T4zoMFkn70cTqmSy4r88qMNWzOgyBgHUktVqBQoT4gqMDBmobSz7o0XCbCROiw3K1mRXCmcb9GyTysVxMVGe0j300XCSYytpI';
 
 /**
  * AppContent - Composant interne qui contient la navigation et le thème.
@@ -28,6 +32,64 @@ const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T4zoMFkn70cTqmSy4r88qMNWzOgyBgHUktVqBQ
 function AppContent() {
   const { theme, themeMode } = useTheme();
   const { expoPushToken } = useNotifications();
+
+  /** Vérifie l'état d'authentification au démarrage et nettoie si nécessaire */
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // Utilisateur déconnecté, nettoyer AsyncStorage
+        console.log('Utilisateur déconnecté, nettoyage AsyncStorage...');
+        try {
+          await AsyncStorage.multiRemove([
+            '@eventhub_token',
+            '@eventhub_theme_mode',
+            '@eventhub_language',
+            '@eventhub_user_data'
+          ]);
+        } catch (error) {
+          console.error('Erreur nettoyage AsyncStorage:', error);
+        }
+      } else {
+        console.log('Utilisateur connecté:', user.uid, user.email);
+        
+        // Forcer la déconnexion si nécessaire (décommentez pour tester)
+        // if (__DEV__) {
+        //   console.log('MODE DEV: Déconnexion forcée activée');
+        //   await auth.signOut();
+        //   await AsyncStorage.multiRemove([
+        //     '@eventhub_token',
+        //     '@eventhub_theme_mode',
+        //     '@eventhub_language',
+        //     '@eventhub_user_data'
+        //   ]);
+        // }
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  /** Fonction de déconnexion forcée accessible globalement */
+  const forceLogout = async () => {
+    console.log('Déconnexion forcée manuelle...');
+    try {
+      await auth.signOut();
+      await AsyncStorage.multiRemove([
+        '@eventhub_token',
+        '@eventhub_theme_mode',
+        '@eventhub_language',
+        '@eventhub_user_data'
+      ]);
+      console.log('Déconnexion forcée réussie');
+    } catch (error) {
+      console.error('Erreur déconnexion forcée:', error);
+    }
+  };
+
+  // Exposer la fonction globalement pour le debug
+  if (__DEV__) {
+    (global as any).forceLogout = forceLogout;
+  }
 
   /** Sélection du thème de base React Navigation selon le mode clair/sombre */
   const BaseTheme = themeMode === 'dark' ? DarkTheme : DefaultTheme;
@@ -109,8 +171,18 @@ function AppContent() {
   };
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <AuthNavigator />
+    <NavigationContainer
+      theme={navTheme}
+      onStateChange={() => {
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const el = document.activeElement as HTMLElement | null;
+          el?.blur?.();
+        }
+      }}
+    >
+      <ErrorBoundary>
+        <AuthNavigator />
+      </ErrorBoundary>
     </NavigationContainer>
   );
 }

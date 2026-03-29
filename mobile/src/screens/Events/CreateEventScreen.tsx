@@ -78,9 +78,11 @@ const CreateEventScreen = () => {
     }
     try {
       setSearchingLocation(true);
+      const fetchHeaders: Record<string, string> = {};
+      if (Platform.OS !== 'web') fetchHeaders['User-Agent'] = 'EventHub-App/1.0';
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=fr`,
-        { headers: { 'User-Agent': 'EventHub-App/1.0' } }
+        { headers: fetchHeaders }
       );
       const data = await response.json();
       setLocationSuggestions(data);
@@ -95,13 +97,13 @@ const CreateEventScreen = () => {
   /** Met à jour le champ lieu et déclenche une recherche Nominatim après un délai de 400 ms (debounce) pour éviter de spammer l'API. */
   const onLocationTextChange = (text: string) => {
     setLocationQuery(text);
-    setEventData({...eventData, location: text});
+    setEventData(prev => ({...prev, location: text}));
     if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
     locationTimeoutRef.current = setTimeout(() => searchLocation(text), 400);
   };
 
   const selectLocation = (item: { display_name: string; lat: string; lon: string }) => {
-    setEventData({...eventData, location: item.display_name});
+    setEventData(prev => ({...prev, location: item.display_name}));
     setLocationQuery(item.display_name);
     setShowLocationSuggestions(false);
     setLocationSuggestions([]);
@@ -135,6 +137,11 @@ const CreateEventScreen = () => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
+  };
+
+  const formatDateForInput = (date: Date): string => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
   // Dates temporaires pour la modale iOS
@@ -377,31 +384,62 @@ const CreateEventScreen = () => {
         <View style={styles.row}>
           <View style={[styles.inputGroup, {flex: 1, marginRight: 10}]}>
             <Text style={styles.label}>Date et heure de début</Text>
-            <TouchableOpacity 
-              style={styles.dateInput}
-              onPress={() => {
-                setPickerMode('date');
-                setTempStartDate(eventData.startDate);
-                setShowStartPicker(true);
-              }}
-            >
-              <Text style={styles.dateText}>{formatDate(eventData.startDate)}</Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-            </TouchableOpacity>
+            {Platform.OS === 'web' ? (
+              (React as any).createElement('input', {
+                type: 'datetime-local',
+                value: formatDateForInput(eventData.startDate),
+                min: formatDateForInput(new Date()),
+                onChange: (e: any) => {
+                  const d = new Date(e.target.value);
+                  if (!isNaN(d.getTime())) setEventData(prev => ({...prev, startDate: d}));
+                },
+                style: {
+                  width: '100%', padding: '12px 16px', borderRadius: 12,
+                  border: `1px solid ${theme.border || '#555'}`,
+                  backgroundColor: theme.inputBackground || 'transparent',
+                  color: theme.text, fontSize: 14, cursor: 'pointer',
+                  fontFamily: 'system-ui, sans-serif', outline: 'none',
+                  boxSizing: 'border-box',
+                },
+              })
+            ) : (
+              <TouchableOpacity 
+                style={styles.dateInput}
+                onPress={() => { setPickerMode('date'); setTempStartDate(eventData.startDate); setShowStartPicker(true); }}
+              >
+                <Text style={styles.dateText}>{formatDate(eventData.startDate)}</Text>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            )}
           </View>
           <View style={[styles.inputGroup, {flex: 1}]}>
             <Text style={styles.label}>Date et heure de fin</Text>
-            <TouchableOpacity 
-              style={styles.dateInput}
-              onPress={() => {
-                setPickerMode('date');
-                setTempEndDate(eventData.endDate);
-                setShowEndPicker(true);
-              }}
-            >
-              <Text style={[styles.dateText, { color: theme.textMuted }]}>{formatDate(eventData.endDate)}</Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-            </TouchableOpacity>
+            {Platform.OS === 'web' ? (
+              (React as any).createElement('input', {
+                type: 'datetime-local',
+                value: formatDateForInput(eventData.endDate),
+                onChange: (e: any) => {
+                  const d = new Date(e.target.value);
+                  if (!isNaN(d.getTime())) setEventData(prev => ({...prev, endDate: d}));
+                },
+                style: {
+                  width: '100%', padding: '12px 16px', borderRadius: 12,
+                  border: `1px solid ${theme.border || '#555'}`,
+                  backgroundColor: theme.inputBackground || 'transparent',
+                  color: theme.text, fontSize: 14, cursor: 'pointer',
+                  fontFamily: 'system-ui, sans-serif', outline: 'none',
+                  boxSizing: 'border-box',
+                },
+              })
+            ) : (
+              <TouchableOpacity 
+                style={styles.dateInput}
+                onPress={() => { setPickerMode('date'); setTempEndDate(eventData.endDate); setShowEndPicker(true); }}
+              >
+                <Text style={[styles.dateText, { color: theme.textMuted }]}>{formatDate(eventData.endDate)}</Text>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -538,7 +576,7 @@ const CreateEventScreen = () => {
           </Modal>
         )}
 
-        <View style={[styles.inputGroup, { zIndex: 10 }]}>
+        <View style={[styles.inputGroup, { zIndex: 100 }]}>
           <Text style={styles.label}>Lieu</Text>
           <View style={styles.locationInput}>
             <Ionicons name="location-outline" size={20} color={theme.primary} style={styles.inputIcon} />
@@ -549,6 +587,7 @@ const CreateEventScreen = () => {
               value={eventData.location}
               onChangeText={onLocationTextChange}
               onFocus={() => { if (locationSuggestions.length > 0) setShowLocationSuggestions(true); }}
+            onBlur={() => { setTimeout(() => setShowLocationSuggestions(false), 150); }}
             />
             {searchingLocation && (
               <ActivityIndicator size="small" color={theme.primary} style={{ position: 'absolute', right: 12, top: 14 }} />
@@ -561,13 +600,13 @@ const CreateEventScreen = () => {
               borderWidth: 1,
               borderColor: theme.border || 'rgba(255,255,255,0.1)',
               marginTop: 4,
-              maxHeight: 200,
-              overflow: 'hidden',
+              maxHeight: 220,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 8,
-              elevation: 5,
+              elevation: 10,
+              zIndex: 200,
             }}>
               <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
                 {locationSuggestions.map((item, index) => (

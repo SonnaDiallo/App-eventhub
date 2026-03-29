@@ -114,5 +114,16 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && 
         resource.data.userId == request.auth.uid;
     }
+
+    // Notifications collection (in-app)
+    match /notifications/{notificationId} {
+      // L'utilisateur peut lire ses propres notifications
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Création via Cloud Functions (admin SDK bypass rules) ou utilisateur authentifié
+      allow create: if request.auth != null;
+      // L'utilisateur peut marquer ses notifications comme lues
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
   }
 }

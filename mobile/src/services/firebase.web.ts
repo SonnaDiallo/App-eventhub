@@ -8,7 +8,7 @@
 
 import Constants from 'expo-constants';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -32,8 +32,10 @@ if (!firebaseConfig?.apiKey || !firebaseConfig?.projectId || !firebaseConfig?.ap
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Sur le web : persistance navigateur par défaut (pas getReactNativePersistence)
-export const auth = getAuth(firebaseApp);
+// Sur le web : session uniquement (effacée à la fermeture de l'onglet/navigateur)
+const _auth = getAuth(firebaseApp);
+setPersistence(_auth, browserSessionPersistence).catch(() => {});
+export const auth = _auth;
 
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);

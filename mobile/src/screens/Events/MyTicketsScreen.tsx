@@ -33,6 +33,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { leaveEvent } from '../../services/eventsService';
 
 interface Ticket {
@@ -50,6 +51,7 @@ interface Ticket {
 
 const MyTicketsScreen = () => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation<any>();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,50 +62,136 @@ const MyTicketsScreen = () => {
 
   const user = auth.currentUser;
 
-  /** Téléchargement PDF désactivé — la génération côté client est trop lourde. L'utilisateur peut faire une capture d'écran du QR code. */
+  /** Télécharge le billet : sur le web, génère une page HTML imprimable avec QR code ; sur mobile, propose une capture d'écran. */
   const handleDownloadPDF = async (ticket: Ticket) => {
-    // Fonctionnalité PDF désactivée - utiliser le partage du QR code intégré
-    Alert.alert(
-      'Billet numérique',
-      'Votre billet avec QR code est disponible directement dans l\'application. Vous pouvez faire une capture d\'écran pour le sauvegarder.',
-      [{ text: 'OK' }]
-    );
+    if (Platform.OS === 'web') {
+      setDownloadingPdf(true);
+      try {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticket.code)}`;
+        const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Billet - ${ticket.eventTitle}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f5f3ff;display:flex;justify-content:center;padding:40px}
+  .ticket{background:#fff;border-radius:24px;width:420px;overflow:hidden;box-shadow:0 8px 30px rgba(123,92,255,.15);border:1px solid #e5e7eb}
+  .header{background:#7B5CFF;background:linear-gradient(135deg,#7B5CFF,#9B7FFF);padding:32px 24px;text-align:center;color:#fff}
+  .header h2{font-size:13px;letter-spacing:3px;opacity:.85;margin-bottom:6px;font-weight:600}
+  .header h1{font-size:22px;font-weight:800;line-height:1.3}
+  .qr-section{text-align:center;padding:32px 24px 20px;background:#fff}
+  .qr-box{display:inline-block;padding:16px;background:#f8f9fa;border-radius:16px;border:1px solid #e5e7eb}
+  .qr-box img{display:block;border-radius:4px}
+  .code{text-align:center;font-size:26px;font-weight:900;letter-spacing:5px;color:#7B5CFF;font-family:'Courier New',monospace;margin:20px 0 6px}
+  .code-hint{text-align:center;font-size:12px;color:#9ca3af;margin-bottom:20px}
+  .dashed{border-top:2px dashed #d1d5db;margin:0 24px}
+  .info{padding:20px 24px 28px}
+  .info-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:14px;color:#4b5563}
+  .info-row .icon{width:32px;height:32px;border-radius:16px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .info-row svg{flex-shrink:0}
+  .badge{display:inline-block;padding:8px 20px;border-radius:12px;font-size:12px;font-weight:700;color:#fff;background:${ticket.checkedIn ? '#EF4444' : '#10B981'}}
+  .footer{text-align:center;padding:16px 24px 24px;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6}
+  @media print{body{background:#fff;padding:20px}.ticket{box-shadow:none;width:100%;max-width:420px;margin:auto}}
+</style>
+</head>
+<body>
+<div class="ticket">
+  <div class="header">
+    <h2>EVENTHUB</h2>
+    <h1>${ticket.eventTitle}</h1>
+  </div>
+  <div class="qr-section">
+    <div class="qr-box"><img src="${qrUrl}" width="200" height="200" alt="QR Code"/></div>
+  </div>
+  <div class="code">${ticket.code}</div>
+  <div class="code-hint">Pr\u00e9sente ce code ou le QR \u00e0 l'entr\u00e9e</div>
+  <div class="dashed"></div>
+  <div class="info">
+    <div class="info-row"><div class="icon"><svg width="16" height="16" fill="#7B5CFF" viewBox="0 0 512 512"><path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0 256 256 0 1 1-512 0zm232-136v136c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/></svg></div>${ticket.eventDate} &middot; ${ticket.eventTime}</div>
+    <div class="info-row"><div class="icon"><svg width="16" height="16" fill="#7B5CFF" viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192 384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2 12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg></div>${ticket.eventLocation}</div>
+    <div style="margin-top:8px"><span class="badge">${ticket.checkedIn ? '\u2713 UTILIS\u00c9' : '\u2713 VALIDE'}</span></div>
+  </div>
+  <div class="footer">Billet g\u00e9n\u00e9r\u00e9 par EventHub &mdash; Conservez ce document</div>
+</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body>
+</html>`;
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank');
+        if (!w) {
+          // Fallback : télécharger le fichier HTML
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `billet-${ticket.code}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch (error) {
+        console.error('Download ticket error:', error);
+        window.alert('Impossible de télécharger le billet. Réessaie.');
+      } finally {
+        setDownloadingPdf(false);
+      }
+    } else {
+      Alert.alert(
+        'Billet numérique',
+        'Votre billet avec QR code est disponible directement dans l\'application. Vous pouvez faire une capture d\'écran pour le sauvegarder.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   /** Annule une réservation : supprime le ticket Firestore et appelle l'API backend pour les événements internes. */
   const handleCancelReservation = async (ticket: Ticket) => {
-    Alert.alert(
-      'Annuler la réservation',
-      `Es-tu sûr de vouloir annuler ta réservation pour "${ticket.eventTitle}" ? Ton billet sera supprimé.`,
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Oui, annuler',
-          style: 'destructive',
-          onPress: async () => {
-            setCancelling(true);
-            try {
-              await deleteDoc(doc(db, 'tickets', ticket.id));
-              const isBackendEvent = !ticket.eventId.startsWith('external_');
-              if (isBackendEvent) {
-                try {
-                  await leaveEvent(ticket.eventId);
-                } catch {
-                  // Ignorer si l'API refuse (ex. déjà annulé)
-                }
-              }
-              setSelectedTicket(null);
-              Alert.alert('Réservation annulée', 'Ton billet a été supprimé.');
-            } catch (error: any) {
-              console.error('Cancel ticket error:', error);
-              Alert.alert('Erreur', 'Impossible d\'annuler la réservation. Réessaie.');
-            } finally {
-              setCancelling(false);
-            }
-          },
-        },
-      ]
-    );
+    const doCancel = async () => {
+      setCancelling(true);
+      try {
+        await deleteDoc(doc(db, 'tickets', ticket.id));
+        const isBackendEvent = !ticket.eventId.startsWith('external_');
+        if (isBackendEvent) {
+          try {
+            await leaveEvent(ticket.eventId);
+          } catch {
+            // Ignorer si l'API refuse (ex. déjà annulé)
+          }
+        }
+        setSelectedTicket(null);
+        if (Platform.OS === 'web') {
+          window.alert('Ton billet a été supprimé.');
+        } else {
+          Alert.alert('Réservation annulée', 'Ton billet a été supprimé.');
+        }
+      } catch (error: any) {
+        console.error('Cancel ticket error:', error);
+        if (Platform.OS === 'web') {
+          window.alert('Impossible d\'annuler la réservation. Réessaie.');
+        } else {
+          Alert.alert('Erreur', 'Impossible d\'annuler la réservation. Réessaie.');
+        }
+      } finally {
+        setCancelling(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Es-tu sûr de vouloir annuler ta réservation pour "${ticket.eventTitle}" ? Ton billet sera supprimé.`)) {
+        await doCancel();
+      }
+    } else {
+      Alert.alert(
+        'Annuler la réservation',
+        `Es-tu sûr de vouloir annuler ta réservation pour "${ticket.eventTitle}" ? Ton billet sera supprimé.`,
+        [
+          { text: 'Non', style: 'cancel' },
+          { text: 'Oui, annuler', style: 'destructive', onPress: doCancel },
+        ]
+      );
+    }
   };
 
   useEffect(() => {
@@ -403,7 +491,7 @@ const MyTicketsScreen = () => {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 24 }}>Mes Billets</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 24 }}>{t('myTickets')}</Text>
             <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, marginTop: 4 }}>
               {tickets.length} billet{tickets.length > 1 ? 's' : ''}
             </Text>
@@ -438,7 +526,7 @@ const MyTicketsScreen = () => {
             fontWeight: '700',
             color: activeTab === 'upcoming' ? theme.primary : theme.textMuted,
           }}>
-            À venir ({upcomingTickets.length})
+            {t('upcomingTickets')} ({upcomingTickets.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -459,7 +547,7 @@ const MyTicketsScreen = () => {
             fontWeight: '700',
             color: activeTab === 'past' ? theme.primary : theme.textMuted,
           }}>
-            Passés ({pastTickets.length})
+            {t('pastTickets')} ({pastTickets.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -472,12 +560,12 @@ const MyTicketsScreen = () => {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <Ionicons name="ticket-outline" size={64} color="#9CA3AF" />
           <Text style={{ color: '#000000', fontWeight: '700', fontSize: 18, marginTop: 16 }}>
-            Aucun billet {activeTab === 'upcoming' ? 'à venir' : 'passé'}
+            {activeTab === 'upcoming' ? t('noUpcomingTickets') : t('noPastTickets')}
           </Text>
           <Text style={{ color: '#6C757D', textAlign: 'center', marginTop: 8 }}>
             {activeTab === 'upcoming' 
-              ? 'Inscris-toi à un événement pour obtenir ton premier billet !'
-              : 'Tes billets passés apparaîtront ici.'}
+              ? t('noUpcomingTicketsDesc')
+              : t('noPastTicketsDesc')}
           </Text>
           {activeTab === 'upcoming' && (
             <TouchableOpacity
@@ -607,7 +695,7 @@ const MyTicketsScreen = () => {
               ) : (
                 <>
                   <Ionicons name="download-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Télécharger le billet (PDF)</Text>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('downloadTicket')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -629,7 +717,7 @@ const MyTicketsScreen = () => {
                 {cancelling ? (
                   <ActivityIndicator size="small" color="#EF4444" />
                 ) : (
-                  <Text style={{ color: '#EF4444', fontWeight: '700' }}>Annuler la réservation</Text>
+                  <Text style={{ color: '#EF4444', fontWeight: '700' }}>{t('cancelReservation')}</Text>
                 )}
               </TouchableOpacity>
             )}

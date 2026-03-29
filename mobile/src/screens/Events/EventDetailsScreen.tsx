@@ -37,7 +37,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../services/firebase';
-import type { AuthStackParamList } from '../../navigation/AuthNavigator';
+import type { AuthStackParamList, EventData } from '../../navigation/AuthNavigator';
 import { isFavorite, toggleFavorite } from '../../services/favoritesService';
 import { normalizeImageUrl } from '../../config/constants';
 import { 
@@ -48,6 +48,7 @@ import {
 } from '../../services/externalRegistrationService';
 import { sendFriendRequest } from '../../services/friendsService';
 import { useTheme } from '../../theme/ThemeContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { createStyles } from './EventDetailsScreen.styles';
 import { getEventReviews, getEventReviewStats, Review, ReviewStats } from '../../services/reviewService';
 import { ReviewCard } from '../../components/ReviewCard';
@@ -57,7 +58,7 @@ const { width } = Dimensions.get('window');
 type EventDetailsRouteProp = RouteProp<AuthStackParamList, 'EventDetails'>;
 
 /** Événement par défaut utilisé comme fallback si les paramètres de navigation sont absents (ex. deep link invalide). */
-const defaultEvent = {
+const defaultEvent: EventData = {
   id: '000000000000000000000001',
   title: 'Festival de Musique Électronique',
   coverImage: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
@@ -66,6 +67,9 @@ const defaultEvent = {
   location: 'Grand Palais Éphémère',
   address: 'Paris, France',
   organizer: 'Urban Beats Prod.',
+  organizerName: 'Urban Beats Prod.',
+  organizerId: '',
+  category: 'music',
   description: 'Plongez au cœur de la scène électronique avec les plus grands DJs du moment. Une expérience immersive avec des visuels époustouflants et un sound system de pointe.',
   price: 49.99,
   isFree: false,
@@ -121,6 +125,7 @@ const parseEventDate = (dateStr: string): string => {
 
 const EventDetailsScreen = () => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const styles = createStyles(theme);
   const navigation = useNavigation<any>();
   const route = useRoute<EventDetailsRouteProp>();
@@ -144,36 +149,48 @@ const EventDetailsScreen = () => {
   // Récupérer les données de l'événement depuis les paramètres ou utiliser les valeurs par défaut
   const event = route.params?.event || defaultEvent;
   const organizerDisplayName =
-    (event.organizer && typeof event.organizer === 'object' ? event.organizer?.name : event.organizer) ||
     event.organizerName ||
+    event.organizer ||
     'Organisateur';
   const user = auth.currentUser;
   const isOwner = user?.uid === event.organizerId;
 
   /** Supprime l'événement de Firestore après confirmation. Réservé à l'organisateur propriétaire (vérifié par isOwner). */
-  const handleDeleteEvent = () => {
-    Alert.alert(
-      'Supprimer l\'événement',
-      'Es-tu sûr(e) de vouloir supprimer cet événement ? Cette action est irréversible.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Supprimer l'événement de Firestore
-              await deleteDoc(doc(db, 'events', event.id));
-              Alert.alert('Succès', 'Événement supprimé !');
-              navigation.goBack();
-            } catch (error: any) {
-              console.error('Delete event error:', error);
-              Alert.alert('Erreur', error?.message || 'Impossible de supprimer l\'événement');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteEvent = async () => {
+    const doDelete = async () => {
+      try {
+        await deleteDoc(doc(db, 'events', event.id));
+        if (Platform.OS === 'web') {
+          window.alert('Événement supprimé !');
+        } else {
+          Alert.alert('Succès', 'Événement supprimé !');
+        }
+        navigation.goBack();
+      } catch (error: any) {
+        console.error('Delete event error:', error);
+        const msg = error?.message || 'Impossible de supprimer l\'événement';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Erreur', msg);
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Es-tu sûr(e) de vouloir supprimer cet événement ? Cette action est irréversible.')) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert(
+        'Supprimer l\'événement',
+        'Es-tu sûr(e) de vouloir supprimer cet événement ? Cette action est irréversible.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Supprimer', style: 'destructive', onPress: doDelete },
+        ]
+      );
+    }
   };
 
   // Charger les participants qui ont réservé
@@ -313,7 +330,7 @@ const EventDetailsScreen = () => {
         await registerForExternalEvent({
           externalEventId: event.id,
           eventTitle: event.title,
-          eventDate: event.date,
+          eventDate: event.date || '',
           eventLocation: event.location,
         });
         setIsExternalRegistered(true);
@@ -421,62 +438,80 @@ const EventDetailsScreen = () => {
    * Gère la réservation d'un billet. Crée un document ticket dans Firestore avec
    * un code unique et un QR code. Affiche une modale de confirmation avec le code.
    */
+  const doRegister = async () => {
+    setIsRegistering(true);
+    try {
+      // Créer directement le ticket dans Firestore pour tous les événements
+      const ticketCode = generateTicketCode();
+      const formattedDate = parseEventDate(event.date || '');
+      
+      await addDoc(collection(db, 'tickets'), {
+        code: ticketCode,
+        eventId: event.id || '',
+        eventTitle: event.title || '',
+        eventDate: formattedDate,
+        eventTime: event.time || '',
+        eventLocation: event.location || '',
+        userId: user!.uid,
+        participantName: user!.displayName || 'Participant',
+        participantEmail: user!.email || '',
+        ticketType: event.isFree ? 'Gratuit' : 'Standard',
+        price: event.price ?? 0,
+        checkedIn: false,
+        checkedInAt: null,
+        purchasedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      
+      setHasTicket(true);
+      setTicketCodeModal(ticketCode);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Impossible de réserver. Réessaie.');
+      } else {
+        Alert.alert('Erreur', 'Impossible de réserver. Réessaie.');
+      }
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   const handleGetTicket = async () => {
     if (!user) {
-      Alert.alert('Connexion requise', 'Tu dois être connecté pour obtenir un billet.');
+      if (Platform.OS === 'web') {
+        window.alert('Tu dois être connecté pour obtenir un billet.');
+      } else {
+        Alert.alert('Connexion requise', 'Tu dois être connecté pour obtenir un billet.');
+      }
       return;
     }
 
     if (hasTicket) {
-      Alert.alert('Déjà inscrit', 'Tu as déjà un billet pour cet événement. Consulte "Mes billets".');
+      if (Platform.OS === 'web') {
+        window.alert('Tu as déjà un billet pour cet événement. Consulte "Mes billets".');
+      } else {
+        Alert.alert('Déjà inscrit', 'Tu as déjà un billet pour cet événement. Consulte "Mes billets".');
+      }
       return;
     }
 
-    Alert.alert(
-      'Confirmer l\'inscription',
-      `Veux-tu t'inscrire à "${event.title}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            setIsRegistering(true);
-            try {
-              // Créer directement le ticket dans Firestore pour tous les événements
-              const ticketCode = generateTicketCode();
-              const formattedDate = parseEventDate(event.date || '');
-              
-              await addDoc(collection(db, 'tickets'), {
-                code: ticketCode,
-                eventId: event.id || '',
-                eventTitle: event.title || '',
-                eventDate: formattedDate,
-                eventTime: event.time || '',
-                eventLocation: event.location || '',
-                userId: user.uid,
-                participantName: user.displayName || 'Participant',
-                participantEmail: user.email || '',
-                ticketType: event.isFree ? 'Gratuit' : 'Standard',
-                price: event.price ?? 0,
-                checkedIn: false,
-                checkedInAt: null,
-                purchasedAt: serverTimestamp(),
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-              
-              setHasTicket(true);
-              setTicketCodeModal(ticketCode);
-            } catch (error: any) {
-              console.error('Registration error:', error);
-              Alert.alert('Erreur', 'Impossible de réserver. Réessaie.');
-            } finally {
-              setIsRegistering(false);
-            }
-          },
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Veux-tu t'inscrire à "${event.title}" ?`);
+      if (confirmed) {
+        await doRegister();
+      }
+    } else {
+      Alert.alert(
+        'Confirmer l\'inscription',
+        `Veux-tu t'inscrire à "${event.title}" ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Confirmer', onPress: doRegister },
+        ]
+      );
+    }
   };
 
 
@@ -597,7 +632,7 @@ const EventDetailsScreen = () => {
               <Ionicons name="share-outline" size={24} color="#000000" />
             </TouchableOpacity>
 
-            {isOwner && (
+            {isOwner ? (
               <TouchableOpacity
                 onPress={handleDeleteEvent}
                 style={{
@@ -616,7 +651,7 @@ const EventDetailsScreen = () => {
               >
                 <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </View>
       </View>
@@ -714,7 +749,7 @@ const EventDetailsScreen = () => {
                 {organizerDisplayName}
               </Text>
             </View>
-            {event.organizerId && !isOwner && (
+            {event.organizerId && !isOwner ? (
               <TouchableOpacity
                 onPress={async () => {
                   if (sendingFollowRequest || followRequestSent) return;
@@ -722,17 +757,34 @@ const EventDetailsScreen = () => {
                   try {
                     await sendFriendRequest(event.organizerId!);
                     setFollowRequestSent(true);
-                    Alert.alert('Demande envoyée', `Demande de suivi envoyée à ${organizerDisplayName}. Vous pourrez discuter une fois qu'elle sera acceptée.`);
-                  } catch (error: any) {
-                    const msg = error?.message || error?.response?.data?.message || '';
-                    if (msg.includes('déjà amis') || msg.includes('already-exists')) {
-                      setFollowRequestSent(true);
-                      Alert.alert('Info', 'Vous êtes déjà amis avec cet organisateur');
-                    } else if (msg.includes('déjà en cours') || msg.includes('en cours')) {
-                      setFollowRequestSent(true);
-                      Alert.alert('Info', 'Une demande est déjà en attente');
+                    const successMsg = `Demande de suivi envoyée à ${organizerDisplayName}. Vous pourrez discuter une fois qu'elle sera acceptée.`;
+                    if (Platform.OS === 'web') {
+                      window.alert(successMsg);
                     } else {
-                      Alert.alert('Erreur', msg || "Impossible d'envoyer la demande de suivi");
+                      Alert.alert('Demande envoyée', successMsg);
+                    }
+                  } catch (error: any) {
+                    const code = error?.code || '';
+                    const msg = error?.message || error?.response?.data?.message || '';
+                    const isAlreadyExists = code.includes('already-exists') || msg.includes('déjà amis') || msg.includes('already-exists');
+                    const isPending = msg.includes('déjà en cours') || msg.includes('en cours');
+                    if (isAlreadyExists || isPending) {
+                      setFollowRequestSent(true);
+                      const infoMsg = isAlreadyExists && !isPending
+                        ? 'Vous êtes déjà amis avec cet organisateur'
+                        : 'Une demande est déjà en attente';
+                      if (Platform.OS === 'web') {
+                        window.alert(infoMsg);
+                      } else {
+                        Alert.alert('Info', infoMsg);
+                      }
+                    } else {
+                      const errMsg = msg || "Impossible d'envoyer la demande de suivi";
+                      if (Platform.OS === 'web') {
+                        window.alert(errMsg);
+                      } else {
+                        Alert.alert('Erreur', errMsg);
+                      }
                     }
                   } finally {
                     setSendingFollowRequest(false);
@@ -756,7 +808,7 @@ const EventDetailsScreen = () => {
                   {followRequestSent ? 'Demande envoyée' : sendingFollowRequest ? 'Envoi…' : 'Suivre'}
                 </Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
 
           {/* Date et heure */}
@@ -854,7 +906,7 @@ const EventDetailsScreen = () => {
               fontWeight: '600',
               color: theme.text,
             }}>
-              {participants.length} {participants.length > 1 ? 'personnes inscrites' : 'personne inscrite'}
+              {participants.length} {t('participants')}
             </Text>
           </View>
 
@@ -888,7 +940,7 @@ const EventDetailsScreen = () => {
                       style={{ color: '#7B5CFF', fontWeight: '600' }}
                       onPress={() => setDescriptionExpanded((v) => !v)}
                     >
-                      {' '}{descriptionExpanded ? 'Voir moins' : 'Lire la suite'}
+                      {' '}{descriptionExpanded ? t('seeLess') : t('seeMore')}
                     </Text>
                   )}
                 </>
@@ -928,7 +980,6 @@ const EventDetailsScreen = () => {
                 marginTop: 4,
                 paddingHorizontal: 16,
                 textAlign: 'center',
-                numberOfLines: 2,
               }} numberOfLines={2}>
                 {event.location || event.address}
               </Text>
@@ -936,7 +987,7 @@ const EventDetailsScreen = () => {
           </TouchableOpacity>
 
           {/* Section Qui y va ? */}
-          {participants.length > 0 && (
+          {participants.length > 0 ? (
             <View style={{ marginTop: 24 }}>
               <View style={{
                 flexDirection: 'row',
@@ -956,7 +1007,7 @@ const EventDetailsScreen = () => {
                   fontWeight: '600',
                   color: theme.textSecondary,
                 }}>
-                  {participants.length} participant{participants.length > 1 ? 's' : ''}
+                  {participants.length} {t('participants')}
                 </Text>
               </View>
               
@@ -1013,18 +1064,26 @@ const EventDetailsScreen = () => {
                     </View>
                     
                     {/* Bouton ajouter ami */}
-                    {participant.userId !== user?.uid && (
+                    {participant.userId !== user?.uid ? (
                       <TouchableOpacity
                         onPress={async () => {
                           try {
                             const { sendFriendRequest } = await import('../../services/friendsService');
                             await sendFriendRequest(participant.userId);
-                            Alert.alert('Demande envoyée', `Demande d'ami envoyée à ${participant.participantName}`);
-                          } catch (error: any) {
-                            if (error.response?.status === 400) {
-                              Alert.alert('Info', 'Vous êtes déjà amis ou une demande est en attente');
+                            if (Platform.OS === 'web') {
+                              window.alert(`Demande d'ami envoyée à ${participant.participantName}`);
                             } else {
-                              Alert.alert('Erreur', 'Impossible d\'envoyer la demande');
+                              Alert.alert('Demande envoyée', `Demande d'ami envoyée à ${participant.participantName}`);
+                            }
+                          } catch (error: any) {
+                            const code = error?.code || '';
+                            const msg = error?.message || '';
+                            const isConflict = code.includes('already-exists') || msg.includes('déjà amis') || msg.includes('en cours');
+                            const infoMsg = isConflict ? 'Vous êtes déjà amis ou une demande est en attente' : 'Impossible d\'envoyer la demande';
+                            if (Platform.OS === 'web') {
+                              window.alert(infoMsg);
+                            } else {
+                              Alert.alert(isConflict ? 'Info' : 'Erreur', infoMsg);
                             }
                           }
                         }}
@@ -1039,12 +1098,12 @@ const EventDetailsScreen = () => {
                       >
                         <Ionicons name="person-add" size={18} color="#7B5CFF" />
                       </TouchableOpacity>
-                    )}
+                    ) : null}
                   </View>
                 ))}
                 
                 {/* Bouton "Voir tous les participants" */}
-                {participants.length > 3 && (
+                {participants.length > 3 ? (
                   <TouchableOpacity
                     style={{
                       paddingVertical: 12,
@@ -1060,13 +1119,13 @@ const EventDetailsScreen = () => {
                       fontWeight: '600',
                       color: theme.primary,
                     }}>
-                      Voir tous les participants ({participants.length})
+                      {t('seeAll')} ({participants.length})
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
               </View>
             </View>
-          )}
+          ) : null}
 
           {/* Section Avis */}
           <View style={{ marginTop: 24 }}>
@@ -1081,9 +1140,9 @@ const EventDetailsScreen = () => {
                 fontWeight: '700',
                 color: theme.text,
               }}>
-                Avis
+                {t('reviews')}
               </Text>
-              {reviewStats && reviewStats.totalReviews > 0 && (
+              {reviewStats && reviewStats.totalReviews > 0 ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="star" size={16} color="#FFD700" />
                   <Text style={{
@@ -1095,7 +1154,7 @@ const EventDetailsScreen = () => {
                     {reviewStats.averageRating.toFixed(1)} ({reviewStats.totalReviews})
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
 
             {loadingReviews ? (
@@ -1105,7 +1164,7 @@ const EventDetailsScreen = () => {
                 {reviews.map((review) => (
                   <ReviewCard key={review.id} review={review} theme={theme} />
                 ))}
-                {reviewStats && reviewStats.totalReviews > reviews.length && (
+                {reviewStats && reviewStats.totalReviews > reviews.length ? (
                   <TouchableOpacity
                     style={{
                       paddingVertical: 12,
@@ -1122,10 +1181,10 @@ const EventDetailsScreen = () => {
                       fontWeight: '600',
                       color: theme.primary,
                     }}>
-                      Voir tous les avis ({reviewStats.totalReviews})
+                      {t('seeAll')} ({reviewStats.totalReviews})
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
               </View>
             ) : (
               <View style={{
@@ -1140,12 +1199,12 @@ const EventDetailsScreen = () => {
                   color: theme.textSecondary,
                   marginTop: 8,
                 }}>
-                  Aucun avis pour le moment
+                  {t('noReviews')}
                 </Text>
               </View>
             )}
 
-            {hasTicket && (
+            {hasTicket ? (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddReview', { eventId: event.id, eventTitle: event.title })}
                 style={{
@@ -1166,10 +1225,10 @@ const EventDetailsScreen = () => {
                   color: '#FFFFFF',
                   marginLeft: 8,
                 }}>
-                  Donner mon avis
+                  {t('addReview')}
                 </Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -1249,7 +1308,7 @@ const EventDetailsScreen = () => {
                   fontWeight: '700',
                   color: '#FFFFFF',
                 }}>
-                  {hasTicket ? 'Déjà inscrit ✓' : 'Réserver ma place'}
+                  {hasTicket ? t('alreadyRegistered') : t('bookMySpot')}
                 </Text>
               )}
             </LinearGradient>

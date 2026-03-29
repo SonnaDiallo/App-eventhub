@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Animated } from 'react-native';
+import { View, TextInput, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeContext';
@@ -41,7 +41,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.97,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
@@ -50,7 +50,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       toValue: 1,
       friction: 3,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 

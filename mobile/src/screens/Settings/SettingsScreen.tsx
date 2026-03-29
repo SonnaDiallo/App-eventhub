@@ -142,10 +142,11 @@ const SettingsScreen = () => {
     try {
       await clearToken();
       await auth.signOut();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' as never }],
-      });
+      if (Platform.OS === 'web') {
+        window.location.reload();
+        return;
+      }
+      navigation.reset({ index: 0, routes: [{ name: 'Welcome' as never }] });
     } catch (error: any) {
       const message = 'Impossible de se déconnecter';
       if (Platform.OS === 'web') {
@@ -241,22 +242,24 @@ const SettingsScreen = () => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            // Retour vers l'écran principal (l'historique peut être vide après connexion Google)
+            if ((navigation as any).canGoBack()) {
+              navigation.goBack();
+              return;
+            }
             const user = auth.currentUser;
             if (user) {
-              // Essayer de récupérer le rôle pour rediriger correctement
               getDoc(doc(db, 'users', user.uid))
                 .then((userDoc) => {
                   const role = userDoc.exists() ? userDoc.data()?.role : undefined;
                   if (role === 'admin') {
                     navigation.navigate('AdminHome' as never);
+                  } else if (role === 'organizer') {
+                    navigation.navigate('OrganizerProfile' as never);
                   } else {
                     navigation.navigate('HomeParticipant' as never);
                   }
                 })
-                .catch(() => {
-                  navigation.navigate('HomeParticipant' as never);
-                });
+                .catch(() => navigation.navigate('HomeParticipant' as never));
             } else {
               navigation.navigate('HomeParticipant' as never);
             }

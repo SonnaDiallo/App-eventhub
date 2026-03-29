@@ -21,7 +21,12 @@ export default function Dashboard() {
     setLoading(true);
     getDashboardStats()
       .then(setStats)
-      .catch(() => setError('Impossible de charger les statistiques'))
+      .catch((err: any) => {
+        const status = err?.response?.status;
+        if (status === 403) setError('Accès refusé — rôle admin requis dans Firestore.');
+        else if (status === 401) setError('Session expirée — reconnectez-vous.');
+        else setError('Backend inaccessible → démarrez-le : cd backend && npm run dev');
+      })
       .finally(() => setLoading(false));
   };
 

@@ -14,7 +14,7 @@ import { auth } from './firebase';
 /**
  * Ajoute un événement aux favoris de l'utilisateur
  */
-export const addToFavorites = async (eventId: string): Promise<boolean> => {
+export const addToFavorites = async (eventId: string, eventData?: Record<string, any>): Promise<boolean> => {
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -25,6 +25,20 @@ export const addToFavorites = async (eventId: string): Promise<boolean> => {
     await setDoc(favoriteRef, {
       eventId,
       addedAt: new Date(),
+      ...(eventData ? {
+        title: eventData.title || '',
+        coverImage: eventData.coverImage || '',
+        date: eventData.date || '',
+        time: eventData.time || '',
+        location: eventData.location || '',
+        description: eventData.description || '',
+        price: eventData.price ?? 0,
+        isFree: eventData.isFree ?? true,
+        organizer: eventData.organizer || eventData.organizerName || '',
+        organizerId: eventData.organizerId || '',
+        category: eventData.category || '',
+        isExternal: eventData.isExternal || false,
+      } : {}),
     });
 
     return true;
@@ -77,14 +91,14 @@ export const isFavorite = async (eventId: string): Promise<boolean> => {
 /**
  * Toggle favoris (ajoute si absent, retire si présent)
  */
-export const toggleFavorite = async (eventId: string): Promise<boolean> => {
+export const toggleFavorite = async (eventId: string, eventData?: Record<string, any>): Promise<boolean> => {
   try {
     const isFav = await isFavorite(eventId);
     if (isFav) {
       await removeFromFavorites(eventId);
       return false;
     } else {
-      await addToFavorites(eventId);
+      await addToFavorites(eventId, eventData);
       return true;
     }
   } catch (error: any) {

@@ -24,7 +24,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
@@ -39,7 +39,15 @@ export default function AdminHomeScreen() {
    * Propose une confirmation de déconnexion puis efface le token stocké,
    * déconnecte Firebase Auth et redirige vers l'écran Welcome.
    */
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Quitter l\'espace admin ?');
+      if (!confirmed) return;
+      await clearToken();
+      await auth.signOut();
+      window.location.reload();
+      return;
+    }
     Alert.alert(
       'Déconnexion',
       'Quitter l\'espace admin ?',

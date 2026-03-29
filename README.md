@@ -14,6 +14,168 @@ EventHub est une application mobile qui permet aux utilisateurs de :
 - Noter et laisser des avis sur les événements
 - S'inscrire à des événements externes (Ticketmaster, Paris Open Data)
 
+---
+
+## 📦 Bilan Complet du Projet
+
+### 🏗️ Architecture Générale
+
+Le projet est structuré en **4 modules** :
+- **`mobile/`** — App React Native (Expo) — iOS, Android, Web
+- **`backend/`** — API REST Express.js + TypeScript — port 5000
+- **`admin/`** — Interface web admin React (Vite) — port 3001
+- **`functions/`** — Firebase Cloud Functions — région us-central1
+
+---
+
+### 🔧 Backend
+
+#### Infrastructure
+- **Express.js** avec TypeScript, CORS, rate limiting (`apiLimiter`)
+- **Firebase Admin SDK** pour accès Firestore côté serveur
+- **Validation d'environnement** (`validateEnv`) au démarrage
+- **Détection automatique de l'IP locale** pour dev mobile
+- **Gestion d'erreurs centralisée** (`errorHandler`)
+- **Webhook Stripe** avec body brut avant `express.json()`
+
+#### Routes API (14 routes)
+
+| Route | Rôle |
+|---|---|
+| `/api/auth` | Inscription, connexion, mot de passe oublié |
+| `/api/events` | CRUD événements |
+| `/api/categories` | Gestion des catégories |
+| `/api/tickets` | Billets & réservations |
+| `/api/ticket-pdf` | Génération PDF des billets |
+| `/api/payments` | Paiement Stripe + webhook |
+| `/api/friends` | Gestion des amis |
+| `/api/chat` | Messagerie en temps réel |
+| `/api/external-events` | Événements externes (Ticketmaster) |
+| `/api/uploads` | Upload d'images |
+| `/api/reviews` | Avis sur les événements |
+| `/api/users` | CRUD utilisateurs (admin) |
+| `/api/admin` | Stats tableau de bord, modération |
+| `/api/health` | Healthcheck |
+
+---
+
+### 📱 App Mobile
+
+#### Authentification
+- **Welcome, Login, Register, ForgotPassword** — écrans auth complets
+- **Social Auth** (`socialAuth.ts`) — connexion Google/Apple
+- **Persistance token** (`authStorage.ts`) avec AsyncStorage
+- **Persistance web** : `browserSessionPersistence` (session expire à la fermeture du navigateur)
+
+#### Navigation
+- **Stack Navigator unique** (`AuthNavigator.tsx`) avec **~30 routes** typées
+- **`useUserRole`** hook — écoute Firestore en temps réel, gère les rôles `participant | organizer | admin`
+
+#### Écrans Participants
+- **`HomeParticipantScreen`** — accueil avec événements, recherche, filtres catégories
+- **`EventDetailsScreen`** — détails, inscription, paiement
+- **`MyTicketsScreen`** — liste des billets avec QR code
+- **`FavoritesScreen`** — événements favoris
+- **`TrendingEventsScreen`** — événements tendance
+- **`AddReviewScreen`** — notation et avis post-événement
+
+#### Écrans Organisateurs
+- **`OrganizerDashboardScreen`** — tableau de bord avec **modal sélecteur d'événements**
+- **`OrganizerProfileScreen`** — profil enrichi
+- **`CreateEventScreen`** — création/édition d'événement complet
+- **`ScanTicketScreen`** — scan QR code billets
+- **`ParticipantsOverviewScreen`** — liste des participants
+
+#### Espace Admin (5 écrans)
+- **`AdminHomeScreen`** — portail d'accès admin
+- **`AdminDashboardScreen`** — stats globales (users, events, tickets, avis)
+- **`AdminUsersScreen`** — gestion membres : recherche, changement de rôle, suppression avec **protection de l'admin connecté**
+- **`AdminEventsScreen`** — liste et suppression d'événements
+- **`AdminReviewsScreen`** — modération des avis
+
+#### Social
+- **`FriendsScreen`** — gestion amis + demandes
+- **`ChatListScreen`** + **`ChatRoomScreen`** — messagerie 1:1
+
+#### Profil & Paramètres
+- **`ProfileScreen`** — profil participant
+- **`EditProfileScreen`** + **`ChangePasswordScreen`**
+- **`SettingsScreen`** — préférences, notifications, thème, **retour correct selon le rôle**
+
+#### Services (20 fichiers)
+
+| Service | Rôle |
+|---|---|
+| `eventsService.ts` | CRUD événements + externe, **tri local en premier** |
+| `eventsCache.ts` | Cache AsyncStorage offline-first |
+| `chatService.ts` | Messagerie Firestore temps réel |
+| `paymentService.ts` | Paiement Stripe via Cloud Functions |
+| `ticketService.ts` | Gestion billets |
+| `reviewService.ts` | Avis & notations |
+| `favoritesService.ts` | Favoris |
+| `friendsService.ts` | Amis |
+| `adminService.ts` | Dashboard + gestion users/events/avis |
+| `notificationService.ts` | Notifications push |
+| `storageService.ts` | Upload Firebase Storage |
+| `i18n.ts` | **Internationalisation FR/EN/ES** |
+| `functionsService.ts` | Appels Cloud Functions |
+| `externalRegistrationService.ts` | Inscription événements externes |
+
+#### Hooks personnalisés
+- **`useEvents`** — chargement avec cache offline-first, déduplication, race condition sécurisée
+- **`useUserRole`** — rôle en temps réel (Firestore `onSnapshot`)
+- **`useNotifications`** — notifications push
+
+#### Composants réutilisables
+- `EventCard`, `SearchBar`, `CategoryFilter`, `ReviewCard`
+- `LocationPickerModal`, `PremiumButton`, `AnimatedFadeIn`
+- `ErrorBoundary`, `EmptyState`, `LoadingSpinner`
+- `StripeProviderWrapper` (natif + web), `ThemeToggle`
+
+#### Thème & i18n
+- **Mode sombre/clair** (`ThemeContext`)
+- **3 langues** : Français, Anglais, Espagnol (`LanguageContext` + `i18n.ts`)
+
+---
+
+### 🔒 Sécurité
+- Middleware d'auth JWT sur les routes protégées
+- **Protection admin** : un admin ne peut pas modifier/supprimer son propre compte (backend + frontend)
+- **Firestore Rules** configurées (`firestore.rules`)
+- **Storage Rules** configurées (`storage.rules`)
+
+---
+
+### 📅 Données de seed
+
+**20 événements créés** dans Firestore répartis sur 2 organisateurs :
+
+| Organisateur | Nb | Catégories |
+|---|---|---|
+| Coumba Kanouté | 12 | music, arts, food, family, other |
+| Saran Sacko | 8 | sports, music, food, family, other |
+
+Villes couvertes : Paris, Lyon, Marseille, Bordeaux, Toulouse, Nantes, Nice  
+Prix : de gratuit à 120 €
+
+---
+
+### ✅ Corrections appliquées en session
+
+| Fichier | Correction |
+|---|---|
+| `AdminHomeScreen.tsx` | Logout web : `window.confirm` + `window.location.reload()` |
+| `AdminUsersScreen.tsx` | `currentUserId` réactif + Picker web visible |
+| `ProfileScreen.tsx` | Logout web |
+| `OrganizerProfileScreen.tsx` | Logout web |
+| `SettingsScreen.tsx` | Logout web + retour vers `OrganizerProfile` pour organisateurs |
+| `OrganizerDashboardScreen.tsx` | Sélecteur d'événements en modal (plus de cycle simple) |
+| `eventsService.ts` | Événements locaux (BDD) affichés **en premier** avant Ticketmaster |
+| `userController.ts` | Protection auto-modification/suppression de l'admin |
+| `seedEvents.ts` | Script seed 20 événements |
+
+---
+
 ## 🏗️ Architecture
 
 ### Frontend Mobile (Expo / React Native)

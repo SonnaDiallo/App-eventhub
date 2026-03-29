@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Animated, ViewStyle } from 'react-native';
+import { Animated, ViewStyle, Platform } from 'react-native';
 
 interface AnimatedFadeInProps {
   children: React.ReactNode;
@@ -40,12 +40,12 @@ export const AnimatedFadeIn: React.FC<AnimatedFadeInProps> = ({
         Animated.timing(opacity, {
           toValue: 1,
           duration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(translateY, {
           toValue: 0,
           duration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
     }, delay);

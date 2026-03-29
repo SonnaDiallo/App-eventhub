@@ -23,7 +23,7 @@ export interface CachedEvent {
   description: string;
   price?: number;
   isFree: boolean;
-  category?: string;
+  category?: string | null;
   organizerId?: string;
   organizerName?: string;
   participantsCount?: number;

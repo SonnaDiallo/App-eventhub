@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, Text, Animated, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, Animated, ActivityIndicator, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -45,7 +45,7 @@ export const PremiumButton: React.FC<PremiumButtonProps> = ({
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.96,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
@@ -54,7 +54,7 @@ export const PremiumButton: React.FC<PremiumButtonProps> = ({
       toValue: 1,
       friction: 3,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 

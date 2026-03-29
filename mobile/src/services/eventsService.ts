@@ -149,8 +149,13 @@ export const getEvents = async (params?: {
       );
     }
 
-    // Trier par date
-    events.sort((a, b) => new Date(a.startDate ?? 0).getTime() - new Date(b.startDate ?? 0).getTime());
+    // Trier : événements locaux (BDD) en premier, puis externes — chaque groupe trié par date
+    events.sort((a, b) => {
+      const aLocal = a.source === 'local' ? 0 : 1;
+      const bLocal = b.source === 'local' ? 0 : 1;
+      if (aLocal !== bLocal) return aLocal - bLocal;
+      return new Date(a.startDate ?? 0).getTime() - new Date(b.startDate ?? 0).getTime();
+    });
 
     // Pagination
     const page = params?.page || 1;

@@ -20,7 +20,12 @@ export default function Users() {
     setLoading(true);
     getUsers()
       .then((r) => setUsers(r.users))
-      .catch(() => setError('Impossible de charger les utilisateurs'))
+      .catch((err: any) => {
+        const status = err?.response?.status;
+        if (status === 403) setError('Accès refusé — rôle admin requis.');
+        else if (status === 401) setError('Session expirée — reconnectez-vous.');
+        else setError('Backend inaccessible → démarrez-le : cd backend && npm run dev');
+      })
       .finally(() => setLoading(false));
   };
 

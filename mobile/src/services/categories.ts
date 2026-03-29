@@ -11,9 +11,17 @@ export interface Category {
   id: string;
   name: string;
   nameFr: string;
+  nameEs: string;
   defaultImage: string;
   description?: string;
 }
+
+/** Retourne le nom localisé d'une catégorie selon la langue active. */
+export const getCategoryName = (cat: Category, lang: string): string => {
+  if (lang === 'fr') return cat.nameFr;
+  if (lang === 'es') return cat.nameEs;
+  return cat.name;
+};
 
 export interface CategoriesResponse {
   categories: Category[];
@@ -25,6 +33,7 @@ const CATEGORIES: Category[] = [
     id: 'music',
     name: 'Music',
     nameFr: 'Musique',
+    nameEs: 'Música',
     defaultImage: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
     description: 'Concerts, festivals, spectacles musicaux',
   },
@@ -32,6 +41,7 @@ const CATEGORIES: Category[] = [
     id: 'sports',
     name: 'Sports',
     nameFr: 'Sport',
+    nameEs: 'Deportes',
     defaultImage: 'https://images.unsplash.com/photo-1461896836934-voices?w=800',
     description: 'Événements sportifs, compétitions',
   },
@@ -39,6 +49,7 @@ const CATEGORIES: Category[] = [
     id: 'arts',
     name: 'Arts',
     nameFr: 'Arts',
+    nameEs: 'Artes',
     defaultImage: 'https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?w=800',
     description: 'Expositions, théâtre, danse',
   },
@@ -46,6 +57,7 @@ const CATEGORIES: Category[] = [
     id: 'food',
     name: 'Food',
     nameFr: 'Gastronomie',
+    nameEs: 'Gastronomía',
     defaultImage: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800',
     description: 'Événements culinaires, dégustations',
   },
@@ -53,6 +65,7 @@ const CATEGORIES: Category[] = [
     id: 'family',
     name: 'Family',
     nameFr: 'Famille',
+    nameEs: 'Familia',
     defaultImage: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800',
     description: 'Événements familiaux, activités enfants',
   },
@@ -60,6 +73,7 @@ const CATEGORIES: Category[] = [
     id: 'other',
     name: 'Other',
     nameFr: 'Autre',
+    nameEs: 'Otro',
     defaultImage: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
     description: 'Autres types d\'événements',
   },

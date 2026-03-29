@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { ActivityIndicator, Modal, FlatList, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -42,6 +42,7 @@ const OrganizerDashboardScreen = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showEventPicker, setShowEventPicker] = useState(false);
 
   const user = auth.currentUser;
 
@@ -84,7 +85,7 @@ const OrganizerDashboardScreen = () => {
 
         setEvents(eventsList);
         if (!selectedEventId && eventsList.length > 0) {
-          setSelectedEventId(eventsList[0].id);
+          setSelectedEventId(eventsList[0]?.id ?? null);
         }
       } catch (error: any) {
         console.error('Error fetching organizer events:', error?.message);
@@ -104,11 +105,46 @@ const OrganizerDashboardScreen = () => {
     };
   }, [user, selectedEventId]);
 
-  // Tickets: l'app utilisait Firestore, mais les tickets sont gérés côté backend/MongoDB.
-  // Il n'existe pas encore d'endpoint pour lister les tickets d'un événement côté organisateur.
-  // On désactive donc Firestore ici pour éviter l'erreur de permissions et permettre au dashboard d'afficher les événements.
+  // Charger les tickets de l'événement sélectionné depuis Firestore
   useEffect(() => {
-    setTickets([]);
+    if (!selectedEventId) {
+      setTickets([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadTickets = async () => {
+      try {
+        const ticketsRef = collection(db, 'tickets');
+        const q = query(ticketsRef, where('eventId', '==', selectedEventId));
+        const snapshot = await getDocs(q);
+
+        if (!isMounted) return;
+
+        const ticketsList: Ticket[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            eventId: data.eventId,
+            checkedIn: data.checkedIn ?? false,
+            price: data.price ?? 0,
+            createdAt: data.createdAt?.toDate?.() ?? new Date(),
+          };
+        });
+
+        setTickets(ticketsList);
+      } catch (error: any) {
+        console.error('Error fetching tickets for event:', error?.message);
+        if (isMounted) setTickets([]);
+      }
+    };
+
+    loadTickets();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedEventId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
@@ -369,12 +405,7 @@ const OrganizerDashboardScreen = () => {
 
         <View style={{ marginTop: 14 }}>
           <TouchableOpacity
-            onPress={() => {
-              if (events.length === 0) return;
-              const currentIdx = events.findIndex((e) => e.id === selectedEventId);
-              const nextIdx = (currentIdx + 1) % events.length;
-              setSelectedEventId(events[nextIdx].id);
-            }}
+            onPress={() => events.length > 0 && setShowEventPicker(true)}
             style={{
               backgroundColor: theme.inputBackground,
               borderRadius: 14,
@@ -402,7 +433,7 @@ const OrganizerDashboardScreen = () => {
           {events.length > 1 && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
               <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                Appuie pour changer d'événement
+                {events.length} événements — appuie pour choisir
               </Text>
               <Text style={{ color: theme.textMuted, fontSize: 12 }}>
                 {events.filter(e => e.isOwnEvent).length} créé(s) par vous
@@ -410,6 +441,57 @@ const OrganizerDashboardScreen = () => {
             </View>
           )}
         </View>
+
+        {/* Modal sélecteur d'événement */}
+        <Modal
+          visible={showEventPicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowEventPicker(false)}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            onPress={() => setShowEventPicker(false)}
+          >
+            <View style={{ backgroundColor: theme.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                <Text style={{ color: theme.text, fontWeight: '700', fontSize: 16 }}>Choisir un événement</Text>
+                <TouchableOpacity onPress={() => setShowEventPicker(false)}>
+                  <Ionicons name="close" size={24} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={events}
+                keyExtractor={(item) => item.id}
+                style={{ maxHeight: 360 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => { setSelectedEventId(item.id); setShowEventPicker(false); }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.border,
+                      backgroundColor: item.id === selectedEventId ? `${theme.primary}18` : 'transparent',
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.text, fontWeight: '600', fontSize: 14 }}>{item.title}</Text>
+                      {item.isOwnEvent && (
+                        <Text style={{ color: theme.primary, fontSize: 11, marginTop: 2 }}>✓ Créé par vous</Text>
+                      )}
+                    </View>
+                    {item.id === selectedEventId && (
+                      <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>

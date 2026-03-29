@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -17,6 +17,7 @@ interface CategoryFilterProps {
   selectedCategory: string | null;
   onSelectCategory: (categoryId: string | null) => void;
   theme: any;
+  allLabel?: string;
 }
 
 export const CategoryFilter: React.FC<CategoryFilterProps> = ({
@@ -24,6 +25,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   selectedCategory,
   onSelectCategory,
   theme,
+  allLabel = 'Tous',
 }) => {
   /**
    * CategoryButton - Bouton individuel pour chaque catégorie.
@@ -37,7 +39,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
     const handlePressIn = () => {
       Animated.spring(scaleAnim, {
         toValue: 0.95,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     };
 
@@ -47,7 +49,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
         toValue: 1,
         friction: 3,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     };
 
@@ -159,7 +161,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
     >
       <CategoryButton
         id={null}
-        name="Tous"
+        name={allLabel}
         icon="apps"
         isSelected={selectedCategory === null}
       />

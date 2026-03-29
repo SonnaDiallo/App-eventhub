@@ -23,7 +23,8 @@ import { auth, db } from '../../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 import { useTheme } from '../../theme/ThemeContext';
-import { getDefaultCategories } from '../../services/categories';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getDefaultCategories, getCategoryName } from '../../services/categories';
 import { useUserRole, canCreateEvents } from '../../hooks/useUserRole';
 import { useEvents } from '../../hooks/useEvents';
 
@@ -44,6 +45,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'HomeParticipant'>;
 
 const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   const { theme } = useTheme();
+  const { t, language } = useLanguage();
   const styles = createStyles(theme);
   const userRole = useUserRole();
   const categories = getDefaultCategories();
@@ -396,7 +398,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Rechercher un..."
+                placeholder={t('searchEvents')}
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 style={{
                   flex: 1,
@@ -567,7 +569,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 color: theme.text,
                 letterSpacing: -0.5,
               }}>
-                À la une
+                {t('featuredEvents')}
               </Text>
               <Text style={{
                 fontSize: 13,
@@ -575,7 +577,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
                 color: theme.textMuted,
                 marginTop: 2,
               }}>
-                Les événements du moment
+                {t('trending')}
               </Text>
             </View>
           </View>
@@ -599,7 +601,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               fontWeight: '700',
               color: theme.primary,
             }}>
-              Voir tout
+              {t('seeAll')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -731,8 +733,8 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
   /** Affiche les pilules de catégorie avec icônes. La sélection déclenche le filtrage côté client via le useMemo `filtered`. */
   const renderCategoryPills = () => {
     const mainCategories = [
-      { id: null, label: 'Tout' },
-      ...categories.map(cat => ({ id: cat.id, label: cat.nameFr })),
+      { id: null, label: t('all') },
+      ...categories.map(cat => ({ id: cat.id, label: getCategoryName(cat, language) })),
     ];
 
     return (
@@ -816,7 +818,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               color: theme.text,
               letterSpacing: -0.5,
             }}>
-              À venir
+              {t('upcoming')}
             </Text>
             <Text style={{
               fontSize: 13,
@@ -824,7 +826,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
               color: theme.textMuted,
               marginTop: 2,
             }}>
-              Tous les événements
+              {t('allEvents')}
             </Text>
           </View>
         </View>
@@ -1095,7 +1097,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             fontWeight: '600',
             marginTop: 4,
           }}>
-            Explorer
+            {t('home')}
           </Text>
           <View style={{
             position: 'absolute',
@@ -1121,7 +1123,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             color: theme.textMuted,
             marginTop: 4,
           }}>
-            Tickets
+            {t('tickets')}
           </Text>
         </TouchableOpacity>
 
@@ -1158,7 +1160,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             color: theme.textMuted,
             marginTop: 4,
           }}>
-            Favoris
+            {t('favorites')}
           </Text>
         </TouchableOpacity>
 
@@ -1176,7 +1178,7 @@ const HomeParticipantScreen: React.FC<Props> = ({ navigation }) => {
             color: theme.textMuted,
             marginTop: 4,
           }}>
-            Profil
+            {t('profile')}
           </Text>
         </TouchableOpacity>
       </View>

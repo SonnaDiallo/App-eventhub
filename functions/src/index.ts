@@ -132,6 +132,50 @@ export const joinEvent = functions.https.onCall(async (data, context) => {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  // Notifier l'organisateur de la nouvelle inscription
+  const organizerId = eventData.organizerId;
+  if (organizerId && organizerId !== userId) {
+    try {
+      const organizerSnap = await db.collection('users').doc(organizerId).get();
+      const organizerData = organizerSnap.data();
+
+      // Stocker une notification in-app pour l'organisateur
+      await db.collection('notifications').add({
+        userId: organizerId,
+        type: 'new_registration',
+        title: 'Nouvelle inscription !',
+        body: `${participantName} s'est inscrit(e) à "${eventData.title || 'votre événement'}"`,
+        eventId,
+        participantId: userId,
+        participantName,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Envoyer une notification push si l'organisateur a un token Expo
+      const pushToken = organizerData?.pushToken;
+      if (pushToken && typeof pushToken === 'string' && pushToken.startsWith('ExponentPushToken')) {
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: pushToken,
+            sound: 'default',
+            title: '🎫 Nouvelle inscription !',
+            body: `${participantName} s'est inscrit(e) à "${eventData.title || 'votre événement'}"`,
+            data: { eventId, type: 'new_registration', participantId: userId },
+          }),
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending organizer notification:', notifError);
+    }
+  }
+
   return {
     success: true,
     ticket: { id: ticketRef.id, code },

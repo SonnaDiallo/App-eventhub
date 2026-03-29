@@ -51,7 +51,16 @@ export default function AdminDashboardScreen() {
       minDelay,
     ])
       .then(([data]) => setStats(data))
-      .catch(() => setError('Impossible de charger les statistiques'))
+      .catch((err: any) => {
+        const status = err?.response?.status;
+        if (status === 403) {
+          setError('Accès refusé — votre compte n\'a pas le rôle admin dans Firestore.');
+        } else if (status === 401) {
+          setError('Session expirée — reconnectez-vous.');
+        } else {
+          setError('Backend inaccessible. Démarrez-le avec : npm run dev');
+        }
+      })
       .finally(() => setLoading(false));
   };
 

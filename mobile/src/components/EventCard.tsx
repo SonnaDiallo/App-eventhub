@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeContext';
@@ -47,7 +47,7 @@ function getEventImageUri(event: EventData): string {
   const url = normalizeImageUrl(event.coverImage);
   if (url) return url;
   const index = hashString(event.id || event.title || '') % PLACEHOLDER_IMAGES.length;
-  return PLACEHOLDER_IMAGES[index];
+  return PLACEHOLDER_IMAGES[index] || PLACEHOLDER_IMAGES[0];
 }
 
 interface EventCardProps {
@@ -56,7 +56,7 @@ interface EventCardProps {
   variant?: 'featured' | 'grid' | 'list';
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 'grid' }) => {
+const EventCardComponent = ({ event, onPress, variant = 'grid' }: EventCardProps) => {
   const { theme } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const [imageError, setImageError] = React.useState(false);
@@ -67,7 +67,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
@@ -76,7 +76,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
       toValue: 1,
       friction: 3,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
@@ -573,3 +573,5 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress, variant = 
     </Animated.View>
   );
 };
+
+export const EventCard = React.memo(EventCardComponent);

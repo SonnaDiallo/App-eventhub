@@ -249,18 +249,6 @@ const ParticipantsScreen: React.FC<Props> = ({ route }) => {
       ? currentUserEmail.toLowerCase() === item.participantEmail.toLowerCase()
       : currentUserId === item.id; // Fallback pour les événements sans email
     
-    // Debug logs
-    console.log('Debug IDs:', {
-      eventId,
-      isExternal: eventId.startsWith('external_'),
-      itemUserId: item.id,
-      currentUserId,
-      currentUserEmail,
-      itemUserEmail: item.participantEmail,
-      isCurrentUser,
-      participantName: item.participantName
-    });
-    
     return (
       <View
         style={{

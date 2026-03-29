@@ -35,10 +35,7 @@ export const useNotifications = () => {
       console.log('Notification cliquée:', response);
       
       const data = response.notification.request.content.data;
-      
-      // Log pour debug - la navigation sera gérée dans les écrans individuels si nécessaire
-      console.log('Type de notification:', data?.type);
-      console.log('Event ID:', data?.eventId);
+      // La navigation sera gérée dans les écrans individuels si nécessaire
     });
 
     return () => {

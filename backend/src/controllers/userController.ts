@@ -48,6 +48,10 @@ export const updateUserRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
+    const requesterId = (req as any).user?.userId;
+    if (requesterId && requesterId === id) {
+      return res.status(403).json({ message: 'Vous ne pouvez pas modifier votre propre rôle.' });
+    }
     if (!['user', 'organizer', 'admin'].includes(role)) {
       return res.status(400).json({ message: 'Rôle invalide' });
     }
@@ -70,6 +74,10 @@ export const updateUserRole = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const requesterId = (req as any).user?.userId;
+    if (requesterId && requesterId === id) {
+      return res.status(403).json({ message: 'Vous ne pouvez pas supprimer votre propre compte.' });
+    }
     await firebaseDb.collection('users').doc(id).delete();
     return res.status(200).json({ message: 'Utilisateur supprimé' });
   } catch (error: any) {

@@ -17,7 +17,7 @@
  * @requires ./OrganizerProfileScreen - Profil dédié organisateur
  */
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Image, Switch, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Image, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,16 +26,27 @@ import { auth } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { clearToken } from '../../services/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { Language } from '../../services/i18n';
 import OrganizerProfileScreen from './OrganizerProfileScreen';
+
+const LANGUAGES: { code: Language; label: string; flag: string }[] = [
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+];
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { language: currentLang, setLanguage: saveLanguage, t } = useLanguage();
   const [userData, setUserData] = useState<any>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [publicProfile, setPublicProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showLangModal, setShowLangModal] = useState(false);
 
   // Recharger les données à chaque fois que l'écran est affiché
   useFocusEffect(
@@ -48,31 +59,44 @@ const ProfileScreen = () => {
     try {
       setLoading(true);
       const user = auth.currentUser;
+      console.log('Utilisateur Firebase:', user?.uid, user?.email, user?.displayName);
+      
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
+          console.log('Données Firestore:', data);
+          
           setUserData({
             ...data,
-            email: data.email || user.email,
+            email: data.email || user.email || 'email@example.com',
             name: data.name || user.displayName || 'Utilisateur',
           });
           setProfileImage(data.profileImage || user.photoURL || null);
           setPushNotifications(data.pushNotifications ?? true);
           setPublicProfile(data.publicProfile ?? false);
         } else {
+          console.log('Aucune donnée Firestore, utilisation des données Firebase Auth');
           const defaultData = {
             name: user.displayName || 'Utilisateur',
-            email: user.email,
+            email: user.email || 'email@example.com',
             role: 'participant',
             city: 'Paris',
           };
           setUserData(defaultData);
           setProfileImage(user.photoURL || null);
         }
+      } else {
+        console.log('Aucun utilisateur connecté');
+        setUserData({
+          name: 'Utilisateur',
+          email: 'email@example.com',
+          role: 'participant',
+          city: 'Paris',
+        });
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Erreur chargement données utilisateur:', error);
     } finally {
       setLoading(false);
     }
@@ -131,12 +155,18 @@ const ProfileScreen = () => {
 
     try {
       await clearToken();
+      await AsyncStorage.removeItem('@eventhub_token');
+      await AsyncStorage.removeItem('@eventhub_theme_mode');
+      await AsyncStorage.removeItem('@eventhub_language');
+      await AsyncStorage.removeItem('@eventhub_user_data');
       await auth.signOut();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' as never }],
-      });
+      if (Platform.OS === 'web') {
+        window.location.reload();
+        return;
+      }
+      navigation.reset({ index: 0, routes: [{ name: 'Welcome' as never }] });
     } catch (error: any) {
+      console.error('Erreur déconnexion:', error);
       if (Platform.OS === 'web') {
         window.alert('Impossible de se déconnecter');
       } else {
@@ -247,7 +277,7 @@ const ProfileScreen = () => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, textAlign: 'center', flex: 1 }}>Profil</Text>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, textAlign: 'center', flex: 1 }}>{t('profile')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -260,10 +290,10 @@ const ProfileScreen = () => {
 
         {/* COMPTE Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>COMPTE</Text>
+          <Text style={styles.sectionTitle}>{t('account').toUpperCase()}</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            {renderSettingItem('person', '#7B5CFF', 'Modifier le profil', '', () => navigation.navigate('EditProfile' as never))}
-            {renderSettingItem('lock-closed', '#7B5CFF', 'Mot de passe', '', () => {
+            {renderSettingItem('person', '#7B5CFF', t('editProfile'), '', () => navigation.navigate('EditProfile' as never))}
+            {renderSettingItem('lock-closed', '#7B5CFF', t('password'), '', () => {
               Alert.alert(
                 'Changer le mot de passe',
                 'Voulez-vous recevoir un email pour réinitialiser votre mot de passe ?',
@@ -281,7 +311,7 @@ const ProfileScreen = () => {
                 ]
               );
             })}
-            {renderSettingItem('shield-checkmark', '#7B5CFF', 'Sécurité', '', () => {
+            {renderSettingItem('shield-checkmark', '#7B5CFF', t('security'), '', () => {
               Alert.alert(
                 'Sécurité',
                 'Votre compte est sécurisé avec Firebase Authentication.\n\n• Authentification à deux facteurs disponible\n• Connexion sécurisée SSL/TLS\n• Données chiffrées',
@@ -293,9 +323,9 @@ const ProfileScreen = () => {
 
         {/* PRÉFÉRENCES Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>PRÉFÉRENCES</Text>
+          <Text style={styles.sectionTitle}>{t('preferences').toUpperCase()}</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            {renderSettingItem('heart', '#7B5CFF', 'Centres d\'intérêt', 'Concerts, Tech, Art', () => {
+            {renderSettingItem('heart', '#7B5CFF', t('interests'), 'Concerts, Tech, Art', () => {
               Alert.alert(
                 'Centres d\'intérêt',
                 'Personnalisez vos centres d\'intérêt pour recevoir des recommandations d\'événements adaptées.',
@@ -305,7 +335,7 @@ const ProfileScreen = () => {
                 ]
               );
             })}
-            {renderToggleItem('notifications', '#7B5CFF', 'Notifications Push', pushNotifications, async (value) => {
+            {renderToggleItem('notifications', '#7B5CFF', t('pushNotifications'), pushNotifications, async (value) => {
               setPushNotifications(value);
               try {
                 const user = auth.currentUser;
@@ -318,27 +348,18 @@ const ProfileScreen = () => {
                 console.error('Error updating notifications:', error);
               }
             })}
-            {renderToggleItem('moon', '#7B5CFF', 'Mode sombre', isDarkMode, toggleTheme)}
-            {renderSettingItem('language', '#7B5CFF', 'Langue', 'Français', () => {
-              Alert.alert(
-                'Langue',
-                'Choisissez votre langue préférée',
-                [
-                  { text: 'Français', onPress: () => Alert.alert('Langue', 'Français sélectionné') },
-                  { text: 'English', onPress: () => Alert.alert('Language', 'English selected') },
-                  { text: 'Español', onPress: () => Alert.alert('Idioma', 'Español seleccionado') },
-                  { text: 'Annuler', style: 'cancel' }
-                ]
-              );
+            {renderToggleItem('moon', '#7B5CFF', t('darkMode'), isDarkMode, toggleTheme)}
+            {renderSettingItem('language', '#7B5CFF', t('language'), LANGUAGES.find(l => l.code === currentLang)?.label || 'Français', () => {
+              setShowLangModal(true);
             })}
           </View>
         </View>
 
         {/* CONFIDENTIALITÉ Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>CONFIDENTIALITÉ</Text>
+          <Text style={styles.sectionTitle}>{t('privacy').toUpperCase()}</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            {renderToggleItem('eye', '#7B5CFF', 'Profil public', publicProfile, async (value) => {
+            {renderToggleItem('eye', '#7B5CFF', t('publicProfile'), publicProfile, async (value) => {
               setPublicProfile(value);
               try {
                 const user = auth.currentUser;
@@ -355,7 +376,7 @@ const ProfileScreen = () => {
                 console.error('Error updating profile visibility:', error);
               }
             })}
-            {renderSettingItem('ban', '#7B5CFF', 'Utilisateurs bloqués', '', () => {
+            {renderSettingItem('ban', '#7B5CFF', t('blockedUsers'), '', () => {
               Alert.alert(
                 'Utilisateurs bloqués',
                 'Vous n\'avez bloqué aucun utilisateur pour le moment.',
@@ -367,16 +388,16 @@ const ProfileScreen = () => {
 
         {/* SUPPORT Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>SUPPORT</Text>
+          <Text style={styles.sectionTitle}>{t('support').toUpperCase()}</Text>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            {renderSettingItem('help-circle', '#7B5CFF', 'Centre d\'aide', '', () => {
+            {renderSettingItem('help-circle', '#7B5CFF', t('helpCenter'), '', () => {
               Alert.alert(
                 'Centre d\'aide',
                 'Besoin d\'aide ?\n\n• FAQ : eventhub.com/faq\n• Email : support@eventhub.com\n• Téléphone : +33 1 23 45 67 89\n\nNous sommes là pour vous aider !',
                 [{ text: 'OK' }]
               );
             })}
-            {renderSettingItem('information-circle', '#7B5CFF', 'À propos d\'EventHub', '', () => {
+            {renderSettingItem('information-circle', '#7B5CFF', t('aboutApp'), '', () => {
               Alert.alert(
                 'À propos d\'EventHub',
                 'EventHub - Votre plateforme d\'événements\n\nVersion : 2.4.0 (Build 1524)\n\n© 2026 EventHub. Tous droits réservés.\n\nDéveloppé avec ❤️ pour connecter les gens autour d\'événements inoubliables.',
@@ -392,7 +413,7 @@ const ProfileScreen = () => {
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text style={styles.logoutText}>Déconnexion</Text>
+          <Text style={styles.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
 
         {/* Version */}
@@ -400,6 +421,76 @@ const ProfileScreen = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Modal sélecteur de langue */}
+      <Modal
+        visible={showLangModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLangModal(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowLangModal(false)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={{
+            backgroundColor: theme.surface,
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 340,
+          }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: theme.text, textAlign: 'center', marginBottom: 20 }}>
+              {t('language')}
+            </Text>
+            {LANGUAGES.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                onPress={async () => {
+                  await saveLanguage(lang.code);
+                  setShowLangModal(false);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  marginBottom: 8,
+                  backgroundColor: currentLang === lang.code ? '#7B5CFF15' : 'transparent',
+                  borderWidth: currentLang === lang.code ? 2 : 1,
+                  borderColor: currentLang === lang.code ? '#7B5CFF' : theme.border,
+                }}
+              >
+                <Text style={{ fontSize: 24, marginRight: 12 }}>{lang.flag}</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: theme.text, flex: 1 }}>{lang.label}</Text>
+                {currentLang === lang.code && (
+                  <Ionicons name="checkmark-circle" size={24} color="#7B5CFF" />
+                )}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setShowLangModal(false)}
+              style={{
+                marginTop: 12,
+                paddingVertical: 14,
+                borderRadius: 12,
+                backgroundColor: theme.border,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.text }}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };

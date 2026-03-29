@@ -38,6 +38,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   getUsers,
   updateUserRole,
@@ -48,8 +49,13 @@ import { useTheme } from '../../theme/ThemeContext';
 
 export default function AdminUsersScreen() {
   const { theme } = useTheme();
-  // Utilisé pour empêcher l'admin de modifier/supprimer son propre compte
-  const currentUserId = auth.currentUser?.uid ?? '';
+  // Réactif : Firebase auth est asynchrone sur web, currentUser peut être null au premier rendu
+  const [currentUserId, setCurrentUserId] = useState(auth.currentUser?.uid ?? '');
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setCurrentUserId(u?.uid ?? ''));
+    return unsub;
+  }, []);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -200,7 +206,7 @@ export default function AdminUsersScreen() {
               selectedValue={item.role}
               onValueChange={(value) => handleChangeRole(item.id, value as AdminUser['role'])}
               enabled={item.id !== currentUserId && updating !== item.id}
-              style={[styles.picker, { color: theme.text }]}
+              style={[styles.picker, { color: theme.text, backgroundColor: theme.surface || theme.inputBackground || '#16162a' }]}
               dropdownIconColor={theme.text}
             >
               <Picker.Item label="Utilisateur" value="user" />

@@ -15,7 +15,7 @@
  * @requires react-native-svg - Rendu du blob animé avec dégradé linéaire
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, Image, Platform } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -46,24 +46,24 @@ const MovingBlob: React.FC = () => {
           Animated.timing(scale, {
             toValue: 1.08,
             duration: 2500,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
           Animated.timing(translateY, {
             toValue: -6,
             duration: 2500,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
         ]),
         Animated.parallel([
           Animated.timing(scale, {
             toValue: 1,
             duration: 2500,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
           Animated.timing(translateY, {
             toValue: 0,
             duration: 2500,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
         ]),
       ])

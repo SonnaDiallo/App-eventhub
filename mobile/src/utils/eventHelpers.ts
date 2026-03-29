@@ -167,10 +167,12 @@ export const formatTime = (start?: Date, end?: Date): string => {
 };
 
 /** Sérialise l'événement pour la navigation (évite les Date non sérialisables) */
-export const eventForNav = (e: EventData & { _startDate?: Date; startDate?: Date; endDate?: Date; source?: string }) => {
+export const eventForNav = (e: EventData & { _startDate?: Date; startDate?: Date | string; endDate?: Date | string; source?: string }): EventData => {
   const { _startDate, startDate, endDate, ...rest } = e;
   const out: Record<string, unknown> = { ...rest };
   if (startDate instanceof Date) out.startDate = startDate.toISOString();
+  else if (typeof startDate === 'string') out.startDate = startDate;
   if (endDate instanceof Date) out.endDate = endDate.toISOString();
-  return out;
+  else if (typeof endDate === 'string') out.endDate = endDate;
+  return out as EventData;
 };

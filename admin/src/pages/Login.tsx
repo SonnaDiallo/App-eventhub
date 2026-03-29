@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../config/firebase';
 import styles from './Login.module.css';
 
 export default function Login() {
@@ -8,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const { signIn, user, role, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -31,7 +34,16 @@ export default function Login() {
       await signIn(email.trim(), password);
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Connexion impossible.');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('invalid-credential') || msg.includes('wrong-password') || msg.includes('user-not-found')) {
+        setError('Email ou mot de passe incorrect.');
+      } else if (msg.includes('Accès réservé')) {
+        setError('Ce compte n\'a pas le rôle admin dans Firestore.');
+      } else if (msg.includes('too-many-requests')) {
+        setError('Trop de tentatives. Réessaie dans quelques minutes.');
+      } else {
+        setError(msg || 'Connexion impossible.');
+      }
     } finally {
       setLoading(false);
     }
@@ -72,7 +84,25 @@ export default function Login() {
               className={styles.input}
             />
           </label>
-          <button type="submit" disabled={loading} className={styles.button}>
+          <button
+            type="button"
+            onClick={async () => {
+              const e = email.trim();
+              if (!e) { setError('Entre ton email pour recevoir le lien de réinitialisation.'); return; }
+              try {
+                await sendPasswordResetEmail(auth, e);
+                setResetSent(true);
+                setError('');
+              } catch {
+                setError('Impossible d\'envoyer le lien. Vérifie l\'email.');
+              }
+            }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent, #7B5CFF)', cursor: 'pointer', fontSize: '0.85rem', marginBottom: '0.5rem', textDecoration: 'underline', padding: 0 }}
+          >
+            Mot de passe oublié ?
+          </button>
+          {resetSent && <div style={{ color: '#22c55e', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Email de réinitialisation envoyé à {email} ✓</div>}
+        <button type="submit" disabled={loading} className={styles.button}>
             {loading ? (
               <>
                 <span className={styles.btnSpinner} />

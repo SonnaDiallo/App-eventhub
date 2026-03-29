@@ -23,11 +23,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useTheme } from '../../theme/ThemeContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { normalizeImageUrl } from '../../config/constants';
 import type { AuthStackParamList, EventData } from '../../navigation/AuthNavigator';
 
 const FavoritesScreen = () => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation<any>();
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -68,8 +70,8 @@ const FavoritesScreen = () => {
     }
 
     try {
-      // Charger les événements favoris depuis Firestore
       const eventsPromises = eventIds.map(async (eventId) => {
+        // 1) Essayer de charger depuis la collection events (événements internes)
         const eventDoc = await getDoc(doc(db, 'events', eventId));
         if (eventDoc.exists()) {
           const data = eventDoc.data();
@@ -87,6 +89,30 @@ const FavoritesScreen = () => {
             isFree: data.isFree || false,
           } as EventData;
         }
+
+        // 2) Fallback : utiliser les données stockées dans le document favori
+        if (user) {
+          const favDoc = await getDoc(doc(db, 'users', user.uid, 'favorites', eventId));
+          if (favDoc.exists()) {
+            const fav = favDoc.data();
+            if (fav.title) {
+              return {
+                id: eventId,
+                title: fav.title || 'Sans titre',
+                coverImage: fav.coverImage || 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800',
+                date: fav.date || '',
+                time: fav.time || '',
+                location: fav.location || '',
+                address: fav.location || '',
+                organizer: fav.organizer || 'Organisateur',
+                description: fav.description || '',
+                price: fav.price || 0,
+                isFree: fav.isFree ?? true,
+              } as EventData;
+            }
+          }
+        }
+
         return null;
       });
 
@@ -170,7 +196,7 @@ const FavoritesScreen = () => {
         >
           <Ionicons name="arrow-back" size={22} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Mes favoris</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('myFavorites')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -181,16 +207,16 @@ const FavoritesScreen = () => {
       ) : events.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="heart-outline" size={64} color={theme.textMuted} style={{ opacity: 0.3 }} />
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>Aucun favori</Text>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>{t('noFavorites')}</Text>
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-            Ajoutez des événements à vos favoris pour les retrouver facilement
+            {t('noFavoritesDesc')}
           </Text>
           <TouchableOpacity
             style={[styles.browseButton, { backgroundColor: theme.primary }]}
             onPress={() => navigation.navigate('HomeParticipant')}
           >
             <Text style={[styles.browseButtonText, { color: theme.buttonPrimaryText }]}>
-              Parcourir les événements
+              {t('browseEvents')}
             </Text>
           </TouchableOpacity>
         </View>

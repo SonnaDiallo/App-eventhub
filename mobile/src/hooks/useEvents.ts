@@ -15,31 +15,10 @@ import { getEvents } from '../services/eventsService';
 import { EventsCache } from '../services/eventsCache';
 import { normalizeImageUrl } from '../config/constants';
 import { ensureUniqueImages } from '../utils/eventHelpers';
+import type { EventData } from '../navigation/AuthNavigator';
 
-/** Structure d'un événement côté client */
-export interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date?: string;
-  time?: string;
-  startDate?: string;
-  endDate?: string;
-  location: string;
-  address?: string;
-  coverImage: string;
-  price?: number;
-  isFree: boolean;
-  category?: string;
-  organizer?: string;
-  organizerId?: string;
-  organizerName?: string;
-  capacity?: number;
-  isExternal?: boolean;
-  externalLink?: string;
-  createdAt?: any;
-  participantsCount?: number;
-}
+/** Structure d'un événement côté client (alias de EventData pour compatibilité) */
+export type Event = EventData;
 
 interface UseEventsOptions {
   limit?: number;
